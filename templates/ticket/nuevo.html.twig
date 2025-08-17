@@ -41,9 +41,9 @@
         </div>
 
         <div class="col-12 col-md-6">
-          {{ form_label(form.departamento, 'Departamento') }}
+          {{ form_label(form.departamento, 'Área De Origen') }}
           {{ form_widget(form.departamento, { attr: { class: 'form-select' } }) }}
-          <div class="form-text">Seleccioná el destino del trabajo.</div>
+          <div class="form-text">Seleccioná el área de origen del trabajo.</div>
           {{ form_errors(form.departamento) }}
         </div>
 
@@ -59,12 +59,14 @@
           {{ form_errors(form.descripcion) }}
         </div>
 
+        {% if form.estado is defined %}
         <div class="col-12 col-md-6">
           {{ form_label(form.estado, 'Estado') }}
           {{ form_widget(form.estado, { attr: { class: 'form-select' } }) }}
           <div class="form-text">Pendiente, En proceso, Terminado o Rechazado.</div>
           {{ form_errors(form.estado) }}
         </div>
+        {% endif %}
 
         <div class="col-12 col-md-6">
           <label class="form-label d-block">Fecha/Hora (Buenos Aires)</label>

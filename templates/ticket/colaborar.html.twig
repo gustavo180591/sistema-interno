@@ -36,7 +36,8 @@
                                             {{ ticket.estado|title }}
                                         </span>
                                     </p>
-                                    <p class="mb-2"><strong>Departamento:</strong> {{ ticket.departamento }}</p>
+                                    <p class="mb-2"><strong>Área De Origen:</strong> {{ ticket.departamentoNombre }}</p>
+                                    <p class="mb-2"><strong>Pedido:</strong> {{ ticket.pedido ?: 'No especificado' }}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <p class="mb-2"><strong>Creado por:</strong> {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</p>

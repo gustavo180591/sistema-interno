@@ -30,6 +30,9 @@ class Ticket
     #[ORM\Column(length: 20)]
     private ?string $estado = null;
 
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
+    private ?string $pedido = null;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $createdBy = null;
@@ -37,11 +40,16 @@ class Ticket
     #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketCollaborator::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $collaborators;
 
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: Task::class, orphanRemoval: true, cascade: ['persist'])]
+    #[ORM\OrderBy(['completed' => 'ASC', 'createdAt' => 'DESC'])]
+    private Collection $tasks;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->estado = 'pendiente'; // default value
         $this->collaborators = new ArrayCollection();
+        $this->tasks = new ArrayCollection();
     }
 
     public function getId(): ?int { return $this->id; }
@@ -60,6 +68,57 @@ class Ticket
 
     public function getEstado(): ?string { return $this->estado; }
     public function setEstado(string $estado): static { $this->estado = $estado; return $this; }
+
+    public function getPedido(): ?string { return $this->pedido; }
+    public function setPedido(?string $pedido): static { $this->pedido = $pedido; return $this; }
+
+    public function getDepartamentoNombre(): string
+    {
+        $departamentos = [
+            1 => 'Sistemas',
+            2 => 'Administración',
+            3 => 'Recursos Humanos',
+            4 => 'Contabilidad',
+            5 => 'Ventas',
+            6 => 'Atención al Cliente',
+            7 => 'Logística',
+            8 => 'Almacén',
+            9 => 'Compras',
+            10 => 'Dirección',
+        ];
+
+        return $departamentos[$this->departamento] ?? 'Desconocido';
+    }
+
+    /**
+     * @return Collection<int, Task>
+     */
+    public function getTasks(): Collection
+    {
+        return $this->tasks;
+    }
+
+    public function addTask(Task $task): self
+    {
+        if (!$this->tasks->contains($task)) {
+            $this->tasks[] = $task;
+            $task->setTicket($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTask(Task $task): self
+    {
+        if ($this->tasks->removeElement($task)) {
+            // set the owning side to null (unless already changed)
+            if ($task->getTicket() === $this) {
+                $task->setTicket(null);
+            }
+        }
+
+        return $this;
+    }
 
     public function getCreatedBy(): ?User
     {

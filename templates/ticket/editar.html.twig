@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Ticket #{{ ticket.ticketId }}{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ path('ticket_lista') }}">Tickets</a></li>
+                            <li class="breadcrumb-item"><a href="{{ path('ticket_show', {'id': ticket.id}) }}">#{{ ticket.ticketId }}</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Editar</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-pencil-square me-2"></i>Editar Ticket #{{ ticket.ticketId }}
+                    </h1>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {{ form_start(form) }}
+                        {{ form_widget(form) }}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="bi bi-x-circle me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-1"></i> Guardar cambios
+                            </button>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
