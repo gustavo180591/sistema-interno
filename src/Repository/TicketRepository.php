@@ -28,7 +28,8 @@ class TicketRepository extends ServiceEntityRepository
         int $page = 1,
         int $itemsPerPage = self::ITEMS_PER_PAGE,
         string $sortBy = 'createdAt',
-        string $sortOrder = 'DESC'
+        string $sortOrder = 'DESC',
+        ?object $user = null
     ): array {
         // Validate sort field
         $validSortFields = ['id', 'ticketId', 'pedido', 'descripcion', 'departamento', 'estado', 'createdAt'];
@@ -80,6 +81,12 @@ class TicketRepository extends ServiceEntityRepository
         if ($fechaHasta) {
             $qb->andWhere('t.createdAt <= :fechaHasta')
                ->setParameter('fechaHasta', $fechaHasta->setTime(23, 59, 59));
+        }
+        
+        // Filter by user if provided (for non-admin users)
+        if ($user !== null) {
+            $qb->andWhere('t.createdBy = :user')
+               ->setParameter('user', $user);
         }
 
         // Pagination

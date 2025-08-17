@@ -158,6 +158,21 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ path('ticket_lista') }}">Mis Tickets</a>
                             </li>
+                            {% if is_granted('ROLE_ADMIN') %}
+                                <li class="nav-item me-2">
+                                    <a class="btn btn-outline-light btn-sm mt-1" href="{{ path('admin_user_index') }}">
+                                        <i class="bi bi-people-fill me-1"></i> Panel de Usuarios
+                                    </a>
+                                </li>
+                                <li class="nav-item dropdown d-none d-lg-block">
+                                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-shield-lock me-1"></i> Administración
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                                        <li><a class="dropdown-item" href="{{ path('admin_user_index') }}"><i class="bi bi-people-fill me-2"></i>Usuarios</a></li>
+                                    </ul>
+                                </li>
+                            {% endif %}
                             <li class="nav-item">
                                 <a class="nav-link fw-bold" href="{{ path('app_profile') }}">
                                     <i class="bi bi-person-circle me-1"></i>
@@ -171,9 +186,6 @@
                         {% else %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ path('app_login') }}">Iniciar Sesión</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_register') }}">Registrarse</a>
                             </li>
                         {% endif %}
                     </ul>

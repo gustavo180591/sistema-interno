@@ -28,7 +28,9 @@
 {% block body %}
   <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">🎫 Lista de Tickets de {{ app.user.nombre }} {{ app.user.apellido }}</h1>
+        <h1 class="h3 mb-0">
+            🎫 {% if is_granted('ROLE_ADMIN') %}Todos los Tickets{% else %}Mis Tickets{% endif %}
+        </h1>
         <div class="d-flex gap-2">
             <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Ticket
@@ -113,10 +115,78 @@
         </div>
     </div>
 
+    {% if is_granted('ROLE_ADMIN') %}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Tickets</h6>
+                            <h4 class="mb-0">{{ totalItems }}</h4>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-ticket-perforated text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Pendientes</h6>
+                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'pendiente')|length }}</h4>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-hourglass-split text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-success border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Completados</h6>
+                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'completado')|length }}</h4>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-check-circle text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-danger border-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">En Progreso</h6>
+                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'en_progreso')|length }}</h4>
+                        </div>
+                        <div class="bg-danger bg-opacity-10 p-3 rounded">
+                            <i class="bi bi-arrow-repeat text-danger fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if tickets is not empty %}
-      <div class="card">
-        <div class="card-header">
-            <div class="d-flex justify-content-end">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <span class="text-muted small">Mostrando {{ tickets|length }} de {{ totalItems }} tickets</span>
+            </div>
+            <div>
                 <span class="text-muted small">Página {{ currentPage }} de {{ totalPages }}</span>
             </div>
         </div>
@@ -140,22 +210,66 @@
             min-width: 120px;
           }
           .actions-column {
-            width: 140px;
+            width: 120px;
+          }
+          .creator-column {
+            min-width: 150px;
           }
           .id-column {
-            width: 60px;
+            width: 50px;
+            text-align: center;
           }
           .ticket-id-column {
-            width: 100px;
+            width: 90px;
           }
           .date-column {
             width: 120px;
           }
           .area-column {
-            width: 150px;
+            width: 120px;
           }
           .status-column {
-            width: 200px;
+            width: 140px;
+          }
+          .pedido-column {
+            min-width: 180px;
+            max-width: 250px;
+            line-height: 1.1;
+            max-height: 2.4em;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+          .descripcion-column {
+            min-width: 200px;
+            max-width: 300px;
+            line-height: 1.1;
+            max-height: 2.4em;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+          .badge-status {
+            min-width: 100px;
+            font-weight: 500;
+          }
+          .badge-pendiente {
+            background-color: #ffc107;
+            color: #000;
+          }
+          .badge-en_progreso {
+            background-color: #0d6efd;
+            color: #fff;
+          }
+          .badge-completado {
+            background-color: #198754;
+            color: #fff;
+          }
+          .badge-cancelado {
+            background-color: #dc3545;
+            color: #fff;
           }
           @media (max-width: 1200px) {
             .table-responsive {
@@ -171,38 +285,74 @@
                 {{ _self.sortable_header('ID', 'id', sortState) }}
               </th>
               <th class="ticket-id-column">
-                {{ _self.sortable_header('Ticket ID', 'ticketId', sortState) }}
+                {{ _self.sortable_header('Ticket', 'ticketId', sortState) }}
               </th>
-              <th style="min-width: 200px;">
-                {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
-              </th>
-              <th>
-                {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
+              <th style="min-width: 400px;">
+                <div class="row g-0">
+                  <div class="col-6">
+                    {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
+                  </div>
+                  <div class="col-6">
+                    {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
+                  </div>
+                </div>
               </th>
               <th class="area-column">
-                {{ _self.sortable_header('Área De Origen', 'departamento', sortState) }}
+                {{ _self.sortable_header('Área', 'departamento', sortState) }}
               </th>
-              <th class="status-column">
+              <th class="status-column text-center">
                 {{ _self.sortable_header('Estado', 'estado', sortState) }}
               </th>
               <th class="date-column">
                 {{ _self.sortable_header('Creado', 'createdAt', sortState) }}
               </th>
+              {% if is_granted('ROLE_ADMIN') %}
+              <th class="creator-column">Creado por</th>
+              {% endif %}
               <th class="actions-column">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {% for ticket in tickets %}
               <tr>
-                <td class="align-middle">{{ ticket.id }}</td>
-                <td class="align-middle"><code>{{ ticket.ticketId }}</code></td>
-                <td class="text-truncate" style="max-width: 250px;" title="{{ ticket.pedido }}">
-                  {{ ticket.pedido ?: '-' }}
+                <td class="align-middle text-center">{{ ticket.id }}</td>
+                <td class="align-middle">
+                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
+                        <code>{{ ticket.ticketId }}</code>
+                    </a>
                 </td>
-                <td class="text-truncate-2" style="max-width: 300px;" title="{{ ticket.descripcion }}">
-                  {{ ticket.descripcion }}
+                <td class="align-middle">
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <div class="pedido-column" title="{{ ticket.pedido }}">
+                        {{ ticket.pedido ?: '-' }}
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="descripcion-column" title="{{ ticket.descripcion }}">
+                        {{ ticket.descripcion }}
+                      </div>
+                    </div>
+                  </div>
                 </td>
-                <td class="align-middle">{{ ticket.departamentoNombre }}</td>
+                <td class="align-middle">
+                    <div class="d-flex flex-column">
+                        <span class="badge rounded-pill bg-light text-dark">
+                            {% if ticket.departamento == 1 %}
+                                <i class="bi bi-pc-display me-1"></i> Sistemas
+                            {% elseif ticket.departamento == 2 %}
+                                <i class="bi bi-building me-1"></i> Admin
+                            {% elseif ticket.departamento == 3 %}
+                                <i class="bi bi-people me-1"></i> RRHH
+                            {% else %}
+                                <i class="bi bi-question-circle me-1"></i> Otro
+                            {% endif %}
+                        </span>
+                        <small class="text-muted text-center mt-1" style="font-size: 0.7rem;">
+                            {{ ticket.departamentoNombre|default('') }}
+                        </small>
+                    </div>
+                </td>
                 <td class="align-middle">
                   <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="m-0">
                     {% set opciones = ['pendiente', 'en proceso', 'terminado', 'rechazado'] %}
@@ -218,19 +368,53 @@
                     </div>
                   </form>
                 </td>
-                <td class="align-middle small">{{ ticket.createdAt|date('d/m/Y H:i', 'America/Argentina/Buenos_Aires') }}</td>
-                <td class="align-middle">
-                  <div class="btn-group btn-group-sm" role="group">
-                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" 
-                       class="btn btn-outline-primary" 
-                       title="Ver detalles">
-                      <i class="bi bi-eye"></i>
-                    </a>
-                    <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" 
-                       class="btn btn-outline-secondary" 
-                       title="Modificar">
-                      <i class="bi bi-pencil"></i>
-                    </a>
+                <td class="date-column">
+                    <div class="d-flex flex-column">
+                        <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
+                        <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
+                        {% if ticket.updatedAt is defined and ticket.updatedAt is not null and ticket.updatedAt|date('Y-m-d H:i') != ticket.createdAt|date('Y-m-d H:i') %}
+                            <div class="text-muted small" data-bs-toggle="tooltip" title="Última actualización: {{ ticket.updatedAt|date('d/m/Y H:i') }}">
+                                <i class="bi bi-arrow-repeat"></i> {{ ticket.updatedAt|date('d/m/Y') }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </td>
+                {% if is_granted('ROLE_ADMIN') %}
+                <td class="creator-column">
+                    {% if ticket.createdBy %}
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0 me-2">
+                                <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                    <span class="text-primary fw-medium">
+                                        {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
+                                <small class="text-muted">{{ ticket.createdBy.email }}</small>
+                            </div>
+                        </div>
+                    {% else %}
+                        <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+                <td class="actions-column">
+                  <div class="d-flex flex-column gap-1">
+                    <div class="d-flex gap-1">
+                        <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary flex-grow-1" data-bs-toggle="tooltip" title="Ver detalles">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar ticket">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </div>
+                    {% if is_granted('ROLE_ADMIN') %}
+                    <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="tooltip" title="Eliminar ticket" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
+                        <i class="bi bi-trash"></i> Eliminar
+                    </button>
+                    {% endif %}
                   </div>
                 </td>
               </tr>
@@ -310,21 +494,31 @@
     {% endif %}
   </div>
 
+  <script>
+    // Inicializar tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+
+      // Inicializar popovers
+      var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+      var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl, {
+          trigger: 'hover',
+          html: true
+        });
+      });
+    });
+  </script>
+  
   <style>
     .pagination .page-item.active .page-link {
       background-color: #0d6efd;
       border-color: #0d6efd;
     }
-    .table th {
-      white-space: nowrap;
-      background-color: #f8f9fa;
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
+    .pagination .page-link {
     .table th a {
       display: flex;
       align-items: center;

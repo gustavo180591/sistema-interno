@@ -62,6 +62,9 @@ class TicketController extends AbstractController
         $sortBy = $request->query->get('sort_by', 'createdAt');
         $sortOrder = $request->query->get('sort_order', 'DESC');
         
+        // Check if user is admin
+        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        
         $result = $ticketRepository->search(
             $searchData['search'],
             $searchData['estado'],
@@ -71,7 +74,8 @@ class TicketController extends AbstractController
             $page,
             self::ITEMS_PER_PAGE,
             $sortBy,
-            $sortOrder
+            $sortOrder,
+            $isAdmin ? null : $this->getUser() // Only show current user's tickets if not admin
         );
         
         // Store current sort state for the view
@@ -94,6 +98,7 @@ class TicketController extends AbstractController
                 return $value !== null && $value !== '';
             }),
             'sortState' => $sortState,
+            'isAdmin' => $isAdmin,
         ]);
     }
 
