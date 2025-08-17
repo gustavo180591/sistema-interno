@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+{% block title %}Listado de Tickets{% endblock %}
+
+{% block body %}
+  <div class="container mt-5">
+    <h1 class="mb-4">🎫 Listado de Tickets</h1>
+
+    <div class="mb-3">
+      <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">➕ Nuevo Ticket</a>
+    </div>
+
+    <table class="table table-bordered table-striped table-hover">
+      <thead class="table-dark">
+        <tr>
+          <th>ID Ticket</th>
+          <th>Descripción</th>
+          <th>Dirección</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in tickets %}
+        <tr>
+          <td>{{ t.ticketId }}</td>
+          <td>{{ t.descripcion|u.truncate(80, '…') }}</td>
+          <td>{{ t.direccion }}</td>
+          <td>{{ t.createdAt ? t.createdAt|date('d/m/Y H:i') : '' }}</td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="4" class="text-center text-muted">No hay tickets.</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

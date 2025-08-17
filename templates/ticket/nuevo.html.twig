@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+{% block title %}Nuevo Ticket{% endblock %}
+
+{% block body %}
+  <div class="container mt-5">
+    <h1 class="mb-4">🆕 Nuevo Ticket</h1>
+
+    {{ form_start(form) }}
+      {{ form_row(form.ticketId, { label: 'ID Ticket' }) }}
+      {{ form_row(form.descripcion, { label: 'Descripción' }) }}
+      {{ form_row(form.direccion, { label: 'Dirección' }) }}
+
+      <button class="btn btn-primary">Guardar</button>
+      <a href="{{ path('ticket_lista') }}" class="btn btn-ghost">Cancelar</a>
+    {{ form_end(form) }}
+  </div>
+{% endblock %}
