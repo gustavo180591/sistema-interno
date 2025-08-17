@@ -1,0 +1,106 @@
+{# Modal de colaboración #}
+<div class="modal fade" id="colaborarModal" tabindex="-1" aria-labelledby="colaborarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="colaborarModalLabel">
+                    <i class="bi bi-people-fill me-2"></i>¡Ticket existente encontrado!
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                        <div>
+                            <p class="mb-0">El ID de ticket <strong>#<span id="colaborarTicketId"></span></strong> ya existe en el sistema.</p>
+                            <p class="mb-0 mt-2">¿Deseas unirte a este ticket como colaborador?</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">Vas a unirte al ticket:</h6>
+                        <p class="card-text" id="ticketDescripcion">Cargando detalles del ticket...</p>
+                        <p class="card-text"><small class="text-muted">Creado por: <span id="ticketCreadoPor">-</span></small></p>
+                        <p class="card-text">
+                            <span class="badge bg-secondary" id="ticketEstado">-</span>
+                            <span class="ms-2 text-muted">Departamento: <span id="ticketDepartamento">-</span></span>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Al unirte como colaborador, podrás ver y actualizar el estado de este ticket.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                </button>
+                <form id="colaborarForm" method="post" action="">
+                    <input type="hidden" name="_token" value="{{ csrf_token('colaborar') }}">
+                    <input type="hidden" name="formData" value="">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-people me-1"></i> Unirse como colaborador
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Incluir este script para cargar los detalles del ticket en el modal #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const colaborarModal = document.getElementById('colaborarModal');
+    
+    if (colaborarModal) {
+        colaborarModal.addEventListener('show.bs.modal', async function(event) {
+            const ticketId = document.getElementById('colaborarTicketId').textContent;
+            const descripcionElement = document.getElementById('ticketDescripcion');
+            const creadoPorElement = document.getElementById('ticketCreadoPor');
+            const estadoElement = document.getElementById('ticketEstado');
+            const departamentoElement = document.getElementById('ticketDepartamento');
+            
+            // Mostrar indicador de carga
+            descripcionElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Cargando detalles...';
+            
+            try {
+                // Obtener detalles del ticket
+                const response = await fetch(`/ticket/${ticketId}/detalles`);
+                if (!response.ok) throw new Error('Error al cargar los detalles del ticket');
+                
+                const ticket = await response.json();
+                
+                // Actualizar la UI con los detalles del ticket
+                descripcionElement.textContent = ticket.descripcion || 'Sin descripción';
+                creadoPorElement.textContent = ticket.creadoPor || 'Usuario desconocido';
+                estadoElement.textContent = ticket.estado || 'desconocido';
+                estadoElement.className = 'badge ' + (
+                    ticket.estado === 'pendiente' ? 'bg-warning' : 
+                    ticket.estado === 'en proceso' ? 'bg-primary' : 
+                    ticket.estado === 'terminado' ? 'bg-success' : 'bg-danger'
+                );
+                departamentoElement.textContent = ticket.departamento || 'No especificado';
+                
+            } catch (error) {
+                console.error('Error al cargar los detalles del ticket:', error);
+                descripcionElement.textContent = 'No se pudieron cargar los detalles del ticket.';
+            }
+        });
+        
+        // Manejar el envío del formulario de colaboración
+        const colaborarForm = document.getElementById('colaborarForm');
+        if (colaborarForm) {
+            colaborarForm.addEventListener('submit', function() {
+                const submitButton = this.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uniéndose...';
+            });
+        }
+    }
+});
+</script>

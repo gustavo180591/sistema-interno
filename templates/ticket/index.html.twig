@@ -1,37 +1,61 @@
 {% extends 'base.html.twig' %}
-{% block title %}Listado de Tickets{% endblock %}
+
+{% block title %}Lista de Tickets{% endblock %}
 
 {% block body %}
   <div class="container mt-5">
-    <h1 class="mb-4">🎫 Listado de Tickets</h1>
+    <h1 class="mb-4">🎫 Lista de Tickets</h1>
 
     <div class="mb-3">
-      <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">➕ Nuevo Ticket</a>
+      <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Nuevo Ticket
+      </a>
     </div>
 
-    <table class="table table-bordered table-striped table-hover">
-      <thead class="table-dark">
-        <tr>
-          <th>ID Ticket</th>
-          <th>Descripción</th>
-          <th>Dirección</th>
-          <th>Fecha</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for t in tickets %}
-        <tr>
-          <td>{{ t.ticketId }}</td>
-          <td>{{ t.descripcion|u.truncate(80, '…') }}</td>
-          <td>{{ t.direccion }}</td>
-          <td>{{ t.createdAt ? t.createdAt|date('d/m/Y H:i') : '' }}</td>
-        </tr>
-      {% else %}
-        <tr>
-          <td colspan="4" class="text-center text-muted">No hay tickets.</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    {% if tickets is not empty %}
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Ticket ID</th>
+              <th>Descripción</th>
+              <th>Departamento</th>
+              <th>Estado</th>
+              <th>Creado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ticket in tickets %}
+              <tr>
+                <td>{{ ticket.id }}</td>
+                <td>{{ ticket.ticketId }}</td>
+                <td>{{ ticket.descripcion|length > 50 ? ticket.descripcion|slice(0, 50) ~ '...' : ticket.descripcion }}</td>
+                <td>Depto. {{ ticket.departamento }}</td>
+                <td>
+                  <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="d-flex gap-2 align-items-center">
+                    {% set opciones = ['pendiente', 'en proceso', 'terminado', 'rechazado'] %}
+                    <select name="estado" class="form-select form-select-sm" onchange="this.form.submit()">
+                      {% for op in opciones %}
+                        <option value="{{ op }}" {{ op == ticket.estado ? 'selected' : '' }}>{{ op|capitalize }}</option>
+                      {% endfor %}
+                    </select>
+                    <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
+                    <noscript><button class="btn btn-sm btn-outline-primary">Actualizar</button></noscript>
+                  </form>
+                </td>
+                <td>{{ ticket.createdAt|date('d/m/Y H:i', 'America/Argentina/Buenos_Aires') }}</td>
+                <td>
+                  <a href="#" class="btn btn-sm btn-outline-primary">Ver</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="alert alert-info">No hay tickets cargados.</div>
+    {% endif %}
   </div>
 {% endblock %}

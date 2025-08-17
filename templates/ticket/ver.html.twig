@@ -1,0 +1,224 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ticket #{{ ticket.ticketId }} - {{ ticket.descripcion|u.truncate(30, '...') }}{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ path('ticket_lista') }}">Tickets</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">#{{ ticket.ticketId }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-ticket-detailed me-2"></i>Ticket #{{ ticket.ticketId }}
+                    </h1>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ path('ticket_lista') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Volver
+                    </a>
+                    {% if is_granted('edit', ticket) %}
+                        <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-outline-primary">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Detalles del Ticket</h2>
+                    <span class="badge bg-{{ ticket.estado == 'pendiente' ? 'warning' : (ticket.estado == 'en proceso' ? 'primary' : (ticket.estado == 'terminado' ? 'success' : 'danger')) }} text-uppercase">
+                        {{ ticket.estado }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ID del Ticket:</strong> #{{ ticket.ticketId }}</p>
+                            <p><strong>Departamento:</strong> {{ ticket.departamento }}</p>
+                            <p><strong>Estado:</strong> 
+                                <span class="badge bg-{{ ticket.estado == 'pendiente' ? 'warning' : (ticket.estado == 'en proceso' ? 'primary' : (ticket.estado == 'terminado' ? 'success' : 'danger')) }}">
+                                    {{ ticket.estado|title }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Creado por:</strong> {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</p>
+                            <p><strong>Fecha de creación:</strong> {{ ticket.createdAt|date('d/m/Y H:i') }}</p>
+                            <p><strong>Última actualización:</strong> {{ ticket.updatedAt ? ticket.updatedAt|date('d/m/Y H:i') : 'Nunca' }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h5 class="mb-3">Descripción</h5>
+                        <div class="p-3 bg-light rounded">
+                            {{ ticket.descripcion|nl2br }}
+                        </div>
+                    </div>
+
+                    {% if is_granted('edit', ticket) %}
+                    <div class="mt-4">
+                        <h5 class="mb-3">Cambiar estado</h5>
+                        <form method="post" action="{{ path('ticket_cambiar_estado', {'id': ticket.id}) }}" class="d-flex gap-2">
+                            <select name="estado" class="form-select" style="max-width: 200px;">
+                                <option value="pendiente" {{ ticket.estado == 'pendiente' ? 'selected' : '' }}>Pendiente</option>
+                                <option value="en proceso" {{ ticket.estado == 'en proceso' ? 'selected' : '' }}>En proceso</option>
+                                <option value="terminado" {{ ticket.estado == 'terminado' ? 'selected' : '' }}>Terminado</option>
+                                <option value="rechazado" {{ ticket.estado == 'rechazado' ? 'selected' : '' }}>Rechazado</option>
+                            </select>
+                            <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i> Actualizar
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">
+                                <i class="bi bi-people me-2"></i> Colaboradores
+                                <span class="badge bg-secondary">{{ ticket.collaborators|length + 1 }}</span>
+                            </h2>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-person-fill me-2"></i>
+                                        {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}
+                                        <span class="badge bg-primary ms-2">Creador</span>
+                                    </div>
+                                </li>
+                                {% for collaborator in ticket.collaborators %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-person me-2"></i>
+                                        {{ collaborator.user.nombre }} {{ collaborator.user.apellido }}
+                                        <small class="text-muted d-block">Se unió el {{ collaborator.joinedAt|date('d/m/Y') }}</small>
+                                    </div>
+                                    {% if is_granted('remove_collaborator', ticket) %}
+                                    <form method="post" action="{{ path('ticket_remover_colaborador', {'id': ticket.id, 'userId': collaborator.user.id}) }}" 
+                                          onsubmit="return confirm('¿Estás seguro de que deseas eliminar a este colaborador?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('remove_collaborator_' ~ collaborator.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">
+                                <i class="bi bi-clock-history me-2"></i> Historial de Actividades
+                            </h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-badge bg-primary">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h6>Ticket creado</h6>
+                                        <small class="text-muted">
+                                            Por {{ ticket.createdBy.nombre }} el {{ ticket.createdAt|date('d/m/Y H:i') }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% for collaborator in ticket.collaborators|sort((a, b) => a.joinedAt <=> b.joinedAt) %}
+                                <div class="timeline-item">
+                                    <div class="timeline-badge bg-success">
+                                        <i class="bi bi-person-plus"></i>
+                                    </div>
+                                    <div class="timeline-content">
+                                        <h6>Nuevo colaborador</h6>
+                                        <p class="mb-1">{{ collaborator.user.nombre }} se unió al ticket</p>
+                                        <small class="text-muted">
+                                            {{ collaborator.joinedAt|date('d/m/Y H:i') }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+    margin: 0 0 0 1rem;
+    border-left: 2px solid #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+    padding-left: 1.5rem;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-badge {
+    position: absolute;
+    left: -0.5rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.5rem;
+}
+
+.timeline-content {
+    padding: 0.5rem 0 0 0.5rem;
+}
+
+.timeline-content h6 {
+    margin: 0;
+    font-weight: 600;
+}
+
+.timeline-content p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+}
+
+.breadcrumb {
+    background: none;
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: ">";
+}
+</style>
+{% endblock %}

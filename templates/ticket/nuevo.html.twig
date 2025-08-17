@@ -1,17 +1,162 @@
 {% extends 'base.html.twig' %}
+
 {% block title %}Nuevo Ticket{% endblock %}
 
 {% block body %}
-  <div class="container mt-5">
-    <h1 class="mb-4">🆕 Nuevo Ticket</h1>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-ticket-detailed me-2"></i>Nuevo Ticket
+                        </h2>
+                        <p class="text-muted mb-0 small">Complete el formulario para registrar un nuevo ticket de soporte</p>
+                    </div>
+                    
+                    <div class="card-body p-4">
+                        {{ form_start(form, {
+                            'attr': {
+                                'class': 'needs-validation',
+                                'novalidate': 'novalidate',
+                                'id': 'ticketForm'
+                            }
+                        }) }}
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ form_label(form.ticketId, 'ID del Ticket', {
+                                            'label_attr': {
+                                                'class': 'form-label fw-bold',
+                                                'data-bs-toggle': 'tooltip',
+                                                'title': 'Identificador único para este ticket'
+                                            }
+                                        }) }}
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light">#</span>
+                                            {{ form_widget(form.ticketId, {
+                                                'attr': {
+                                                    'class': 'form-control form-control-lg',
+                                                    'placeholder': 'ej: INC-2023-001',
+                                                    'minlength': 3,
+                                                    'maxlength': 50,
+                                                    'required': 'required',
+                                                    'data-ticket-id': 'true',
+                                                    'autofocus': 'autofocus',
+                                                    'data-bs-toggle': 'tooltip',
+                                                    'title': 'Ingrese un identificador único para este ticket'
+                                                },
+                                                'help': 'Mínimo 3 caracteres. No use espacios ni caracteres especiales.'
+                                            }) }}
+                                        </div>
+                                        <div id="ticketIdFeedback" class="form-text small mt-1">
+                                            <i class="bi bi-info-circle me-1"></i> El ID debe ser único para cada ticket.
+                                        </div>
+                                        <div class="invalid-feedback" id="ticketIdError">
+                                            Por favor ingrese un ID válido.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        {{ form_label(form.departamento, 'Departamento', {
+                                            'label_attr': {
+                                                'class': 'form-label fw-bold',
+                                                'data-bs-toggle': 'tooltip',
+                                                'title': 'Seleccione el departamento relacionado con el problema'
+                                            }
+                                        }) }}
+                                        {{ form_widget(form.departamento, {
+                                            'attr': {
+                                                'class': 'form-select form-select-lg',
+                                                'required': 'required',
+                                                'data-choices': 'true',
+                                                'data-options': '{"searchEnabled": false, "shouldSort": false}'
+                                            }
+                                        }) }}
+                                        <div class="form-text small mt-1">
+                                            <i class="bi bi-info-circle me-1"></i> Seleccione el departamento al que pertenece el problema.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-12">
+                                    <div class="form-group">
+                                        {{ form_label(form.descripcion, 'Descripción detallada', {
+                                            'label_attr': {
+                                                'class': 'form-label fw-bold',
+                                                'data-bs-toggle': 'tooltip',
+                                                'title': 'Describa el problema con el mayor detalle posible'
+                                            }
+                                        }) }}
+                                        {{ form_widget(form.descripcion, {
+                                            'attr': {
+                                                'class': 'form-control',
+                                                'rows': 5,
+                                                'placeholder': 'Describa el problema con el mayor detalle posible...',
+                                                'required': 'required',
+                                                'data-bs-toggle': 'tooltip',
+                                                'title': 'Incluya todos los detalles relevantes para ayudar a resolver el problema más rápido.'
+                                            }
+                                        }) }}
+                                        <div class="form-text small mt-1">
+                                            <i class="bi bi-info-circle me-1"></i> Sea lo más detallado posible para ayudar a resolver el problema más rápido.
+                                        </div>
+                                    </div>
+                                    {{ form_errors(form.descripcion) }}
+                                </div>
+                            </div>
+                        </div>
 
-    {{ form_start(form) }}
-      {{ form_row(form.ticketId, { label: 'ID Ticket' }) }}
-      {{ form_row(form.descripcion, { label: 'Descripción' }) }}
-      {{ form_row(form.direccion, { label: 'Dirección' }) }}
+                        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                            <a href="{{ path('ticket_lista') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-save me-1"></i> Guardar Ticket
+                            </button>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+            
+            <!-- Información Adicional -->
+            <div class="alert alert-info mt-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                    </div>
+                    <div>
+                        <h5 class="alert-heading">¿Necesitas ayuda?</h5>
+                        <p class="mb-0">Si tienes dudas sobre cómo completar este formulario, por favor contacta al área de soporte.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-      <button class="btn btn-primary">Guardar</button>
-      <a href="{{ path('ticket_lista') }}" class="btn btn-ghost">Cancelar</a>
-    {{ form_end(form) }}
-  </div>
+<!-- Estilos adicionales -->
+<style>
+    .form-floating > label {
+        padding: 1rem 0.75rem;
+    }
+    textarea.form-control {
+        min-height: 150px;
+    }
+    .card {
+        border: none;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .card-header {
+        border-radius: 0 !important;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+    }
+</style>
 {% endblock %}

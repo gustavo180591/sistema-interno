@@ -36,6 +36,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $isVerified = false;
 
+    #[ORM\Column(length: 100)]
+    private ?string $nombre = null;
+
+    #[ORM\Column(length: 100)]
+    private ?string $apellido = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -126,6 +132,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->isVerified = $isVerified;
 
+        return $this;
+    }
+
+    public function getNombre(): ?string
+    {
+        return $this->nombre;
+    }
+
+    public function setNombre(string $nombre): static
+    {
+        $this->nombre = $nombre;
+        return $this;
+    }
+
+    public function getApellido(): ?string
+    {
+        return $this->apellido;
+    }
+
+    public function setApellido(string $apellido): static
+    {
+        $this->apellido = $apellido;
         return $this;
     }
 }

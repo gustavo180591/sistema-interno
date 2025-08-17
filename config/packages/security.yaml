@@ -40,6 +40,8 @@ security:
         - { path: ^/register, roles: PUBLIC_ACCESS }
         - { path: ^/resetting, roles: PUBLIC_ACCESS }
         - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/ticket, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/perfil, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/, roles: PUBLIC_ACCESS }
 
 when@test:
