@@ -17,12 +17,13 @@ class TicketType extends AbstractType
     {
         $builder
             ->add('ticketId', TextType::class, [
-                'label' => 'ID del Ticket',
+                'label' => 'ID de Ticket',
                 'attr' => [
                     'class' => 'form-control',
-                    'placeholder' => 'Ingrese el número de ticket',
-                    'data-ticket-id' => 'true',
+                    'placeholder' => 'Ej: ABC-123',
                     'autocomplete' => 'off',
+                    'oninput' => 'this.value = this.value.toUpperCase()',
+                    'autofocus' => true,
                 ],
                 'constraints' => [
                     new \Symfony\Component\Validator\Constraints\NotBlank([
@@ -35,14 +36,29 @@ class TicketType extends AbstractType
                         'maxMessage' => 'El ID del ticket no puede tener más de {{ limit }} caracteres',
                     ]),
                 ],
-                'help' => 'Ingrese un identificador único para el ticket',
+                'help' => 'Código interno para rastrear la tarea.',
+            ])
+            ->add('departamento', ChoiceType::class, [
+                'label' => 'Departamento',
+                'choices' => array_combine(
+                    array_map(fn($i) => 'Departamento ' . $i, range(1, 10)),
+                    range(1, 10)
+                ),
+                'placeholder' => 'Seleccionar...',
+                'attr' => ['class' => 'form-select'],
+                'help' => 'Seleccioná el destino del trabajo.',
+                'constraints' => [
+                    new \Symfony\Component\Validator\Constraints\NotBlank([
+                        'message' => 'Por favor seleccione un departamento',
+                    ]),
+                ],
             ])
             ->add('descripcion', TextareaType::class, [
-                'label' => 'Descripción',
+                'label' => 'Descripción de la tarea',
                 'attr' => [
-                    'rows' => 5,
+                    'rows' => 6,
                     'class' => 'form-control',
-                    'placeholder' => 'Describa el problema o consulta',
+                    'placeholder' => 'Contanos qué vas a hacer, alcance, insumos, links, etc.',
                 ],
                 'constraints' => [
                     new \Symfony\Component\Validator\Constraints\NotBlank([
@@ -51,25 +67,25 @@ class TicketType extends AbstractType
                 ],
                 'help' => 'Sea lo más detallado posible para una mejor atención',
             ])
-            ->add('departamento', ChoiceType::class, [
-                'label' => 'Departamento',
-                'placeholder' => 'Seleccioná un departamento',
+            ->add('estado', ChoiceType::class, [
+                'label' => 'Estado',
                 'choices' => [
-                    'Departamento 1' => 1, 'Departamento 2' => 2, 'Departamento 3' => 3,
-                    'Departamento 4' => 4, 'Departamento 5' => 5, 'Departamento 6' => 6,
-                    'Departamento 7' => 7, 'Departamento 8' => 8, 'Departamento 9' => 9,
-                    'Departamento 10' => 10,
+                    'Pendiente' => 'pendiente',
+                    'En proceso' => 'en proceso',
+                    'Terminado' => 'terminado',
+                    'Rechazado' => 'rechazado',
                 ],
-                'constraints' => [
-                    new \Symfony\Component\Validator\Constraints\NotBlank([
-                        'message' => 'Por favor seleccione un departamento',
-                    ]),
-                ],
+                'placeholder' => 'Seleccionar...',
                 'attr' => [
                     'class' => 'form-select',
-                    'data-choices' => 'true',
+                    'data-choices' => 'true'
                 ],
-                'help' => 'Seleccione el departamento responsable',
+                'help' => 'Pendiente, En proceso, Terminado o Rechazado.',
+                'constraints' => [
+                    new \Symfony\Component\Validator\Constraints\NotBlank([
+                        'message' => 'Por favor seleccione un estado',
+                    ]),
+                ]
             ])
             ->add('estado', ChoiceType::class, [
                 'label' => 'Estado',
@@ -96,3 +112,4 @@ class TicketType extends AbstractType
         $resolver->setAllowedTypes('is_edit', 'bool');
     }
 }
+

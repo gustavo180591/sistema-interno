@@ -51,7 +51,9 @@
                         <div class="col-md-6">
                             <p><strong>Creado por:</strong> {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</p>
                             <p><strong>Fecha de creación:</strong> {{ ticket.createdAt|date('d/m/Y H:i') }}</p>
+                            {% if attribute(ticket, 'updatedAt') is defined %}
                             <p><strong>Última actualización:</strong> {{ ticket.updatedAt ? ticket.updatedAt|date('d/m/Y H:i') : 'Nunca' }}</p>
+                            {% endif %}
                         </div>
                     </div>
 
