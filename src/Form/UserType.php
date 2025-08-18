@@ -11,6 +11,7 @@ use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Validator\Constraints\NotBlank;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\Length;
+use Symfony\Component\Validator\Constraints\Count;
 
 class UserType extends AbstractType
 {
@@ -102,7 +103,7 @@ class UserType extends AbstractType
                     new NotBlank([
                         'message' => 'Por favor seleccione al menos un rol',
                     ]),
-                    new \Symfony\Component\Validator\Constraints\Count([
+                    new Count([
                         'min' => 1,
                         'minMessage' => 'Debe seleccionar al menos un rol',
                     ]),

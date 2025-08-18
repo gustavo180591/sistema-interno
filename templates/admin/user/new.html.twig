@@ -101,7 +101,8 @@
                                 <i class="bi bi-check-lg me-2"></i>Guardar Usuario
                             </button>
                         </div>
-                    {{ form_end(form) }}
+                    {{ form_widget(form._token) }}
+                    {{ form_end(form, {'render_rest': false}) }}
                 </div>
             </div>
         </div>
@@ -116,7 +117,7 @@
             // Ensure at least one role is selected
             const form = document.querySelector('form');
             form.addEventListener('submit', function(e) {
-                const checkboxes = form.querySelectorAll('input[type="checkbox"][name^="roles"]:checked');
+                const checkboxes = form.querySelectorAll('input[name="user[roles][]"]:checked');
                 if (checkboxes.length === 0) {
                     e.preventDefault();
                     alert('Por favor seleccione al menos un rol para el usuario.');

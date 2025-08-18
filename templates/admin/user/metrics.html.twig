@@ -62,13 +62,6 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ user_activity[user.id].totalActions ?? 0 }}</td>
-                                    <td>
-                                    {% if user.isVerified %}
-        <span class="badge bg-success">Verificado</span>
-    {% else %}
-        <span class="badge bg-secondary">No verificado</span>
-    {% endif %}
-</td>
                                 </tr>
                                 {% else %}
                                 <tr>

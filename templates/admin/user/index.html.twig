@@ -39,8 +39,7 @@
                             <th>Nombre Completo</th>
                             <th>Email</th>
                             <th>Roles</th>
-                            <th>Estado</th>
-                            <th class="text-end">Acciones</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -75,17 +74,6 @@
                                         <span class="badge bg-secondary">{{ role }}</span>
                                     {% endif %}
                                 {% endfor %}
-                            </td>
-                            <td>
-                                {% if user.isVerified %}
-                                    <span class="badge bg-success">
-                                        <i class="bi bi-check-circle-fill"></i> Verificado
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark">
-                                        <i class="bi bi-exclamation-triangle-fill"></i> No verificado
-                                    </span>
-                                {% endif %}
                             </td>
                             <td class="text-end">
                                 <div class="btn-group" role="group">
