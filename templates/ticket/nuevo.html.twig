@@ -62,9 +62,15 @@
                                     {{ form_widget(form.departamento, {
                                         'attr': {
                                             'class': 'form-select form-select-lg',
-                                            'data-choices': 'true'
+                                            'data-choices': 'true',
+                                            'data-search-enabled': 'true',
+                                            'data-placeholder': 'Seleccionar área de origen...'
                                         }
                                     }) }}
+                                </div>
+                                <div class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Seleccione el área de origen de la Municipalidad de Posadas
                                 </div>
                                 {{ form_errors(form.departamento) }}
                             </div>
@@ -194,4 +200,96 @@
     }
   })();
 </script>
+
+<style>
+/* Estilos para el select de departamentos agrupados */
+.form-select optgroup {
+    font-weight: bold;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-select optgroup option {
+    font-weight: normal;
+    color: #495057;
+    background-color: white;
+    padding: 8px 20px;
+}
+
+.form-select optgroup option:hover {
+    background-color: #e9ecef;
+}
+
+/* Mejoras para el select con Choices.js */
+.choices__group {
+    font-weight: bold;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.choices__item {
+    padding: 8px 20px;
+}
+
+.choices__item--selectable:hover {
+    background-color: #e9ecef;
+}
+
+/* Estilos para el placeholder */
+.form-select option[value=""] {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Mejoras visuales para el formulario */
+.form-label.fw-bold {
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.input-group-text {
+    border-right: none;
+}
+
+.form-control, .form-select {
+    border-left: none;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Animaciones suaves */
+.form-control, .form-select, .btn {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Estilos para el botón de guardar */
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(13, 110, 253, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(13, 110, 253, 0.4);
+}
+
+/* Estilos para los campos de texto */
+textarea.form-control {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+}
+
+textarea.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+</style>
 {% endblock %}

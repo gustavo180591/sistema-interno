@@ -26,35 +26,127 @@
 {% block title %}Lista de Tickets{% endblock %}
 
 {% block body %}
-  <div class="container mt-4">
+<div class="container-fluid mt-4">
+    <!-- Dashboard Stats -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                                <i class="bi bi-ticket-detailed text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Total Tickets</h6>
+                            <h3 class="mb-0 fw-bold text-primary">{{ totalItems }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 rounded-circle p-3">
+                                <i class="bi bi-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Pendientes</h6>
+                            <h3 class="mb-0 fw-bold text-warning">{{ tickets|filter(t => t.estado == 'pendiente')|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 rounded-circle p-3">
+                                <i class="bi bi-arrow-repeat text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">En Proceso</h6>
+                            <h3 class="mb-0 fw-bold text-info">{{ tickets|filter(t => t.estado == 'en proceso')|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 rounded-circle p-3">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-1">Completados</h6>
+                            <h3 class="mb-0 fw-bold text-success">{{ tickets|filter(t => t.estado == 'terminado')|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header with Actions -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">
-            🎫 {% if is_granted('ROLE_ADMIN') %}Todos los Tickets{% else %}Mis Tickets{% endif %}
-        </h1>
+        <div>
+            <h1 class="h3 mb-1">
+                🎫 {% if is_granted('ROLE_ADMIN') %}Todos los Tickets{% else %}Mis Tickets{% endif %}
+            </h1>
+            <p class="text-muted mb-0">Gestiona y organiza todos los tickets del sistema</p>
+        </div>
         <div class="d-flex gap-2">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" id="viewTable" data-view="table">
+                    <i class="bi bi-table me-1"></i> Tabla
+                </button>
+                <button type="button" class="btn btn-outline-primary" id="viewCards" data-view="cards">
+                    <i class="bi bi-grid-3x3-gap me-1"></i> Tarjetas
+                </button>
+            </div>
             <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Ticket
             </a>
             <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosPanel" aria-expanded="false" aria-controls="filtrosPanel">
                 <i class="bi bi-funnel me-1"></i> Filtros
             </button>
-            <button onclick="window.location.reload()" class="btn btn-outline-secondary">
+            <button onclick="window.location.reload()" class="btn btn-outline-secondary" title="Recargar (Ctrl+R)">
                 <i class="bi bi-arrow-clockwise"></i>
             </button>
         </div>
     </div>
 
+    <!-- Advanced Filters Panel -->
     <div class="collapse mb-4" id="filtrosPanel">
-        <div class="card shadow-sm">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light border-0">
+                <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros Avanzados</h6>
+            </div>
             <div class="card-body">
-                {{ form_start(filter_form, {'method': 'GET', 'attr': {'class': 'row g-3'}}) }}
+                {{ form_start(filter_form, {'method': 'GET', 'attr': {'class': 'row g-3', 'id': 'filterForm'}}) }}
                     <div class="col-md-4">
                         <label class="form-label small text-muted mb-1">Búsqueda</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             {{ form_widget(filter_form.search, {'attr': {
                                 'class': 'form-control',
-                                'placeholder': 'Buscar por ID, pedido o descripción...'
+                                'placeholder': 'Buscar por ID, pedido o descripción...',
+                                'id': 'searchInput'
                             }}) }}
                         </div>
                     </div>
@@ -116,440 +208,929 @@
     </div>
 
     {% if tickets is not empty %}
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <span class="text-muted small">Mostrando {{ tickets|length }} de {{ totalItems }} tickets</span>
-            </div>
-            <div>
-                <span class="text-muted small">Página {{ currentPage }} de {{ totalPages }}</span>
+        <!-- Table View -->
+        <div id="tableView" class="view-content">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small">Mostrando {{ tickets|length }} de {{ totalItems }} tickets</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">Vista:</span>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="viewMode" id="compactView" value="compact" checked>
+                                <label class="form-check-label small" for="compactView">Compacta</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="viewMode" id="detailedView" value="detailed">
+                                <label class="form-check-label small" for="detailedView">Detallada</label>
+                            </div>
+                        </div>
+                        <span class="text-muted small">Página {{ currentPage }} de {{ totalPages }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="ticketsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="id-column">
+                                        {{ _self.sortable_header('ID', 'id', sortState) }}
+                                    </th>
+                                    <th class="ticket-id-column">
+                                        {{ _self.sortable_header('Ticket', 'ticketId', sortState) }}
+                                    </th>
+                                    <th style="min-width: 400px;">
+                                        <div class="row g-0">
+                                            <div class="col-6">
+                                                {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
+                                            </div>
+                                            <div class="col-6">
+                                                {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
+                                            </div>
+                                        </div>
+                                    </th>
+                                    <th class="area-column">
+                                        {{ _self.sortable_header('Área', 'departamento', sortState) }}
+                                    </th>
+                                    <th class="status-column text-center">
+                                        {{ _self.sortable_header('Estado', 'estado', sortState) }}
+                                    </th>
+                                    <th class="date-column">
+                                        {{ _self.sortable_header('Creado', 'createdAt', sortState) }}
+                                    </th>
+                                    {% if is_granted('ROLE_ADMIN') %}
+                                    <th class="creator-column">Creado por</th>
+                                    {% endif %}
+                                    <th class="actions-column">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in tickets %}
+                                    <tr class="ticket-row" data-ticket-id="{{ ticket.id }}">
+                                        <td class="align-middle text-center">{{ ticket.id }}</td>
+                                        <td class="align-middle">
+                                            <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
+                                                <code>{{ ticket.ticketId }}</code>
+                                            </a>
+                                        </td>
+                                        <td class="align-middle">
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <div class="pedido-column" title="{{ ticket.pedido }}">
+                                                        {{ ticket.pedido ?: '-' }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="descripcion-column" title="{{ ticket.descripcion }}">
+                                                        {{ ticket.descripcion }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <div class="d-flex flex-column">
+                                                                                        <span class="badge rounded-pill bg-light text-dark">
+                                            {% if ticket.departamento == 1 %}
+                                                <i class="bi bi-building me-1"></i> Presidencia
+                                            {% elseif ticket.departamento == 2 %}
+                                                <i class="bi bi-file-earmark-text me-1"></i> Secretaría
+                                            {% elseif ticket.departamento == 3 %}
+                                                <i class="bi bi-journal-text me-1"></i> Prosecretaria Legislativa
+                                            {% elseif ticket.departamento == 4 %}
+                                                <i class="bi bi-gear me-1"></i> Prosecretaria Administrativa
+                                            {% elseif ticket.departamento == 8 %}
+                                                <i class="bi bi-pc-display me-1"></i> Gestión y TIC
+                                            {% elseif ticket.departamento == 9 %}
+                                                <i class="bi bi-people me-1"></i> Desarrollo Humano
+                                            {% elseif ticket.departamento == 10 %}
+                                                <i class="bi bi-person-badge me-1"></i> Personal
+                                            {% elseif ticket.departamento == 11 %}
+                                                <i class="bi bi-people me-1"></i> RR.HH
+                                            {% elseif ticket.departamento == 12 %}
+                                                <i class="bi bi-shield-check me-1"></i> Asuntos Jurídicos
+                                            {% elseif ticket.departamento == 13 %}
+                                                <i class="bi bi-calculator me-1"></i> Contabilidad y Presupuesto
+                                            {% elseif ticket.departamento == 14 %}
+                                                <i class="bi bi-cash-stack me-1"></i> Liquidación de Sueldos
+                                            {% elseif ticket.departamento == 15 %}
+                                                <i class="bi bi-box-seam me-1"></i> Abastecimiento
+                                            {% elseif ticket.departamento == 16 %}
+                                                <i class="bi bi-heart me-1"></i> Salud Mental
+                                            {% elseif ticket.departamento == 17 %}
+                                                <i class="bi bi-tools me-1"></i> Obras e Infraestructura
+                                            {% elseif ticket.departamento == 18 %}
+                                                <i class="bi bi-megaphone me-1"></i> RR.PP y Ceremonial
+                                            {% elseif ticket.departamento == 19 %}
+                                                <i class="bi bi-book me-1"></i> Digesto Jurídico
+                                            {% elseif ticket.departamento == 20 %}
+                                                <i class="bi bi-newspaper me-1"></i> Prensa
+                                            {% elseif ticket.departamento >= 47 and ticket.departamento <= 60 %}
+                                                <i class="bi bi-person-circle me-1"></i> Concejal
+                                            {% else %}
+                                                <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre|default('Otro') }}
+                                            {% endif %}
+                                        </span>
+                                                <small class="text-muted text-center mt-1" style="font-size: 0.7rem;">
+                                                    {{ ticket.departamentoNombre|default('') }}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="m-0">
+                                                {% set opciones = ['pendiente', 'en proceso', 'terminado', 'rechazado'] %}
+                                                <div class="input-group input-group-sm">
+                                                    <select name="estado" class="form-select form-select-sm status-select" onchange="this.form.submit()">
+                                                        {% for op in opciones %}
+                                                            <option value="{{ op }}" {{ op == ticket.estado ? 'selected' : '' }}>
+                                                                {{ op|capitalize }}
+                                                            </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
+                                                </div>
+                                            </form>
+                                        </td>
+                                        <td class="date-column">
+                                            <div class="d-flex flex-column">
+                                                <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
+                                                <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
+                                                {% if ticket.updatedAt is defined and ticket.updatedAt is not null and ticket.updatedAt|date('Y-m-d H:i') != ticket.createdAt|date('Y-m-d H:i') %}
+                                                    <div class="text-muted small" data-bs-toggle="tooltip" title="Última actualización: {{ ticket.updatedAt|date('d/m/Y H:i') }}">
+                                                        <i class="bi bi-arrow-repeat"></i> {{ ticket.updatedAt|date('d/m/Y') }}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        {% if is_granted('ROLE_ADMIN') %}
+                                        <td class="creator-column">
+                                            {% if ticket.createdBy %}
+                                                <div class="d-flex align-items-center">
+                                                    <div class="flex-shrink-0 me-2">
+                                                        <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                            <span class="text-primary fw-medium">
+                                                                {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <div class="fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
+                                                        <small class="text-muted">{{ ticket.createdBy.email }}</small>
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        {% endif %}
+                                        <td class="actions-column">
+                                            <div class="d-flex flex-column gap-1">
+                                                <div class="d-flex gap-1">
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary flex-grow-1" data-bs-toggle="tooltip" title="Ver detalles">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar ticket">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}"
+                                                       class="btn btn-sm btn-{{ pendingTasks > 0 ? 'warning' : 'outline-secondary' }} position-relative"
+                                                       data-bs-toggle="tooltip"
+                                                       title="{{ pendingTasks > 0 ? pendingTasks ~ ' tarea(s) pendiente(s)' : 'Ver tareas' }}">
+                                                        <i class="bi bi-list-check"></i>
+                                                        {% if pendingTasks > 0 %}
+                                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                                                {{ pendingTasks }}
+                                                                <span class="visually-hidden">tareas pendientes</span>
+                                                            </span>
+                                                        {% endif %}
+                                                    </a>
+                                                </div>
+                                                {% if is_granted('ROLE_ADMIN') %}
+                                                <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="tooltip" title="Eliminar ticket" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
+                                                    <i class="bi bi-trash"></i> Eliminar
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-        <style>
-          .table-nowrap td, .table-nowrap th {
-            white-space: nowrap;
-          }
-          .table-fixed {
-            table-layout: fixed;
-          }
-          .text-truncate-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .status-select {
-            min-width: 120px;
-          }
-          .actions-column {
-            width: 120px;
-          }
-          .creator-column {
-            min-width: 150px;
-          }
-          .id-column {
-            width: 50px;
-            text-align: center;
-          }
-          .ticket-id-column {
-            width: 90px;
-          }
-          .date-column {
-            width: 120px;
-          }
-          .area-column {
-            width: 120px;
-          }
-          .status-column {
-            width: 140px;
-          }
-          .pedido-column {
-            min-width: 180px;
-            max-width: 250px;
-            line-height: 1.1;
-            max-height: 2.4em;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-          }
-          .descripcion-column {
-            min-width: 200px;
-            max-width: 300px;
-            line-height: 1.1;
-            max-height: 2.4em;
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-          }
-          .badge-status {
-            min-width: 100px;
-            font-weight: 500;
-          }
-          .badge-pendiente {
-            background-color: #ffc107;
-            color: #000;
-          }
-          .badge-en_progreso {
-            background-color: #0d6efd;
-            color: #fff;
-          }
-          .badge-completado {
-            background-color: #198754;
-            color: #fff;
-          }
-          .badge-cancelado {
-            background-color: #dc3545;
-            color: #fff;
-          }
-          @media (max-width: 1200px) {
-            .table-responsive {
-              overflow-x: auto;
-              -webkit-overflow-scrolling: touch;
-            }
-          }
-        </style>
-        <table class="table table-hover table-fixed">
-          <thead class="table-light">
-            <tr>
-              <th class="id-column">
-                {{ _self.sortable_header('ID', 'id', sortState) }}
-              </th>
-              <th class="ticket-id-column">
-                {{ _self.sortable_header('Ticket', 'ticketId', sortState) }}
-              </th>
-              <th style="min-width: 400px;">
-                <div class="row g-0">
-                  <div class="col-6">
-                    {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
-                  </div>
-                  <div class="col-6">
-                    {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
-                  </div>
-                </div>
-              </th>
-              <th class="area-column">
-                {{ _self.sortable_header('Área', 'departamento', sortState) }}
-              </th>
-              <th class="status-column text-center">
-                {{ _self.sortable_header('Estado', 'estado', sortState) }}
-              </th>
-              <th class="date-column">
-                {{ _self.sortable_header('Creado', 'createdAt', sortState) }}
-              </th>
-              {% if is_granted('ROLE_ADMIN') %}
-              <th class="creator-column">Creado por</th>
-              {% endif %}
-              <th class="actions-column">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for ticket in tickets %}
-              <tr>
-                <td class="align-middle text-center">{{ ticket.id }}</td>
-                <td class="align-middle">
-                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
-                        <code>{{ ticket.ticketId }}</code>
-                    </a>
-                </td>
-                <td class="align-middle">
-                  <div class="row g-2">
-                    <div class="col-6">
-                      <div class="pedido-column" title="{{ ticket.pedido }}">
-                        {{ ticket.pedido ?: '-' }}
-                      </div>
-                    </div>
-                    <div class="col-6">
-                      <div class="descripcion-column" title="{{ ticket.descripcion }}">
-                        {{ ticket.descripcion }}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td class="align-middle">
-                    <div class="d-flex flex-column">
-                        <span class="badge rounded-pill bg-light text-dark">
-                            {% if ticket.departamento == 1 %}
-                                <i class="bi bi-pc-display me-1"></i> Sistemas
-                            {% elseif ticket.departamento == 2 %}
-                                <i class="bi bi-building me-1"></i> Admin
-                            {% elseif ticket.departamento == 3 %}
-                                <i class="bi bi-people me-1"></i> RRHH
-                            {% else %}
-                                <i class="bi bi-question-circle me-1"></i> Otro
-                            {% endif %}
-                        </span>
-                        <small class="text-muted text-center mt-1" style="font-size: 0.7rem;">
-                            {{ ticket.departamentoNombre|default('') }}
-                        </small>
-                    </div>
-                </td>
-                <td class="align-middle">
-                  <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="m-0">
-                    {% set opciones = ['pendiente', 'en proceso', 'terminado', 'rechazado'] %}
-                    <div class="input-group input-group-sm">
-                      <select name="estado" class="form-select form-select-sm status-select" onchange="this.form.submit()">
-                        {% for op in opciones %}
-                          <option value="{{ op }}" {{ op == ticket.estado ? 'selected' : '' }}>
-                            {{ op|capitalize }}
-                          </option>
-                        {% endfor %}
-                      </select>
-                      <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
-                    </div>
-                  </form>
-                </td>
-                <td class="date-column">
-                    <div class="d-flex flex-column">
-                        <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
-                        <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
-                        {% if ticket.updatedAt is defined and ticket.updatedAt is not null and ticket.updatedAt|date('Y-m-d H:i') != ticket.createdAt|date('Y-m-d H:i') %}
-                            <div class="text-muted small" data-bs-toggle="tooltip" title="Última actualización: {{ ticket.updatedAt|date('d/m/Y H:i') }}">
-                                <i class="bi bi-arrow-repeat"></i> {{ ticket.updatedAt|date('d/m/Y') }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </td>
-                {% if is_granted('ROLE_ADMIN') %}
-                <td class="creator-column">
-                    {% if ticket.createdBy %}
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0 me-2">
-                                <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                    <span class="text-primary fw-medium">
-                                        {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
+
+        <!-- Cards View -->
+        <div id="cardsView" class="view-content" style="display: none;">
+            <div class="row g-4">
+                {% for ticket in tickets %}
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="card h-100 border-0 shadow-sm ticket-card" data-ticket-id="{{ ticket.id }}">
+                            <div class="card-header bg-transparent border-0 pb-0">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-primary rounded-pill me-2">#{{ ticket.id }}</span>
+                                        <code class="text-muted">{{ ticket.ticketId }}</code>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{{ path('ticket_show', {'id': ticket.id}) }}">
+                                                <i class="bi bi-eye me-2"></i>Ver detalles
+                                            </a></li>
+                                            <li><a class="dropdown-item" href="{{ path('ticket_editar', {'id': ticket.id}) }}">
+                                                <i class="bi bi-pencil me-2"></i>Editar
+                                            </a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
+                                                <i class="bi bi-trash me-2"></i>Eliminar
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <!-- Status Badge -->
+                                <div class="mb-3">
+                                    {% set statusColors = {
+                                        'pendiente': 'warning',
+                                        'en proceso': 'info',
+                                        'terminado': 'success',
+                                        'rechazado': 'danger'
+                                    } %}
+                                    <span class="badge bg-{{ statusColors[ticket.estado]|default('secondary') }} rounded-pill px-3 py-2">
+                                        <i class="bi bi-{{ ticket.estado == 'pendiente' ? 'clock' : (ticket.estado == 'en proceso' ? 'arrow-repeat' : (ticket.estado == 'terminado' ? 'check-circle' : 'x-circle')) }} me-1"></i>
+                                        {{ ticket.estado|capitalize }}
                                     </span>
                                 </div>
                             </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
-                                <small class="text-muted">{{ ticket.createdBy.email }}</small>
+                            
+                            <div class="card-body pt-0">
+                                <!-- Department -->
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Área</small>
+                                    <div class="d-flex align-items-center mt-1">
+                                        <span class="badge bg-light text-dark rounded-pill">
+                                            {% if ticket.departamento == 1 %}
+                                                <i class="bi bi-building me-1"></i> Presidencia
+                                            {% elseif ticket.departamento == 2 %}
+                                                <i class="bi bi-file-earmark-text me-1"></i> Secretaría
+                                            {% elseif ticket.departamento == 3 %}
+                                                <i class="bi bi-journal-text me-1"></i> Prosecretaria Legislativa
+                                            {% elseif ticket.departamento == 4 %}
+                                                <i class="bi bi-gear me-1"></i> Prosecretaria Administrativa
+                                            {% elseif ticket.departamento == 8 %}
+                                                <i class="bi bi-pc-display me-1"></i> Gestión y TIC
+                                            {% elseif ticket.departamento == 9 %}
+                                                <i class="bi bi-people me-1"></i> Desarrollo Humano
+                                            {% elseif ticket.departamento == 10 %}
+                                                <i class="bi bi-person-badge me-1"></i> Personal
+                                            {% elseif ticket.departamento == 11 %}
+                                                <i class="bi bi-people me-1"></i> RR.HH
+                                            {% elseif ticket.departamento == 12 %}
+                                                <i class="bi bi-shield-check me-1"></i> Asuntos Jurídicos
+                                            {% elseif ticket.departamento == 13 %}
+                                                <i class="bi bi-calculator me-1"></i> Contabilidad y Presupuesto
+                                            {% elseif ticket.departamento == 14 %}
+                                                <i class="bi bi-cash-stack me-1"></i> Liquidación de Sueldos
+                                            {% elseif ticket.departamento == 15 %}
+                                                <i class="bi bi-box-seam me-1"></i> Abastecimiento
+                                            {% elseif ticket.departamento == 16 %}
+                                                <i class="bi bi-heart me-1"></i> Salud Mental
+                                            {% elseif ticket.departamento == 17 %}
+                                                <i class="bi bi-tools me-1"></i> Obras e Infraestructura
+                                            {% elseif ticket.departamento == 18 %}
+                                                <i class="bi bi-megaphone me-1"></i> RR.PP y Ceremonial
+                                            {% elseif ticket.departamento == 19 %}
+                                                <i class="bi bi-book me-1"></i> Digesto Jurídico
+                                            {% elseif ticket.departamento == 20 %}
+                                                <i class="bi bi-newspaper me-1"></i> Prensa
+                                            {% elseif ticket.departamento >= 47 and ticket.departamento <= 60 %}
+                                                <i class="bi bi-person-circle me-1"></i> Concejal
+                                            {% else %}
+                                                <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre|default('Otro') }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Description -->
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Descripción</small>
+                                    <p class="mb-0 mt-1 text-truncate-2">{{ ticket.descripcion }}</p>
+                                </div>
+                                
+                                <!-- Request -->
+                                {% if ticket.pedido %}
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Pedido</small>
+                                    <p class="mb-0 mt-1 text-truncate-2">{{ ticket.pedido }}</p>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Tasks Info -->
+                                {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
+                                {% set totalTasks = ticket.tasks|length %}
+                                {% if totalTasks > 0 %}
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Tareas</small>
+                                    <div class="d-flex align-items-center justify-content-between mt-1">
+                                        <span class="badge bg-{{ pendingTasks > 0 ? 'warning' : 'success' }} rounded-pill">
+                                            <i class="bi bi-list-check me-1"></i>
+                                            {{ pendingTasks }}/{{ totalTasks }} pendientes
+                                        </span>
+                                        {% if pendingTasks > 0 %}
+                                            <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}" class="btn btn-sm btn-outline-warning">
+                                                <i class="bi bi-arrow-right"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Creator Info -->
+                                {% if is_granted('ROLE_ADMIN') and ticket.createdBy %}
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Creado por</small>
+                                    <div class="d-flex align-items-center mt-1">
+                                        <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width: 28px; height: 28px;">
+                                            <span class="text-primary fw-medium small">
+                                                {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <div class="small fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Date -->
+                                <div class="mb-3">
+                                    <small class="text-muted text-uppercase">Creado</small>
+                                    <div class="mt-1">
+                                        <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
+                                        <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-footer bg-transparent border-0 pt-0">
+                                <div class="d-grid">
+                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-eye me-1"></i>Ver Detalles
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    {% else %}
-                        <span class="text-muted">N/A</span>
-                    {% endif %}
-                </td>
-                {% endif %}
-                <td class="actions-column">
-                  <div class="d-flex flex-column gap-1">
-                    <div class="d-flex gap-1">
-                        <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary flex-grow-1" data-bs-toggle="tooltip" title="Ver detalles">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                        <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar ticket">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                        {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
-                        <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}"
-                           class="btn btn-sm btn-{{ pendingTasks > 0 ? 'warning' : 'outline-secondary' }} position-relative"
-                           data-bs-toggle="tooltip"
-                           title="{{ pendingTasks > 0 ? pendingTasks ~ ' tarea(s) pendiente(s)' : 'Ver tareas' }}">
-                            <i class="bi bi-list-check"></i>
-                            {% if pendingTasks > 0 %}
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    {{ pendingTasks }}
-                                    <span class="visually-hidden">tareas pendientes</span>
-                                </span>
-                            {% endif %}
-                        </a>
                     </div>
-                    {% if is_granted('ROLE_ADMIN') %}
-                    <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="tooltip" title="Eliminar ticket" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
-                        <i class="bi bi-trash"></i> Eliminar
-                    </button>
-                    {% endif %}
-                  </div>
-                </td>
-              </tr>
-            {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                {% endfor %}
+            </div>
         </div>
+
+        <!-- Pagination -->
         {% if totalPages > 1 %}
-        <div class="card-footer">
-            <nav aria-label="Paginación de tickets">
-                <ul class="pagination justify-content-center mb-0">
-                    <li class="page-item {{ currentPage == 1 ? 'disabled' }}">
-                        <a class="page-link" href="{{ path('ticket_lista', { page: currentPage - 1 }|merge(searchParams)) }}" aria-label="Anterior">
-                            <span aria-hidden="true">&laquo;</span>
-                        </a>
-                    </li>
-
-                    {% set startPage = max(1, currentPage - 2) %}
-                    {% set endPage = min(totalPages, startPage + 4) %}
-                    {% if endPage - startPage < 4 %}
-                        {% set startPage = max(1, endPage - 4) %}
-                    {% endif %}
-
-                    {% if startPage > 1 %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ path('ticket_lista', { page: 1 }|merge(searchParams)) }}">1</a>
-                        </li>
-                        {% if startPage > 2 %}
-                            <li class="page-item disabled">
-                                <span class="page-link">...</span>
-                            </li>
-                        {% endif %}
-                    {% endif %}
-
-                    {% for i in startPage..endPage %}
-                        <li class="page-item {{ i == currentPage ? 'active' }}">
-                            <a class="page-link" href="{{ path('ticket_lista', { page: i }|merge(searchParams)) }}">
-                                {{ i }}
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+                <nav aria-label="Paginación de tickets">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item {{ currentPage == 1 ? 'disabled' }}">
+                            <a class="page-link" href="{{ path('ticket_lista', { page: currentPage - 1 }|merge(searchParams)) }}" aria-label="Anterior">
+                                <span aria-hidden="true">&laquo;</span>
                             </a>
                         </li>
-                    {% endfor %}
 
-                    {% if endPage < totalPages %}
-                        {% if endPage < totalPages - 1 %}
-                            <li class="page-item disabled">
-                                <span class="page-link">...</span>
+                        {% set startPage = max(1, currentPage - 2) %}
+                        {% set endPage = min(totalPages, startPage + 4) %}
+                        {% if endPage - startPage < 4 %}
+                            {% set startPage = max(1, endPage - 4) %}
+                        {% endif %}
+
+                        {% if startPage > 1 %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ path('ticket_lista', { page: 1 }|merge(searchParams)) }}">1</a>
+                            </li>
+                            {% if startPage > 2 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endif %}
+
+                        {% for i in startPage..endPage %}
+                            <li class="page-item {{ i == currentPage ? 'active' }}">
+                                <a class="page-link" href="{{ path('ticket_lista', { page: i }|merge(searchParams)) }}">
+                                    {{ i }}
+                                </a>
+                            </li>
+                        {% endfor %}
+
+                        {% if endPage < totalPages %}
+                            {% if endPage < totalPages - 1 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ path('ticket_lista', { page: totalPages }|merge(searchParams)) }}">
+                                    {{ totalPages }}
+                                </a>
                             </li>
                         {% endif %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ path('ticket_lista', { page: totalPages }|merge(searchParams)) }}">
-                                {{ totalPages }}
+
+                        <li class="page-item {{ currentPage == totalPages ? 'disabled' }}">
+                            <a class="page-link" href="{{ path('ticket_lista', { page: currentPage + 1 }|merge(searchParams)) }}" aria-label="Siguiente">
+                                <span aria-hidden="true">&raquo;</span>
                             </a>
                         </li>
-                    {% endif %}
-
-                    <li class="page-item {{ currentPage == totalPages ? 'disabled' }}">
-                        <a class="page-link" href="{{ path('ticket_lista', { page: currentPage + 1 }|merge(searchParams)) }}" aria-label="Siguiente">
-                            <span aria-hidden="true">&raquo;</span>
-                        </a>
-                    </li>
-                </ul>
-                <div class="text-center text-muted small mt-2">
-                    Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a
-                    {{ min(currentPage * itemsPerPage, totalItems) }} de {{ totalItems }} tickets
-                </div>
-            </nav>
+                    </ul>
+                    <div class="text-center text-muted small mt-2">
+                        Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a
+                        {{ min(currentPage * itemsPerPage, totalItems) }} de {{ totalItems }} tickets
+                    </div>
+                </nav>
+            </div>
         </div>
         {% endif %}
-      </div>
     {% else %}
-      <div class="alert alert-info">
-        <i class="bi bi-info-circle me-2"></i>
-        No se encontraron tickets que coincidan con los criterios de búsqueda.
-        <a href="{{ path('ticket_lista') }}" class="alert-link">Limpiar filtros</a>
-      </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <div class="mb-3">
+                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="text-muted">No se encontraron tickets</h5>
+                <p class="text-muted mb-3">No hay tickets que coincidan con los criterios de búsqueda.</p>
+                <a href="{{ path('ticket_lista') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Limpiar filtros
+                </a>
+            </div>
+        </div>
     {% endif %}
-  </div>
+</div>
 
-  <script>
-    // Inicializar tooltips
-    document.addEventListener('DOMContentLoaded', function() {
-      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+<!-- Quick Actions Modal -->
+<div class="modal fade" id="quickActionsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Acciones Rápidas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="window.location.href='{{ path('ticket_nuevo') }}'">
+                            <i class="bi bi-plus-lg fs-4 d-block mb-2"></i>
+                            Nuevo Ticket
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-secondary w-100 h-100 py-3" onclick="document.getElementById('filtrosPanel').classList.add('show')">
+                            <i class="bi bi-funnel fs-4 d-block mb-2"></i>
+                            Filtros
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise fs-4 d-block mb-2"></i>
+                            Recargar
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="exportTickets()">
+                            <i class="bi bi-download fs-4 d-block mb-2"></i>
+                            Exportar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
-      });
+    });
 
-      // Inicializar popovers
-      var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-      var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+    // Initialize popovers
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
         return new bootstrap.Popover(popoverTriggerEl, {
-          trigger: 'hover',
-          html: true
+            trigger: 'hover',
+            html: true
         });
-      });
     });
-  </script>
 
-  <style>
-    .pagination .page-item.active .page-link {
-      background-color: #0d6efd;
-      border-color: #0d6efd;
-    }
-    .pagination .page-link {
-    .table th a {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      color: #495057;
-      text-decoration: none;
-      width: 100%;
-    }
-    .table th:hover {
-      background-color: #e9ecef;
-    }
-    .table th.sort-asc i,
-    .table th.sort-desc i {
-      color: #0d6efd;
-    }
-    .table td {
-      vertical-align: middle;
-    }
-    .card {
-      border: none;
-      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-      transition: all 0.3s ease;
-    }
-    .card:hover {
-      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-    }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      font-weight: 500;
-    }
-    .form-control, .form-select {
-      border-radius: 0.375rem;
-      padding: 0.5rem 0.75rem;
-      font-size: 0.875rem;
-    }
-    .input-group-text {
-      background-color: #f8f9fa;
-    }
-    .badge {
-      font-weight: 500;
-      padding: 0.35em 0.65em;
-      font-size: 0.75em;
-    }
-  </style>
+    // View mode switching
+    const viewTable = document.getElementById('viewTable');
+    const viewCards = document.getElementById('viewCards');
+    const tableView = document.getElementById('tableView');
+    const cardsView = document.getElementById('cardsView');
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Initialize datepickers
-      const fechaDesde = document.querySelector('input[name$="[fechaDesde]"]');
-      const fechaHasta = document.querySelector('input[name$="[fechaHasta]"]');
+    viewTable.addEventListener('click', function() {
+        viewTable.classList.add('active');
+        viewCards.classList.remove('active');
+        tableView.style.display = 'block';
+        cardsView.style.display = 'none';
+        localStorage.setItem('ticketViewMode', 'table');
+    });
 
-      if (fechaDesde) {
-        new Datepicker(fechaDesde, {
-          format: 'yyyy-mm-dd',
-          autohide: true,
-          clearBtn: true,
-          language: 'es',
+    viewCards.addEventListener('click', function() {
+        viewCards.classList.add('active');
+        viewTable.classList.remove('active');
+        cardsView.style.display = 'block';
+        tableView.style.display = 'none';
+        localStorage.setItem('ticketViewMode', 'cards');
+    });
+
+    // Load saved view mode
+    const savedViewMode = localStorage.getItem('ticketViewMode') || 'table';
+    if (savedViewMode === 'cards') {
+        viewCards.click();
+    } else {
+        viewTable.click();
+    }
+
+    // Real-time search
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
         });
-      }
+    }
 
-      if (fechaHasta) {
-        new Datepicker(fechaHasta, {
-          format: 'yyyy-mm-dd',
-          autohide: true,
-          clearBtn: true,
-          language: 'es',
-        });
-      }
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + N for new ticket
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            window.location.href = '{{ path('ticket_nuevo') }}';
+        }
+        
+        // Ctrl/Cmd + F for filters
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            const filtersPanel = document.getElementById('filtrosPanel');
+            const bsCollapse = new bootstrap.Collapse(filtersPanel, { toggle: true });
+        }
+        
+        // Ctrl/Cmd + R for refresh
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+            e.preventDefault();
+            window.location.reload();
+        }
+        
+        // Escape to close modals
+        if (e.key === 'Escape') {
+            const modals = document.querySelectorAll('.modal.show');
+            modals.forEach(modal => {
+                const bsModal = bootstrap.Modal.getInstance(modal);
+                if (bsModal) bsModal.hide();
+            });
+        }
+    });
 
-      // Show filters panel if there are active filters
-      const urlParams = new URLSearchParams(window.location.search);
-      const hasFilters = Array.from(urlParams.keys()).some(key =>
+    // Show filters panel if there are active filters
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasFilters = Array.from(urlParams.keys()).some(key =>
         key !== 'page' && key !== 'limit' && !key.endsWith('[_token]')
-      );
+    );
 
-      if (hasFilters) {
+    if (hasFilters) {
         const filtersPanel = new bootstrap.Collapse(document.getElementById('filtrosPanel'), {
-          toggle: true
+            toggle: true
         });
-      }
+    }
+
+    // Table row hover effects
+    const tableRows = document.querySelectorAll('.ticket-row');
+    tableRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8f9fa';
+            this.style.transform = 'scale(1.01)';
+            this.style.transition = 'all 0.2s ease';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+            this.style.transform = 'scale(1)';
+        });
     });
-  </script>
+
+    // Card hover effects
+    const ticketCards = document.querySelectorAll('.ticket-card');
+    ticketCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 0.5rem 1rem rgba(0, 0, 0, 0.15)';
+            this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+        });
+    });
+
+    // Table row hover effects
+    const tableRows = document.querySelectorAll('.ticket-row');
+    tableRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8f9fa';
+            this.style.transform = 'scale(1.01)';
+            this.style.transition = 'all 0.2s ease';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+            this.style.transform = 'scale(1)';
+        });
+    });
+
+    // Card hover effects
+    const ticketCards = document.querySelectorAll('.ticket-card');
+    ticketCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 0.5rem 1rem rgba(0, 0, 0, 0.15)';
+            this.style.transition = 'all 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+        });
+    });
+});
+
+// Export function
+function exportTickets() {
+    // Implementation for exporting tickets
+    alert('Función de exportación en desarrollo');
+}
+
+// Quick actions function
+function showQuickActions() {
+    const modal = new bootstrap.Modal(document.getElementById('quickActionsModal'));
+    modal.show();
+}
+</script>
+
+<style>
+/* Enhanced Styles */
+.view-content {
+    transition: all 0.3s ease;
+}
+
+.btn-group .btn.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.ticket-card {
+    transition: all 0.3s ease;
+    border-radius: 0.75rem;
+}
+
+.ticket-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+}
+
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+}
+
+.badge-status {
+    min-width: 100px;
+    font-weight: 500;
+}
+
+.badge-pendiente {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.badge-en_progreso {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.badge-completado {
+    background-color: #198754;
+    color: #fff;
+}
+
+.badge-cancelado {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.table th a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #495057;
+    text-decoration: none;
+    width: 100%;
+}
+
+.table th:hover {
+    background-color: #e9ecef;
+}
+
+.table th.sort-asc i,
+.table th.sort-desc i {
+    color: #0d6efd;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-weight: 500;
+}
+
+.form-control, .form-select {
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.input-group-text {
+    background-color: #f8f9fa;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.pagination .page-link {
+    border-radius: 0.375rem;
+    margin: 0 0.125rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 1200px) {
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@media (max-width: 768px) {
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    .btn-group .btn {
+        border-radius: 0.375rem !important;
+        margin-bottom: 0.25rem;
+    }
+}
+
+/* Animation classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+/* Enhanced table styles */
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+    transform: scale(1.01);
+    transition: all 0.2s ease;
+}
+
+/* View mode button styles */
+.btn-group .btn.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.ticket-card {
+    transition: all 0.3s ease;
+    border-radius: 0.75rem;
+}
+
+.ticket-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+}
+
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Status indicator improvements */
+.status-indicator {
+    position: relative;
+}
+
+.status-indicator::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
 {% endblock %}

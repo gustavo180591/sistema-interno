@@ -19,6 +19,16 @@ class TaskController extends AbstractController
         Request $request, 
         EntityManagerInterface $em
     ): JsonResponse {
+        // Debug: Log user authentication status
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse([
+                'ok' => false, 
+                'error' => 'Usuario no autenticado',
+                'debug' => 'No hay usuario en la sesión'
+            ], 401);
+        }
+
         if (!$task) {
             return new JsonResponse(['ok' => false, 'error' => 'Tarea no encontrada'], 404);
         }
@@ -45,7 +55,16 @@ class TaskController extends AbstractController
         }
 
         // Security: Check if user has access to the ticket
-        $this->denyAccessUnlessGranted('edit', $task->getTicket());
+        try {
+            $this->denyAccessUnlessGranted('edit', $task->getTicket());
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'ok' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage(),
+                'user' => $this->getUser() ? $this->getUser()->getUserIdentifier() : 'No autenticado',
+                'ticket_id' => $task->getTicket()->getId()
+            ], 403);
+        }
 
         try {
             // Mark task as completed
@@ -75,6 +94,16 @@ class TaskController extends AbstractController
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
+        // Debug: Log user authentication status
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse([
+                'ok' => false, 
+                'error' => 'Usuario no autenticado',
+                'debug' => 'No hay usuario en la sesión'
+            ], 401);
+        }
+
         if (!$task) {
             return new JsonResponse(['ok' => false, 'error' => 'Tarea no encontrada'], 404);
         }
@@ -101,7 +130,16 @@ class TaskController extends AbstractController
         }
 
         // Security: Check if user has access to the ticket
-        $this->denyAccessUnlessGranted('edit', $task->getTicket());
+        try {
+            $this->denyAccessUnlessGranted('edit', $task->getTicket());
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'ok' => false,
+                'error' => 'Acceso denegado: ' . $e->getMessage(),
+                'user' => $this->getUser() ? $this->getUser()->getUserIdentifier() : 'No autenticado',
+                'ticket_id' => $task->getTicket()->getId()
+            ], 403);
+        }
 
         try {
             $em->remove($task);
