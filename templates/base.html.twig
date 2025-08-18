@@ -140,9 +140,6 @@
             {{ encore_entry_link_tags('app') }}
         {% endblock %}
 
-        {% block javascripts %}
-            {{ encore_entry_script_tags('app') }}
-        {% endblock %}
     </head>
     <body class="d-flex flex-column min-vh-100">
         <!-- Navigation -->
@@ -156,7 +153,9 @@
                     <ul class="navbar-nav ms-auto">
                         {% if app.user %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ path('ticket_lista') }}">Mis Tickets</a>
+                                <a class="nav-link" href="{{ path('ticket_lista') }}">
+                                    {% if is_granted('ROLE_ADMIN') %}Tickets{% else %}Mis Tickets{% endif %}
+                                </a>
                             </li>
                             {% if is_granted('ROLE_ADMIN') %}
                                 <li class="nav-item me-2">
@@ -216,14 +215,20 @@
             </div>
         </footer>
 
-        <!-- Bootstrap JS -->
+        <!-- Toast Container -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+            <!-- Toast messages will be inserted here by JavaScript -->
+        </div>
+
+        <!-- Bootstrap Bundle with Popper -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        {% block javascripts %}
+            {{ encore_entry_script_tags('app') }}
+            <script src="{{ asset('assets/app.js') }}"></script>
+        {% endblock %}
         {# Incluir el modal de colaboración #}
         {% if app.request.attributes.get('_route') == 'ticket_nuevo' %}
             {{ include('ticket/_colaborar_modal.html.twig') }}
         {% endif %}
-
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-        <script src="{{ asset('assets/app.js') }}"></script>
     </body>
 </html>

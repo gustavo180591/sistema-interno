@@ -3,7 +3,7 @@
 {% macro sortable_header(label, field, sortState) %}
     {% set currentOrder = sortState.currentSort == field ? sortState.currentOrder : 'none' %}
     {% set newOrder = currentOrder == 'ASC' ? 'DESC' : 'ASC' %}
-    
+
     {% set sortIcon = '' %}
     {% if sortState.currentSort == field %}
         {% if currentOrder == 'ASC' %}
@@ -14,7 +14,7 @@
     {% else %}
         {% set sortIcon = '<i class="bi bi-arrow-down-up text-muted ms-1" style="opacity: 0.5;"></i>' %}
     {% endif %}
-    
+
     <a href="{{ path(app.request.attributes.get('_route'), app.request.query.all()|merge({
         'sort_by': field,
         'sort_order': newOrder
@@ -58,7 +58,7 @@
                             }}) }}
                         </div>
                     </div>
-                    
+
                     <div class="col-md-3">
                         <label class="form-label small text-muted mb-1">Estado</label>
                         <div class="input-group">
@@ -69,7 +69,7 @@
                             }}) }}
                         </div>
                     </div>
-                    
+
                     <div class="col-md-3">
                         <label class="form-label small text-muted mb-1">Área</label>
                         <div class="input-group">
@@ -80,7 +80,7 @@
                             }}) }}
                         </div>
                     </div>
-                    
+
                     <div class="col-md-5">
                         <label class="form-label small text-muted mb-1">Rango de fechas</label>
                         <div class="input-group">
@@ -98,13 +98,13 @@
                             }}) }}
                         </div>
                     </div>
-                    
+
                     <div class="col-md-1 d-flex align-items-end">
                         <button type="submit" name="{{ filter_form.buscar.vars.full_name }}" class="btn btn-primary w-100">
                             <i class="bi bi-search me-1"></i> Buscar
                         </button>
                     </div>
-                    
+
                     <div class="col-md-1 d-flex align-items-end">
                         <button type="submit" name="{{ filter_form.limpiar.vars.full_name }}" class="btn btn-outline-secondary w-100">
                             <i class="bi bi-x-lg me-1"></i> Limpiar
@@ -114,71 +114,6 @@
             </div>
         </div>
     </div>
-
-    {% if is_granted('ROLE_ADMIN') %}
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-start border-primary border-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Total Tickets</h6>
-                            <h4 class="mb-0">{{ totalItems }}</h4>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-ticket-perforated text-primary fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-warning border-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Pendientes</h6>
-                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'pendiente')|length }}</h4>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-hourglass-split text-warning fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-success border-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">Completados</h6>
-                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'completado')|length }}</h4>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-check-circle text-success fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-start border-danger border-4">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted mb-1">En Progreso</h6>
-                            <h4 class="mb-0">{{ tickets|filter(t => t.estado == 'en_progreso')|length }}</h4>
-                        </div>
-                        <div class="bg-danger bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-arrow-repeat text-danger fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
     {% if tickets is not empty %}
     <div class="card">
@@ -409,6 +344,19 @@
                         <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar ticket">
                             <i class="bi bi-pencil"></i>
                         </a>
+                        {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
+                        <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}"
+                           class="btn btn-sm btn-{{ pendingTasks > 0 ? 'warning' : 'outline-secondary' }} position-relative"
+                           data-bs-toggle="tooltip"
+                           title="{{ pendingTasks > 0 ? pendingTasks ~ ' tarea(s) pendiente(s)' : 'Ver tareas' }}">
+                            <i class="bi bi-list-check"></i>
+                            {% if pendingTasks > 0 %}
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    {{ pendingTasks }}
+                                    <span class="visually-hidden">tareas pendientes</span>
+                                </span>
+                            {% endif %}
+                        </a>
                     </div>
                     {% if is_granted('ROLE_ADMIN') %}
                     <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="tooltip" title="Eliminar ticket" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
@@ -432,13 +380,13 @@
                             <span aria-hidden="true">&laquo;</span>
                         </a>
                     </li>
-                    
+
                     {% set startPage = max(1, currentPage - 2) %}
                     {% set endPage = min(totalPages, startPage + 4) %}
                     {% if endPage - startPage < 4 %}
                         {% set startPage = max(1, endPage - 4) %}
                     {% endif %}
-                    
+
                     {% if startPage > 1 %}
                         <li class="page-item">
                             <a class="page-link" href="{{ path('ticket_lista', { page: 1 }|merge(searchParams)) }}">1</a>
@@ -449,7 +397,7 @@
                             </li>
                         {% endif %}
                     {% endif %}
-                    
+
                     {% for i in startPage..endPage %}
                         <li class="page-item {{ i == currentPage ? 'active' }}">
                             <a class="page-link" href="{{ path('ticket_lista', { page: i }|merge(searchParams)) }}">
@@ -457,7 +405,7 @@
                             </a>
                         </li>
                     {% endfor %}
-                    
+
                     {% if endPage < totalPages %}
                         {% if endPage < totalPages - 1 %}
                             <li class="page-item disabled">
@@ -470,7 +418,7 @@
                             </a>
                         </li>
                     {% endif %}
-                    
+
                     <li class="page-item {{ currentPage == totalPages ? 'disabled' }}">
                         <a class="page-link" href="{{ path('ticket_lista', { page: currentPage + 1 }|merge(searchParams)) }}" aria-label="Siguiente">
                             <span aria-hidden="true">&raquo;</span>
@@ -478,7 +426,7 @@
                     </li>
                 </ul>
                 <div class="text-center text-muted small mt-2">
-                    Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a 
+                    Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a
                     {{ min(currentPage * itemsPerPage, totalItems) }} de {{ totalItems }} tickets
                 </div>
             </nav>
@@ -512,7 +460,7 @@
       });
     });
   </script>
-  
+
   <style>
     .pagination .page-item.active .page-link {
       background-color: #0d6efd;
@@ -566,13 +514,13 @@
       font-size: 0.75em;
     }
   </style>
-  
+
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       // Initialize datepickers
       const fechaDesde = document.querySelector('input[name$="[fechaDesde]"]');
       const fechaHasta = document.querySelector('input[name$="[fechaHasta]"]');
-      
+
       if (fechaDesde) {
         new Datepicker(fechaDesde, {
           format: 'yyyy-mm-dd',
@@ -581,7 +529,7 @@
           language: 'es',
         });
       }
-      
+
       if (fechaHasta) {
         new Datepicker(fechaHasta, {
           format: 'yyyy-mm-dd',
@@ -590,13 +538,13 @@
           language: 'es',
         });
       }
-      
+
       // Show filters panel if there are active filters
       const urlParams = new URLSearchParams(window.location.search);
-      const hasFilters = Array.from(urlParams.keys()).some(key => 
+      const hasFilters = Array.from(urlParams.keys()).some(key =>
         key !== 'page' && key !== 'limit' && !key.endsWith('[_token]')
       );
-      
+
       if (hasFilters) {
         const filtersPanel = new bootstrap.Collapse(document.getElementById('filtrosPanel'), {
           toggle: true

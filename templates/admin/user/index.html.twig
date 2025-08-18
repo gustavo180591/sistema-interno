@@ -23,7 +23,6 @@
                         <tr>
                             <th>Nombre</th>
                             <th>Email</th>
-                            <th>Roles</th>
                             <th>Verificado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -33,11 +32,6 @@
                         <tr>
                             <td>{{ user.nombre }} {{ user.apellido }}</td>
                             <td>{{ user.email }}</td>
-                            <td>
-                                {% for role in user.roles %}
-                                    <span class="badge bg-primary">{{ role }}</span>
-                                {% endfor %}
-                            </td>
                             <td>
                                 {% if user.isVerified %}
                                     <span class="badge bg-success">Sí</span>

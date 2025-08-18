@@ -389,23 +389,40 @@ class TicketController extends AbstractController
 
         // Verify user is either creator or collaborator
         if ($ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
-            throw $this->createAccessDeniedException('No tienes permiso para modificar este ticket');
+            throw $this->createAccessDeniedException('No tienes permiso para cambiar el estado de este ticket');
         }
 
-        // CSRF
-        $token = $request->request->get('_token');
-        if (!$this->isCsrfTokenValid('cambiar_estado_'.$ticket->getId(), $token)) {
+        if (!$this->isCsrfTokenValid('cambiar_estado_' . $ticket->getId(), $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido');
         }
 
         // Validate new state
         $estado = (string) $request->request->get('estado', '');
         $validos = ['pendiente', 'en proceso', 'terminado', 'rechazado'];
+        
         if (!in_array($estado, $validos, true)) {
             throw new \InvalidArgumentException('Estado inválido');
         }
 
+        // Check if there are pending tasks when trying to mark as completed
+        if ($estado === 'terminado') {
+            $pendingTasks = $ticket->getTasks()->filter(function($task) {
+                return !$task->isCompleted();
+            });
+
+            if (count($pendingTasks) > 0) {
+                $this->addFlash('error', 'No se puede marcar como terminado. Hay ' . count($pendingTasks) . ' tareas pendientes.');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+        }
+
         $ticket->setEstado($estado);
+        
+        // If marking as completed, set the completedAt date
+        if ($estado === 'terminado') {
+            $ticket->setCompletedAt(new \DateTimeImmutable());
+        }
+        
         $em->flush();
 
         $this->addFlash('success', 'Estado actualizado correctamente.');

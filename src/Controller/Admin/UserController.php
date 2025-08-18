@@ -35,13 +35,26 @@ class UserController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Encode the plain password
+            // Set password
             $user->setPassword(
                 $passwordHasher->hashPassword(
                     $user,
                     $form->get('plainPassword')->getData()
                 )
             );
+            
+            // Set default role as USER
+            $user->setRoles(['ROLE_USER']);
+            
+            // If this is an admin user creating/editing, allow setting admin role
+            if ($this->isGranted('ROLE_ADMIN')) {
+                $formData = $request->request->all()['registration_form'] ?? [];
+                $submittedRoles = $formData['roles'] ?? [];
+                
+                if (in_array('ROLE_ADMIN', (array)$submittedRoles, true)) {
+                    $user->setRoles(['ROLE_ADMIN', 'ROLE_USER']);
+                }
+            }
             
             $user->setIsVerified(true);
             
@@ -69,10 +82,24 @@ class UserController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Update password if provided
             if ($plainPassword = $form->get('plainPassword')->getData()) {
                 $user->setPassword(
                     $passwordHasher->hashPassword($user, $plainPassword)
                 );
+            }
+            
+            // Set default role as USER
+            $user->setRoles(['ROLE_USER']);
+            
+            // If this is an admin user creating/editing, allow setting admin role
+            if ($this->isGranted('ROLE_ADMIN')) {
+                $formData = $request->request->all()['registration_form'] ?? [];
+                $submittedRoles = $formData['roles'] ?? [];
+                
+                if (in_array('ROLE_ADMIN', (array)$submittedRoles, true)) {
+                    $user->setRoles(['ROLE_ADMIN', 'ROLE_USER']);
+                }
             }
             
             $entityManager->flush();

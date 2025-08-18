@@ -98,35 +98,112 @@
                             <ul class="list-group list-group-flush">
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <div>
-                                        <i class="bi bi-person-fill me-2"></i>
-                                        {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}
-                                        <span class="badge bg-primary ms-2">Creador</span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-shrink-0 me-2">
+                                                <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                    <span class="text-primary fw-medium">
+                                                        {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
+                                                <small class="text-muted">{{ ticket.createdBy.email }}</small>
+                                            </div>
+                                        </div>
                                     </div>
+                                    <span class="badge bg-primary">Creador</span>
                                 </li>
                                 {% for collaborator in ticket.collaborators %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <i class="bi bi-person me-2"></i>
-                                        {{ collaborator.user.nombre }} {{ collaborator.user.apellido }}
-                                        <small class="text-muted d-block">Se unió el {{ collaborator.joinedAt|date('d/m/Y') }}</small>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0 me-2">
+                                            <div class="avatar-sm rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                                <span class="text-secondary fw-medium">
+                                                    {{ collaborator.nombre|first|upper }}{{ collaborator.apellido|first|upper }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-medium">{{ collaborator.nombre }} {{ collaborator.apellido }}</div>
+                                            <small class="text-muted">{{ collaborator.email }}</small>
+                                        </div>
                                     </div>
-                                    {% if is_granted('remove_collaborator', ticket) %}
-                                    <form method="post" action="{{ path('ticket_remover_colaborador', {'id': ticket.id, 'userId': collaborator.user.id}) }}" 
-                                          onsubmit="return confirm('¿Estás seguro de que deseas eliminar a este colaborador?');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('remove_collaborator_' ~ collaborator.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                    {% endif %}
+                                    <span class="badge bg-secondary">Colaborador</span>
                                 </li>
                                 {% endfor %}
+                                {% if is_granted('edit', ticket) %}
+                                <li class="list-group-item">
+                                    <form action="{{ path('ticket_agregar_colaborador', {'id': ticket.id}) }}" method="POST" class="d-flex gap-2">
+                                        <select name="usuario" class="form-select form-select-sm" required>
+                                            <option value="">Seleccionar colaborador...</option>
+                                            {% for user in users %}
+                                                {% if user.id != ticket.createdBy.id and not ticket.collaborators.contains(user) %}
+                                                    <option value="{{ user.id }}">{{ user.nombre }} {{ user.apellido }} ({{ user.email }})</option>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endif %}
                             </ul>
                         </div>
                     </div>
                 </div>
 
                 <div class="col-md-6">
+                    <!-- Tareas -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h2 class="h5 mb-0">
+                                <i class="bi bi-list-check me-2"></i> Tareas
+                                <span class="badge bg-{{ ticket.tasks|filter(t => not t.completed)|length > 0 ? 'warning' : 'success' }}" id="pending-tasks-count">
+                                    {{ ticket.tasks|filter(t => not t.completed)|length }} pendiente(s)
+                                </span>
+                            </h2>
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                                <i class="bi bi-plus-lg"></i> Agregar
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            {% if ticket.tasks|length > 0 %}
+                                <div class="list-group list-group-flush" id="tasks-list">
+                                    {% for task in ticket.tasks %}
+                                        <div class="list-group-item d-flex align-items-center">
+                                            <div class="form-check me-2">
+                                                <input class="form-check-input task-checkbox" 
+                                                       type="checkbox" 
+                                                       data-task-id="{{ task.id }}"
+                                                       {% if task.completed %}checked{% endif %}>
+                                            </div>
+                                            <div class="flex-grow-1 {% if task.completed %}text-muted text-decoration-line-through{% endif %}">
+                                                {{ task.description }}
+                                                <div class="text-muted small">
+                                                    Creada el {{ task.createdAt|date('d/m/Y H:i') }}
+                                                    {% if task.completed and task.completedAt %}
+                                                        • Completada el {{ task.completedAt|date('d/m/Y H:i') }}
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <button class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-3 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No hay tareas pendientes
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Historial de Actividades -->
                     <div class="card shadow-sm">
                         <div class="card-header">
                             <h2 class="h5 mb-0">
@@ -137,29 +214,28 @@
                             <div class="timeline">
                                 <div class="timeline-item">
                                     <div class="timeline-badge bg-primary">
-                                        <i class="bi bi-plus-circle"></i>
+                                        <i class="bi bi-plus-lg"></i>
                                     </div>
                                     <div class="timeline-content">
-                                        <h6>Ticket creado</h6>
-                                        <small class="text-muted">
-                                            Por {{ ticket.createdBy.nombre }} el {{ ticket.createdAt|date('d/m/Y H:i') }}
-                                        </small>
+                                        <h6 class="mb-1">Ticket creado</h6>
+                                        <p class="mb-0 text-muted small">
+                                            Por {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }} el {{ ticket.createdAt|date('d/m/Y H:i') }}
+                                        </p>
                                     </div>
                                 </div>
-                                {% for collaborator in ticket.collaborators|sort((a, b) => a.joinedAt <=> b.joinedAt) %}
+                                {% if ticket.updatedAt is defined and ticket.updatedAt is not null %}
                                 <div class="timeline-item">
-                                    <div class="timeline-badge bg-success">
-                                        <i class="bi bi-person-plus"></i>
+                                    <div class="timeline-badge bg-info">
+                                        <i class="bi bi-pencil"></i>
                                     </div>
                                     <div class="timeline-content">
-                                        <h6>Nuevo colaborador</h6>
-                                        <p class="mb-1">{{ collaborator.user.nombre }} se unió al ticket</p>
-                                        <small class="text-muted">
-                                            {{ collaborator.joinedAt|date('d/m/Y H:i') }}
-                                        </small>
+                                        <h6 class="mb-1">Ticket actualizado</h6>
+                                        <p class="mb-0 text-muted small">
+                                            Última actualización el {{ ticket.updatedAt|date('d/m/Y H:i') }}
+                                        </p>
                                     </div>
                                 </div>
-                                {% endfor %}
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -169,59 +245,51 @@
     </div>
 </div>
 
-<style>
-.timeline {
-    position: relative;
-    padding-left: 1.5rem;
-    margin: 0 0 0 1rem;
-    border-left: 2px solid #e9ecef;
-}
+<!-- Add Task Modal -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(task_form, {'attr': {'class': 'needs-validation', 'novalidate': 'novalidate'}}) }}
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Tarea</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ form_widget(task_form) }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            {{ form_end(task_form) }}
+        </div>
+    </div>
+</div>
 
-.timeline-item {
-    position: relative;
-    padding-bottom: 1.5rem;
-    padding-left: 1.5rem;
-}
+<!-- Delete Task Modal -->
+<div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Eliminar Tarea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteTask">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-.timeline-item:last-child {
-    padding-bottom: 0;
-}
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('assets/js/task-manager.js') }}"></script>
+{% endblock %}
 
-.timeline-badge {
-    position: absolute;
-    left: -0.5rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 0.5rem;
-}
+</div>
 
-.timeline-content {
-    padding: 0.5rem 0 0 0.5rem;
-}
-
-.timeline-content h6 {
-    margin: 0;
-    font-weight: 600;
-}
-
-.timeline-content p {
-    margin: 0.25rem 0 0 0;
-    font-size: 0.875rem;
-}
-
-.breadcrumb {
-    background: none;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-}
-
-.breadcrumb-item + .breadcrumb-item::before {
-    content: ">";
-}
-</style>
 {% endblock %}

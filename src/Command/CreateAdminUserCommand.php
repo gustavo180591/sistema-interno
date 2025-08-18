@@ -7,7 +7,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[AsCommand(
@@ -23,28 +25,44 @@ class CreateAdminUserCommand extends Command
         parent::__construct();
     }
 
+    protected function configure(): void
+    {
+        $this
+            ->addOption('email', null, InputOption::VALUE_OPTIONAL, 'Email address for the admin user', 'admin@example.com')
+            ->addOption('password', null, InputOption::VALUE_OPTIONAL, 'Password for the admin user', 'admin123')
+            ->addOption('username', null, InputOption::VALUE_OPTIONAL, 'Username for the admin user', 'admin');
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $email = 'admin@example.com';
+        $io = new SymfonyStyle($input, $output);
+        
+        $email = $input->getOption('email');
+        $password = $input->getOption('password');
+        $username = $input->getOption('username');
+
+        // Check if user exists by email or username
         $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+        
+        if (!$user) {
+            $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $username]);
+        }
 
         if ($user) {
-            $output->writeln('Admin user already exists. Updating...');
+            $io->note('Updating existing admin user...');
         } else {
             $user = new User();
             $user->setEmail($email);
-            $output->writeln('Creating new admin user...');
+            $io->note('Creating new admin user...');
         }
 
         $user->setNombre('Admin');
         $user->setApellido('Sistema');
+        $user->setUsername($username);
         $user->setIsVerified(true);
         $user->setRoles(['ROLE_ADMIN']);
         
-        $hashedPassword = $this->passwordHasher->hashPassword(
-            $user,
-            '123456'
-        );
+        $hashedPassword = $this->passwordHasher->hashPassword($user, $password);
         $user->setPassword($hashedPassword);
 
         $this->entityManager->persist($user);

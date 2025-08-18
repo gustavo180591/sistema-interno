@@ -10,7 +10,9 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
-#[UniqueEntity('email', message: 'Este correo electrónico ya está en uso.')]
+#[ORM\UniqueConstraint(name: 'UNIQ_USERNAME', fields: ['username'])]
+#[UniqueEntity(fields: ['email'], message: 'Este correo electrónico ya está en uso.')]
+#[UniqueEntity(fields: ['username'], message: 'Este nombre de usuario ya está en uso.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
@@ -42,6 +44,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100)]
     private ?string $apellido = null;
 
+    #[ORM\Column(length: 50, unique: true)]
+    private ?string $username = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -50,6 +55,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEmail(): ?string
     {
         return $this->email;
+    }
+
+    public function getUsername(): ?string
+    {
+        return $this->username;
+    }
+
+    public function setUsername(string $username): static
+    {
+        $this->username = $username;
+        return $this;
     }
 
     public function setEmail(string $email): static
@@ -75,9 +91,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
-
+        // Ensure ROLE_USER is always present
+        if (!in_array('ROLE_USER', $roles, true)) {
+            $roles[] = 'ROLE_USER';
+        }
         return array_unique($roles);
     }
 

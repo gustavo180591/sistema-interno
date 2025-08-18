@@ -48,14 +48,30 @@
         </div>
 
         <div class="col-12">
-          {{ form_label(form.descripcion, 'Descripción de la tarea') }}
-          {{ form_widget(form.descripcion, {
+          {{ form_label(form.pedido, 'Solicitud / Pedido') }}
+          {{ form_widget(form.pedido, {
             attr: {
-              rows: 6,
               class: 'form-control',
-              placeholder: 'Contanos alcance, insumos, links, etc.'
+              placeholder: 'Describa el pedido o solicitud',
+              rows: 4,
+              'data-controller': 'textarea-autogrow'
             }
           }) }}
+          <div class="form-text">Describa con detalle lo que se está solicitando.</div>
+          {{ form_errors(form.pedido) }}
+        </div>
+
+        <div class="col-12">
+          {{ form_label(form.descripcion, 'Nuestra respuesta / Comentarios') }}
+          {{ form_widget(form.descripcion, {
+            attr: {
+              rows: 4,
+              class: 'form-control',
+              placeholder: 'Ingrese aquí nuestra respuesta o comentarios sobre el pedido...',
+              'data-controller': 'textarea-autogrow'
+            }
+          }) }}
+          <div class="form-text">Ingrese aquí la respuesta o comentarios sobre el pedido realizado.</div>
           {{ form_errors(form.descripcion) }}
         </div>
 
@@ -69,7 +85,7 @@
         {% endif %}
 
         <div class="col-12 col-md-6">
-          <label class="form-label d-block">Fecha/Hora (Buenos Aires)</label>
+          <label class="form-label d-block">Fecha/Hora</label>
           <input type="text" class="form-control" value="{{ 'now'|date('d/m/Y H:i', 'America/Argentina/Buenos_Aires') }}" readonly>
           <div class="form-text">Se guarda automáticamente al crear.</div>
         </div>

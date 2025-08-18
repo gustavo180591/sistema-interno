@@ -72,7 +72,7 @@
                                         <small class="d-block text-muted">
                                             Creado el {{ task.createdAt|date('d/m/Y H:i') }}
                                             {% if task.completedAt %}
-                                                • Completado el {{ task.completedAt|date('d/m/Y H:i') }}
+                                                <span class="task-completed-at">• Completado el {{ task.completedAt|date('d/m/Y H:i') }}</span>
                                             {% endif %}
                                         </small>
                                     </label>
@@ -134,15 +134,29 @@
                 </div>
                 <div class="card-body">
                     <ul class="list-unstyled mb-0">
-                        <li class="mb-2">
-                            <i class="bi bi-person-fill me-2"></i>
-                            {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }} (Creador)
-                        </li>
-                        {% for collaborator in ticket.collaborators %}
+                        {# Use a set to track displayed user IDs #}
+                        {% set displayed_users = [] %}
+                        
+                        {# Add creator first #}
+                        {% if ticket.createdBy %}
+                            {% set creator_id = ticket.createdBy.id %}
+                            {% set displayed_users = displayed_users|merge([creator_id]) %}
                             <li class="mb-2">
-                                <i class="bi bi-person me-2"></i>
-                                {{ collaborator.user.nombre }} {{ collaborator.user.apellido }}
+                                <i class="bi bi-person-fill me-2"></i>
+                                {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }} (Creador)
                             </li>
+                        {% endif %}
+                        
+                        {# Add collaborators, skipping duplicates #}
+                        {% for collaborator in ticket.collaborators %}
+                            {% if collaborator.user and collaborator.user.id not in displayed_users %}
+                                {% set displayed_users = displayed_users|merge([collaborator.user.id]) %}
+                                <li class="mb-2">
+                                    <i class="bi bi-person me-2"></i>
+                                    {{ collaborator.user.nombre }} {{ collaborator.user.apellido }}
+                                    {% if collaborator.user.id == ticket.createdBy.id %}(Creador){% endif %}
+                                </li>
+                            {% endif %}
                         {% endfor %}
                     </ul>
                 </div>
@@ -175,43 +189,89 @@
 {{ parent() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Toggle task completion
+    // CSRF token for forms
+    const csrfToken = document.querySelector('meta[name="_csrf"]')?.content || '';
+    
+    // Task completion toggle
     document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
+        checkbox.addEventListener('change', async function() {
             const taskId = this.dataset.taskId;
             const isCompleted = this.checked;
+            const taskItem = this.closest('.list-group-item');
+            const label = taskItem.querySelector('.form-check-label');
+            const completedAtElement = taskItem.querySelector('.task-completed-at');
             
-            fetch(`/ticket/task/${taskId}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ completed: isCompleted })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const label = this.closest('.form-check').querySelector('.form-check-label');
-                    if (isCompleted) {
-                        label.classList.add('text-muted', 'text-decoration-line-through');
-                    } else {
-                        label.classList.remove('text-muted', 'text-decoration-line-through');
-                    }
-                    
-                    // Optional: Show a success message
-                    const toast = new bootstrap.Toast(document.getElementById('toast'));
-                    const toastBody = document.querySelector('.toast-body');
-                    toastBody.textContent = isCompleted ? 'Tarea marcada como completada' : 'Tarea marcada como pendiente';
-                    toast.show();
+            // Store original state in case of error
+            const originalState = this.checked;
+            
+            try {
+                const url = '{{ path("task_toggle_complete", {"id": "TASK_ID"}) }}'.replace('TASK_ID', taskId);
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ completed: isCompleted })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok || !data.ok) {
+                    throw new Error(data.error || 'Error en la respuesta del servidor');
                 }
-            })
-            .catch(error => {
+                
+                // Update UI on success
+                if (isCompleted) {
+                    label.classList.add('text-muted', 'text-decoration-line-through');
+                    if (data.completedAt && !completedAtElement) {
+                        const completedAt = document.createElement('small');
+                        completedAt.className = 'd-block text-muted task-completed-at';
+                        completedAt.textContent = `• Completado el ${data.completedAt}`;
+                        label.appendChild(completedAt);
+                    }
+                } else {
+                    label.classList.remove('text-muted', 'text-decoration-line-through');
+                    if (completedAtElement) {
+                        completedAtElement.remove();
+                    }
+                }
+                
+                // Show success message
+                showToast(isCompleted ? '✅ Tarea completada' : '🔄 Tarea marcada como pendiente');
+                
+            } catch (error) {
                 console.error('Error:', error);
-                this.checked = !isCompleted; // Revert checkbox state on error
-            });
+                this.checked = !isCompleted; // Revert checkbox state
+                showToast('❌ Error: ' + (error.message || 'No se pudo actualizar la tarea'), 'danger');
+            }
         });
     });
+    
+    // Helper function to show toast messages
+    function showToast(message, type = 'success') {
+        const toastEl = document.getElementById('toast');
+        if (!toastEl) return;
+        
+        const toastBody = toastEl.querySelector('.toast-body');
+        const toast = new bootstrap.Toast(toastEl);
+        
+        // Update toast appearance based on message type
+        if (type === 'danger') {
+            toastEl.classList.add('bg-danger', 'text-white');
+            toastEl.classList.remove('bg-success');
+        } else {
+            toastEl.classList.add('bg-success', 'text-white');
+            toastEl.classList.remove('bg-danger');
+        }
+        
+        if (toastBody) {
+            toastBody.textContent = message;
+            toast.show();
+        }
+    }
     
     // Delete task
     let taskToDelete = null;
@@ -225,13 +285,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    document.getElementById('confirmDeleteTask').addEventListener('click', function() {
+    document.getElementById('confirmDeleteTask')?.addEventListener('click', function() {
         if (!taskToDelete) return;
         
         fetch(`/ticket/task/${taskToDelete}`, {
             method: 'DELETE',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrfToken
             }
         })
         .then(response => response.json())

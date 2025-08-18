@@ -15,6 +15,8 @@ class RegistrationFormType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $isPasswordRequired = $options['require_password'];
+        
         $builder
             ->add('nombre', TextType::class, [
                 'label' => 'Nombre',
@@ -25,11 +27,30 @@ class RegistrationFormType extends AbstractType
                 'attr' => ['placeholder' => 'Tu apellido']
             ])
             ->add('email')
+            ->add('username', TextType::class, [
+                'label' => 'Nombre de usuario',
+                'attr' => ['placeholder' => 'Elige un nombre de usuario'],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Por favor ingresa un nombre de usuario',
+                    ]),
+                    new Length([
+                        'min' => 3,
+                        'minMessage' => 'El nombre de usuario debe tener al menos {{ limit }} caracteres',
+                        'max' => 50,
+                    ]),
+                ],
+            ])
             ->add('plainPassword', PasswordType::class, [
                 'mapped' => false,
-                'attr' => ['autocomplete' => 'new-password'],
+                'required' => $isPasswordRequired,
+                'attr' => [
+                    'autocomplete' => 'new-password',
+                    'class' => 'form-control-lg',
+                    'placeholder' => '••••••'
+                ],
                 'label' => 'Contraseña',
-                'constraints' => [
+                'constraints' => $isPasswordRequired ? [
                     new NotBlank([
                         'message' => 'Por favor ingresa una contraseña',
                     ]),
@@ -38,15 +59,23 @@ class RegistrationFormType extends AbstractType
                         'minMessage' => 'La contraseña debe tener al menos {{ limit }} caracteres',
                         'max' => 4096,
                     ]),
-                ],
+                ] : [],
+                'help' => $isPasswordRequired ? 'Mínimo 6 caracteres' : 'Dejar en blanco para mantener la contraseña actual',
+                'help_attr' => ['class' => 'form-text text-muted small']
             ])
-        ;
+            ->add('roles', null, [
+                'mapped' => false,
+                'required' => false,
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
             'data_class' => User::class,
+            'require_password' => true,
         ]);
+        
+        $resolver->setAllowedTypes('require_password', 'bool');
     }
 }
