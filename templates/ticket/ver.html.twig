@@ -180,7 +180,7 @@
                                         <div class="list-group-item d-flex align-items-center task-item" data-task-id="{{ task.id }}">
                                             <div class="flex-grow-1">
                                                 <div class="d-flex align-items-center">
-                                                    <span class="{{ task.completed ? 'text-muted text-decoration-line-through' : '' }}">
+                                                    <span class="{{ task.completed ? 'text-muted' : '' }}">
                                                         {{ task.description }}
                                                     </span>
                                                 </div>
@@ -212,7 +212,6 @@
                                             background-color: #f8f9fa;
                                         }
                                         .task-completed .flex-grow-1 > div:first-child {
-                                            text-decoration: line-through;
                                             color: #6c757d;
                                         }
                                 </div>

@@ -67,7 +67,7 @@
                                            data-task-id="{{ task.id }}"
                                            {{ task.completed ? 'checked' : '' }}
                                            style="width: 1.2rem; height: 1.2rem;">
-                                    <label class="form-check-label flex-grow-1 {{ task.completed ? 'text-muted text-decoration-line-through' : '' }}">
+                                    <label class="form-check-label flex-grow-1 {{ task.completed ? 'text-muted' : '' }}">
                                         {{ task.description }}
                                         <small class="d-block text-muted">
                                             Creado el {{ task.createdAt|date('d/m/Y H:i') }}
@@ -237,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update UI on success
                 if (data.completed) {
-                    label.classList.add('text-muted', 'text-decoration-line-through');
+                    label.classList.add('text-muted');
                     if (data.completedAt && !completedAtElement) {
                         const completedAt = document.createElement('small');
                         completedAt.className = 'd-block text-muted task-completed-at';
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         label.appendChild(completedAt);
                     }
                 } else {
-                    label.classList.remove('text-muted', 'text-decoration-line-through');
+                    label.classList.remove('text-muted');
                     if (completedAtElement) {
                         completedAtElement.remove();
                     }
