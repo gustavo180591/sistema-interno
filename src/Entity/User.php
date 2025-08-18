@@ -112,6 +112,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // Ensure we only store string values and remove any duplicates
         $this->roles = array_values(array_unique(array_filter($roles, 'is_string')));
+        
+        // Ensure we always have at least ROLE_USER
+        if (empty($this->roles) || !in_array('ROLE_USER', $this->roles, true)) {
+            $this->roles[] = 'ROLE_USER';
+        }
         return $this;
     }
 

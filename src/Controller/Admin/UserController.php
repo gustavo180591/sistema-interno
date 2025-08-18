@@ -3,7 +3,7 @@
 namespace App\Controller\Admin;
 
 use App\Entity\User;
-use App\Form\RegistrationFormType;
+use App\Form\UserType;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,7 +31,9 @@ class UserController extends AbstractController
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
         
         $user = new User();
-        $form = $this->createForm(RegistrationFormType::class, $user);
+        $form = $this->createForm(UserType::class, $user, [
+            'is_edit' => false
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -43,26 +45,15 @@ class UserController extends AbstractController
                 )
             );
             
-            // Set default role as USER
-            $user->setRoles(['ROLE_USER']);
-            
-            // If this is an admin user creating/editing, allow setting admin role
-            if ($this->isGranted('ROLE_ADMIN')) {
-                $formData = $request->request->all()['registration_form'] ?? [];
-                $submittedRoles = $formData['roles'] ?? [];
-                
-                if (in_array('ROLE_ADMIN', (array)$submittedRoles, true)) {
-                    $user->setRoles(['ROLE_ADMIN', 'ROLE_USER']);
-                }
-            }
-            
-            $user->setIsVerified(true);
+            // Ensure roles are properly set
+            $roles = $form->get('roles')->getData();
+            $user->setRoles($roles);
             
             $entityManager->persist($user);
             $entityManager->flush();
 
-            $this->addFlash('success', 'Usuario creado exitosamente');
-            return $this->redirectToRoute('admin_user_index', [], Response::HTTP_SEE_OTHER);
+            $this->addFlash('success', 'Usuario creado correctamente.');
+            return $this->redirectToRoute('admin_user_index');
         }
 
         return $this->render('admin/user/new.html.twig', [
@@ -75,42 +66,36 @@ class UserController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
         
-        $form = $this->createForm(RegistrationFormType::class, $user, [
-            'require_password' => false,
+        $form = $this->createForm(UserType::class, $user, [
+            'is_edit' => true
         ]);
         
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             // Update password if provided
-            if ($plainPassword = $form->get('plainPassword')->getData()) {
+            if ($form->get('plainPassword')->getData()) {
                 $user->setPassword(
-                    $passwordHasher->hashPassword($user, $plainPassword)
+                    $passwordHasher->hashPassword(
+                        $user,
+                        $form->get('plainPassword')->getData()
+                    )
                 );
             }
             
-            // Set default role as USER
-            $user->setRoles(['ROLE_USER']);
-            
-            // If this is an admin user creating/editing, allow setting admin role
-            if ($this->isGranted('ROLE_ADMIN')) {
-                $formData = $request->request->all()['registration_form'] ?? [];
-                $submittedRoles = $formData['roles'] ?? [];
-                
-                if (in_array('ROLE_ADMIN', (array)$submittedRoles, true)) {
-                    $user->setRoles(['ROLE_ADMIN', 'ROLE_USER']);
-                }
-            }
+            // Update roles
+            $roles = $form->get('roles')->getData();
+            $user->setRoles($roles);
             
             $entityManager->flush();
 
-            $this->addFlash('success', 'Usuario actualizado exitosamente');
-            return $this->redirectToRoute('admin_user_index', [], Response::HTTP_SEE_OTHER);
+            $this->addFlash('success', 'Usuario actualizado correctamente.');
+            return $this->redirectToRoute('admin_user_index');
         }
 
         return $this->render('admin/user/edit.html.twig', [
-            'user' => $user,
             'form' => $form->createView(),
+            'user' => $user,
         ]);
     }
 
