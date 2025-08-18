@@ -18,7 +18,7 @@ class Task
     #[Assert\NotBlank(message: 'La descripción de la tarea es obligatoria')]
     private ?string $description = null;
 
-    #[ORM\Column(type: 'boolean')]
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
     private bool $completed = false;
 
     #[ORM\Column(type: 'datetime_immutable')]

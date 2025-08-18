@@ -24,9 +24,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     /**
-     * @var list<string> The user roles
+     * @var string[] The user roles
      */
-    #[ORM\Column]
+    #[ORM\Column(type: 'json')]
     private array $roles = [];
 
     /**
@@ -91,20 +91,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
+        
+        // Ensure $roles is an array
+        if (!is_array($roles)) {
+            $roles = [];
+        }
+        
         // Ensure ROLE_USER is always present
         if (!in_array('ROLE_USER', $roles, true)) {
             $roles[] = 'ROLE_USER';
         }
-        return array_unique($roles);
+        
+        return array_values(array_unique($roles));
     }
 
     /**
-     * @param list<string> $roles
+     * @param string[] $roles
      */
     public function setRoles(array $roles): static
     {
-        $this->roles = $roles;
-
+        // Ensure we only store string values and remove any duplicates
+        $this->roles = array_values(array_unique(array_filter($roles, 'is_string')));
         return $this;
     }
 

@@ -24,14 +24,6 @@ class TaskType extends AbstractType
                     'placeholder' => 'Añadir una nueva tarea...',
                     'autocomplete' => 'off'
                 ]
-            ])
-            ->add('completed', CheckboxType::class, [
-                'label' => false,
-                'required' => false,
-                'attr' => [
-                    'class' => 'form-check-input task-complete',
-                    'data-onstyle' => 'success'
-                ]
             ]);
 
         // Add a hidden field to identify if the form was submitted

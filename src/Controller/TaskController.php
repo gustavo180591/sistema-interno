@@ -9,40 +9,29 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 #[IsGranted('ROLE_USER')]
 class TaskController extends AbstractController
 {
-    #[Route('/task/{id}/toggle', name: 'task_toggle_complete', methods: ['POST'])]
+    #[Route('/task/{id}/toggle', name: 'task_toggle', methods: ['POST'])]
     public function toggle(
         ?Task $task, 
         Request $request, 
-        EntityManagerInterface $em,
-        CsrfTokenManagerInterface $csrfTokenManager
+        EntityManagerInterface $em
     ): JsonResponse {
-        // Return 404 if task not found
         if (!$task) {
-            return $this->json(['ok' => false, 'error' => 'task_not_found'], 404);
+            return $this->json(['ok' => false, 'error' => 'Task not found'], 404);
         }
 
-        // Accept both JSON and form data
-        $payload = json_decode($request->getContent(), true);
-        if (!is_array($payload)) {
-            $payload = $request->request->all();
-        }
-
-        // Validate required fields
-        if (!array_key_exists('completed', $payload)) {
-            return $this->json(['ok' => false, 'error' => 'missing_completed'], 400);
-        }
+        // Parse request body
+        $payload = json_decode($request->getContent() ?: '[]', true);
+        $completed = array_key_exists('completed', $payload)
+            ? (bool) $payload['completed']
+            : !$task->isCompleted();
 
         try {
-            // Update task status
-            $completed = (bool)$payload['completed'];
+            // Update task
             $task->setCompleted($completed);
-            
             if ($completed) {
                 $task->setCompletedAt(new \DateTimeImmutable());
             } else {
@@ -53,18 +42,18 @@ class TaskController extends AbstractController
 
             return $this->json([
                 'ok' => true,
-                'id' => $task->getId(),
-                'completed' => $completed,
+                'completed' => $task->isCompleted(),
                 'completedAt' => $task->getCompletedAt() ? $task->getCompletedAt()->format('d/m/Y H:i') : null
             ]);
+            
         } catch (\Throwable $e) {
-            // Log the error (uncomment to enable logging)
+            // Log error (uncomment to enable logging)
             // $this->container->get('logger')->error($e->getMessage());
             
             return $this->json([
-                'ok' => false, 
-                'error' => 'server_error',
-                'message' => $e->getMessage()
+                'ok' => false,
+                'error' => 'db_error',
+                'detail' => $e->getMessage()
             ], 500);
         }
     }
