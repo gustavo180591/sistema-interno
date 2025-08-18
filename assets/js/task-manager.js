@@ -1,55 +1,96 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Toggle task completion
-    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            const taskId = this.dataset.taskId;
-            const isCompleted = this.checked;
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    
+    // Mark task as complete
+    document.querySelectorAll('.mark-complete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const taskId = btn.dataset.taskId;
+            const taskItem = btn.closest('.task-item');
+            const taskTitle = taskItem.querySelector('.flex-grow-1 span');
             
-            fetch(`/ticket/task/${taskId}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ completed: isCompleted })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            try {
+                const response = await fetch(`/task/${taskId}/toggle`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ completed: true })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error al actualizar la tarea');
+                }
+                
+                const data = await response.json();
+                
+                if (data.ok) {
                     // Update UI
-                    const taskItem = this.closest('.list-group-item');
-                    const taskText = taskItem.querySelector('.flex-grow-1');
+                    taskTitle.classList.add('text-muted', 'text-decoration-line-through');
                     
-                    if (isCompleted) {
-                        taskText.classList.add('text-muted', 'text-decoration-line-through');
-                        // Add completed time if not present
-                        if (!taskText.querySelector('.completed-time')) {
-                            const timeElement = document.createElement('div');
-                            timeElement.className = 'completed-time text-muted small';
-                            timeElement.textContent = `• Completada el ${new Date().toLocaleString('es-AR')}`;
-                            taskText.appendChild(timeElement);
-                        }
-                    } else {
-                        taskText.classList.remove('text-muted', 'text-decoration-line-through');
-                        // Remove completed time if present
-                        const completedTime = taskText.querySelector('.completed-time');
-                        if (completedTime) {
-                            completedTime.remove();
-                        }
+                    // Update completion time if available
+                    const timeContainer = taskItem.querySelector('.small');
+                    if (timeContainer) {
+                        const completionTime = data.completedAt || new Date().toLocaleString('es-AR');
+                        timeContainer.innerHTML += ` • Completada el ${completionTime}`;
                     }
+                    
+                    // Remove the complete button
+                    btn.remove();
+                    
+                    // Show success message
+                    showToast('Tarea marcada como completada');
                     
                     // Update pending tasks count
                     updatePendingTasksCount();
-                    
-                    // Show toast notification
-                    showToast(isCompleted ? 'Tarea marcada como completada' : 'Tarea marcada como pendiente');
                 }
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error:', error);
-                this.checked = !isCompleted; // Revert checkbox on error
                 showToast('Error al actualizar la tarea', 'danger');
-            });
+            }
+        });
+    });
+    
+    // Delete task
+    document.querySelectorAll('.delete-task').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            if (!confirm('¿Estás seguro de que deseas eliminar esta tarea?')) {
+                return;
+            }
+            
+            const taskId = btn.dataset.taskId;
+            const taskItem = btn.closest('.task-item');
+            
+            try {
+                const response = await fetch(`/task/${taskId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error al eliminar la tarea');
+                }
+                
+                // Remove task from UI
+                taskItem.remove();
+                
+                // Show success message
+                showToast('Tarea eliminada correctamente');
+                
+                // Update pending tasks count
+                updatePendingTasksCount();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error al eliminar la tarea', 'danger');
+            }
         });
     });
     
@@ -71,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmDeleteBtn.addEventListener('click', function() {
             if (!taskToDelete) return;
             
-            fetch(`/ticket/task/${taskToDelete}`, {
+            fetch(`/task/${taskToDelete}`, {
                 method: 'DELETE',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',

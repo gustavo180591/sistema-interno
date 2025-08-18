@@ -4,6 +4,7 @@ framework:
     default_locale: es_AR
     php_errors:
         log: true
+    csrf_protection: true
     session:
         handler_id: null
         cookie_secure: 'auto'
@@ -15,6 +16,8 @@ framework:
         gc_divisor: 1000
         save_path: '%kernel.cache_dir%/sessions'
         metadata_update_threshold: 0
+    http_method_override: true
+    handle_all_throwables: true
     
     # Enable these if needed
     # esi: true

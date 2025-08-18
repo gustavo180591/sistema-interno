@@ -8,21 +8,86 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Email;
+use Symfony\Component\Validator\Constraints\Length;
 
 class UserType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('email')
-            ->add('username')
-            ->add('nombre')
-            ->add('apellido')
+            ->add('email', null, [
+                'label' => 'Correo electrónico *',
+                'attr' => [
+                    'class' => 'form-control-lg',
+                    'placeholder' => 'usuario@ejemplo.com'
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Por favor ingrese un correo electrónico',
+                    ]),
+                    new Email([
+                        'message' => 'Por favor ingrese un correo electrónico válido',
+                    ]),
+                ],
+            ])
+            ->add('username', null, [
+                'label' => 'Nombre de usuario *',
+                'attr' => [
+                    'class' => 'form-control-lg',
+                    'placeholder' => 'juan.perez'
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Por favor ingrese un nombre de usuario',
+                    ]),
+                ],
+            ])
+            ->add('nombre', null, [
+                'label' => 'Nombre *',
+                'attr' => [
+                    'class' => 'form-control-lg',
+                    'placeholder' => 'Juan'
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Por favor ingrese un nombre',
+                    ]),
+                ],
+            ])
+            ->add('apellido', null, [
+                'label' => 'Apellido *',
+                'attr' => [
+                    'class' => 'form-control-lg',
+                    'placeholder' => 'Pérez'
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Por favor ingrese un apellido',
+                    ]),
+                ],
+            ])
             ->add('plainPassword', PasswordType::class, [
                 'required' => !$options['is_edit'],
                 'mapped' => false,
-                'label' => 'Contraseña',
-                'help' => $options['is_edit'] ? 'Dejar en blanco para mantener la contraseña actual' : ''
+                'label' => 'Contraseña' . ($options['is_edit'] ? '' : ' *'),
+                'attr' => [
+                    'class' => 'form-control-lg',
+                    'autocomplete' => 'new-password',
+                    'placeholder' => '••••••'
+                ],
+                'constraints' => $options['is_edit'] ? [] : [
+                    new NotBlank([
+                        'message' => 'Por favor ingrese una contraseña',
+                    ]),
+                    new Length([
+                        'min' => 6,
+                        'minMessage' => 'La contraseña debe tener al menos {{ limit }} caracteres',
+                        'max' => 4096, // max length allowed by Symfony for security reasons
+                    ]),
+                ],
+                'help' => $options['is_edit'] ? 'Dejar en blanco para mantener la contraseña actual' : 'Mínimo 6 caracteres'
             ])
             ->add('roles', ChoiceType::class, [
                 'choices' => [
@@ -31,23 +96,26 @@ class UserType extends AbstractType
                 ],
                 'multiple' => true,
                 'expanded' => true,
-                'data' => $options['is_edit'] ? $options['data']->getRoles() : ['ROLE_USER'],
-                'label' => 'Roles',
+                'label' => 'Roles *',
                 'help' => 'Seleccione al menos un rol para el usuario',
                 'constraints' => [
-                    new \Symfony\Component\Validator\Constraints\NotBlank([
+                    new NotBlank([
                         'message' => 'Por favor seleccione al menos un rol',
                     ]),
                     new \Symfony\Component\Validator\Constraints\Count([
                         'min' => 1,
                         'minMessage' => 'Debe seleccionar al menos un rol',
                     ]),
-                ]
-            ])
-            ->add('isVerified', null, [
-                'label' => '¿Correo verificado?',
-                'required' => false
+                ],
+                'choice_attr' => function($choice, $key, $value) {
+                    return ['class' => 'form-check-input'];
+                },
+                'label_attr' => ['class' => 'form-check-label me-3'],
+                'row_attr' => ['class' => 'mb-3'],
+                'data' => $options['is_edit'] ? $options['data']->getRoles() : ['ROLE_USER'],
+                'empty_data' => ['ROLE_USER']
             ]);
+        // Removed isVerified field as per user request
     }
 
     public function configureOptions(OptionsResolver $resolver): void

@@ -60,7 +60,12 @@ class Task
     public function setCompleted(bool $completed): self
     {
         $this->completed = $completed;
-        $this->completedAt = $completed ? new \DateTimeImmutable() : null;
+        return $this;
+    }
+    
+    public function setCompletedAt(\DateTimeImmutable $completedAt = null): self
+    {
+        $this->completedAt = $completedAt;
         return $this;
     }
 

@@ -36,24 +36,41 @@ class UserController extends AbstractController
         ]);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            // Set password
-            $user->setPassword(
-                $passwordHasher->hashPassword(
-                    $user,
-                    $form->get('plainPassword')->getData()
-                )
-            );
-            
-            // Ensure roles are properly set
-            $roles = $form->get('roles')->getData();
-            $user->setRoles($roles);
-            
-            $entityManager->persist($user);
-            $entityManager->flush();
+        if ($form->isSubmitted()) {
+            if (!$form->isValid()) {
+                // Collect all form errors
+                $errors = [];
+                foreach ($form->getErrors(true) as $error) {
+                    $errors[] = $error->getMessage();
+                }
+                $this->addFlash('error', 'Error en el formulario: ' . implode(', ', $errors));
+            } else {
+                try {
+                    // Set password if provided
+                    $plainPassword = $form->get('plainPassword')->getData();
+                    if ($plainPassword) {
+                        $user->setPassword(
+                            $passwordHasher->hashPassword($user, $plainPassword)
+                        );
+                    }
+                    
+                    // Handle roles
+                    $roles = $form->get('roles')->getData();
+                    if (empty($roles)) {
+                        $roles = ['ROLE_USER'];
+                    }
+                    $user->setRoles($roles);
+                    
+                    $entityManager->persist($user);
+                    $entityManager->flush();
 
-            $this->addFlash('success', 'Usuario creado correctamente.');
-            return $this->redirectToRoute('admin_user_index');
+                    $this->addFlash('success', 'Usuario creado correctamente.');
+                    return $this->redirectToRoute('admin_user_index');
+                    
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al guardar el usuario: ' . $e->getMessage());
+                }
+            }
         }
 
         return $this->render('admin/user/new.html.twig', [
@@ -72,25 +89,40 @@ class UserController extends AbstractController
         
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            // Update password if provided
-            if ($form->get('plainPassword')->getData()) {
-                $user->setPassword(
-                    $passwordHasher->hashPassword(
-                        $user,
-                        $form->get('plainPassword')->getData()
-                    )
-                );
-            }
-            
-            // Update roles
-            $roles = $form->get('roles')->getData();
-            $user->setRoles($roles);
-            
-            $entityManager->flush();
+        if ($form->isSubmitted()) {
+            if (!$form->isValid()) {
+                // Collect all form errors
+                $errors = [];
+                foreach ($form->getErrors(true) as $error) {
+                    $errors[] = $error->getMessage();
+                }
+                $this->addFlash('error', 'Error en el formulario: ' . implode(', ', $errors));
+            } else {
+                try {
+                    // Update password if provided
+                    $plainPassword = $form->get('plainPassword')->getData();
+                    if ($plainPassword) {
+                        $user->setPassword(
+                            $passwordHasher->hashPassword($user, $plainPassword)
+                        );
+                    }
+                    
+                    // Handle roles
+                    $roles = $form->get('roles')->getData();
+                    if (empty($roles)) {
+                        $roles = ['ROLE_USER'];
+                    }
+                    $user->setRoles($roles);
+                    
+                    $entityManager->flush();
 
-            $this->addFlash('success', 'Usuario actualizado correctamente.');
-            return $this->redirectToRoute('admin_user_index');
+                    $this->addFlash('success', 'Usuario actualizado correctamente.');
+                    return $this->redirectToRoute('admin_user_index');
+                    
+                } catch (\Exception $e) {
+                    $this->addFlash('error', 'Error al actualizar el usuario: ' . $e->getMessage());
+                }
+            }
         }
 
         return $this->render('admin/user/edit.html.twig', [

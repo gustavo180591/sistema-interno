@@ -37,6 +37,7 @@ security:
         - { path: ^/login$, roles: PUBLIC_ACCESS }
         - { path: ^/register, roles: PUBLIC_ACCESS }
         - { path: ^/resetting, roles: PUBLIC_ACCESS }
+        - { path: ^/task, roles: ROLE_USER }
         - { path: ^/ticket, roles: ROLE_USER }
         - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/perfil, roles: ROLE_USER }

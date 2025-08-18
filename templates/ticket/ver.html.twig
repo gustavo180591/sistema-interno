@@ -2,6 +2,11 @@
 
 {% block title %}Ticket #{{ ticket.ticketId }} - {{ ticket.descripcion|u.truncate(30, '...') }}{% endblock %}
 
+{% block head %}
+    {{ parent() }}
+    {# CSRF token is already included in base.html.twig #}
+{% endblock %}
+
 {% block body %}
 <div class="container py-5">
     <div class="row justify-content-center">
@@ -172,15 +177,13 @@
                             {% if ticket.tasks|length > 0 %}
                                 <div class="list-group list-group-flush" id="tasks-list">
                                     {% for task in ticket.tasks %}
-                                        <div class="list-group-item d-flex align-items-center">
-                                            <div class="form-check me-2">
-                                                <input class="form-check-input task-checkbox" 
-                                                       type="checkbox" 
-                                                       data-task-id="{{ task.id }}"
-                                                       {% if task.completed %}checked{% endif %}>
-                                            </div>
-                                            <div class="flex-grow-1 {% if task.completed %}text-muted text-decoration-line-through{% endif %}">
-                                                {{ task.description }}
+                                        <div class="list-group-item d-flex align-items-center task-item" data-task-id="{{ task.id }}">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex align-items-center">
+                                                    <span class="{{ task.completed ? 'text-muted text-decoration-line-through' : '' }}">
+                                                        {{ task.description }}
+                                                    </span>
+                                                </div>
                                                 <div class="text-muted small">
                                                     Creada el {{ task.createdAt|date('d/m/Y H:i') }}
                                                     {% if task.completed and task.completedAt %}
@@ -188,11 +191,30 @@
                                                     {% endif %}
                                                 </div>
                                             </div>
-                                            <button class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
+                                            <div class="d-flex gap-2">
+                                                {% if not task.completed %}
+                                                    <button class="btn btn-outline-success btn-sm mark-complete" 
+                                                            data-task-id="{{ task.id }}" 
+                                                            title="Marcar como realizada">
+                                                        ✔
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn btn-outline-danger btn-sm delete-task" 
+                                                        data-task-id="{{ task.id }}" 
+                                                        title="Eliminar">
+                                                    🗑️
+                                                </button>
+                                            </div>
                                         </div>
                                     {% endfor %}
+                                    <style>
+                                        .task-completed {
+                                            background-color: #f8f9fa;
+                                        }
+                                        .task-completed .flex-grow-1 > div:first-child {
+                                            text-decoration: line-through;
+                                            color: #6c757d;
+                                        }
                                 </div>
                             {% else %}
                                 <div class="text-center py-3 text-muted">
@@ -287,7 +309,7 @@
 
 {% block javascripts %}
 {{ parent() }}
-<script src="{{ asset('assets/js/task-manager.js') }}"></script>
+<script src="{{ asset('js/task-manager.js') }}"></script>
 {% endblock %}
 
 </div>
