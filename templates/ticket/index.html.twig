@@ -111,14 +111,6 @@
             <p class="text-muted mb-0">Gestiona y organiza todos los tickets del sistema</p>
         </div>
         <div class="d-flex gap-2">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary" id="viewTable" data-view="table">
-                    <i class="bi bi-table me-1"></i> Tabla
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="viewCards" data-view="cards">
-                    <i class="bi bi-grid-3x3-gap me-1"></i> Tarjetas
-                </button>
-            </div>
             <a href="{{ path('ticket_nuevo') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-1"></i> Nuevo Ticket
             </a>
@@ -216,17 +208,6 @@
                         <span class="text-muted small">Mostrando {{ tickets|length }} de {{ totalItems }} tickets</span>
                     </div>
                     <div class="d-flex align-items-center gap-3">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="text-muted small">Vista:</span>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="viewMode" id="compactView" value="compact" checked>
-                                <label class="form-check-label small" for="compactView">Compacta</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="viewMode" id="detailedView" value="detailed">
-                                <label class="form-check-label small" for="detailedView">Detallada</label>
-                            </div>
-                        </div>
                         <span class="text-muted small">Página {{ currentPage }} de {{ totalPages }}</span>
                     </div>
                 </div>
@@ -291,7 +272,7 @@
                                         </td>
                                         <td class="align-middle">
                                             <div class="d-flex flex-column">
-                                                                                        <span class="badge rounded-pill bg-light text-dark">
+                                                                                        <span class="badge rounded-pill bg-light text-dark department-badge">
                                             {% if ticket.departamento == 1 %}
                                                 <i class="bi bi-building me-1"></i> Presidencia
                                             {% elseif ticket.departamento == 2 %}
@@ -319,7 +300,7 @@
                                             {% elseif ticket.departamento == 16 %}
                                                 <i class="bi bi-heart me-1"></i> Salud Mental
                                             {% elseif ticket.departamento == 17 %}
-                                                <i class="bi bi-tools me-1"></i> Obras e Infraestructura
+                                                <i class="bi bi-tools me-1"></i> Icono
                                             {% elseif ticket.departamento == 18 %}
                                                 <i class="bi bi-megaphone me-1"></i> RR.PP y Ceremonial
                                             {% elseif ticket.departamento == 19 %}
@@ -332,25 +313,48 @@
                                                 <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre|default('Otro') }}
                                             {% endif %}
                                         </span>
-                                                <small class="text-muted text-center mt-1" style="font-size: 0.7rem;">
-                                                    {{ ticket.departamentoNombre|default('') }}
-                                                </small>
                                             </div>
                                         </td>
                                         <td class="align-middle">
-                                            <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="m-0">
-                                                {% set opciones = ['pendiente', 'en proceso', 'terminado', 'rechazado'] %}
-                                                <div class="input-group input-group-sm">
-                                                    <select name="estado" class="form-select form-select-sm status-select" onchange="this.form.submit()">
-                                                        {% for op in opciones %}
-                                                            <option value="{{ op }}" {{ op == ticket.estado ? 'selected' : '' }}>
-                                                                {{ op|capitalize }}
-                                                            </option>
-                                                        {% endfor %}
-                                                    </select>
-                                                    <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
-                                                </div>
-                                            </form>
+                                            {% set statusColors = {
+                                                'pendiente': 'warning',
+                                                'en proceso': 'info',
+                                                'terminado': 'success',
+                                                'rechazado': 'danger'
+                                            } %}
+                                            {% set statusIcons = {
+                                                'pendiente': 'clock',
+                                                'en proceso': 'arrow-repeat',
+                                                'terminado': 'check-circle',
+                                                'rechazado': 'x-circle'
+                                            } %}
+                                            
+                                            <div class="dropdown d-flex flex-column align-items-center">
+                                                <button class="btn btn-sm p-0 border-0 bg-transparent dropdown-toggle" type="button" id="statusDropdown{{ ticket.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <span class="badge bg-{{ statusColors[ticket.estado]|default('secondary') }} rounded-pill px-3 py-2">
+                                                        <i class="bi bi-{{ statusIcons[ticket.estado]|default('question-circle') }} me-1"></i>
+                                                        {{ ticket.estado|capitalize }}
+                                                    </span>
+                                                </button>
+                                                <ul class="dropdown-menu" aria-labelledby="statusDropdown{{ ticket.id }}">
+                                                    {% for estado, color in statusColors %}
+                                                        <li>
+                                                            <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="d-inline">
+                                                                <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
+                                                                <input type="hidden" name="estado" value="{{ estado }}">
+                                                                <button type="submit" class="dropdown-item d-flex align-items-center {{ ticket.estado == estado ? 'active' : '' }}">
+                                                                    <span class="badge bg-{{ color }} me-2"></span>
+                                                                    {{ estado|capitalize }}
+                                                                    {% if ticket.estado == estado %}
+                                                                        <i class="bi bi-check2 ms-auto"></i>
+                                                                    {% endif %}
+                                                                </button>
+                                                            </form>
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </div>
+                                            </div>
                                         </td>
                                         <td class="date-column">
                                             <div class="d-flex flex-column">
@@ -423,174 +427,10 @@
             </div>
         </div>
 
-        <!-- Cards View -->
-        <div id="cardsView" class="view-content" style="display: none;">
-            <div class="row g-4">
-                {% for ticket in tickets %}
-                    <div class="col-xl-4 col-lg-6 col-md-6">
-                        <div class="card h-100 border-0 shadow-sm ticket-card" data-ticket-id="{{ ticket.id }}">
-                            <div class="card-header bg-transparent border-0 pb-0">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div class="d-flex align-items-center">
-                                        <span class="badge bg-primary rounded-pill me-2">#{{ ticket.id }}</span>
-                                        <code class="text-muted">{{ ticket.ticketId }}</code>
-                                    </div>
-                                    <div class="dropdown">
-                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
-                                            <i class="bi bi-three-dots-vertical"></i>
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="{{ path('ticket_show', {'id': ticket.id}) }}">
-                                                <i class="bi bi-eye me-2"></i>Ver detalles
-                                            </a></li>
-                                            <li><a class="dropdown-item" href="{{ path('ticket_editar', {'id': ticket.id}) }}">
-                                                <i class="bi bi-pencil me-2"></i>Editar
-                                            </a></li>
-                                            <li><hr class="dropdown-divider"></li>
-                                            <li><a class="dropdown-item text-danger" href="#" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
-                                                <i class="bi bi-trash me-2"></i>Eliminar
-                                            </a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                
-                                <!-- Status Badge -->
-                                <div class="mb-3">
-                                    {% set statusColors = {
-                                        'pendiente': 'warning',
-                                        'en proceso': 'info',
-                                        'terminado': 'success',
-                                        'rechazado': 'danger'
-                                    } %}
-                                    <span class="badge bg-{{ statusColors[ticket.estado]|default('secondary') }} rounded-pill px-3 py-2">
-                                        <i class="bi bi-{{ ticket.estado == 'pendiente' ? 'clock' : (ticket.estado == 'en proceso' ? 'arrow-repeat' : (ticket.estado == 'terminado' ? 'check-circle' : 'x-circle')) }} me-1"></i>
-                                        {{ ticket.estado|capitalize }}
-                                    </span>
-                                </div>
-                            </div>
-                            
-                            <div class="card-body pt-0">
-                                <!-- Department -->
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Área</small>
-                                    <div class="d-flex align-items-center mt-1">
-                                        <span class="badge bg-light text-dark rounded-pill">
-                                            {% if ticket.departamento == 1 %}
-                                                <i class="bi bi-building me-1"></i> Presidencia
-                                            {% elseif ticket.departamento == 2 %}
-                                                <i class="bi bi-file-earmark-text me-1"></i> Secretaría
-                                            {% elseif ticket.departamento == 3 %}
-                                                <i class="bi bi-journal-text me-1"></i> Prosecretaria Legislativa
-                                            {% elseif ticket.departamento == 4 %}
-                                                <i class="bi bi-gear me-1"></i> Prosecretaria Administrativa
-                                            {% elseif ticket.departamento == 8 %}
-                                                <i class="bi bi-pc-display me-1"></i> Gestión y TIC
-                                            {% elseif ticket.departamento == 9 %}
-                                                <i class="bi bi-people me-1"></i> Desarrollo Humano
-                                            {% elseif ticket.departamento == 10 %}
-                                                <i class="bi bi-person-badge me-1"></i> Personal
-                                            {% elseif ticket.departamento == 11 %}
-                                                <i class="bi bi-people me-1"></i> RR.HH
-                                            {% elseif ticket.departamento == 12 %}
-                                                <i class="bi bi-shield-check me-1"></i> Asuntos Jurídicos
-                                            {% elseif ticket.departamento == 13 %}
-                                                <i class="bi bi-calculator me-1"></i> Contabilidad y Presupuesto
-                                            {% elseif ticket.departamento == 14 %}
-                                                <i class="bi bi-cash-stack me-1"></i> Liquidación de Sueldos
-                                            {% elseif ticket.departamento == 15 %}
-                                                <i class="bi bi-box-seam me-1"></i> Abastecimiento
-                                            {% elseif ticket.departamento == 16 %}
-                                                <i class="bi bi-heart me-1"></i> Salud Mental
-                                            {% elseif ticket.departamento == 17 %}
-                                                <i class="bi bi-tools me-1"></i> Obras e Infraestructura
-                                            {% elseif ticket.departamento == 18 %}
-                                                <i class="bi bi-megaphone me-1"></i> RR.PP y Ceremonial
-                                            {% elseif ticket.departamento == 19 %}
-                                                <i class="bi bi-book me-1"></i> Digesto Jurídico
-                                            {% elseif ticket.departamento == 20 %}
-                                                <i class="bi bi-newspaper me-1"></i> Prensa
-                                            {% elseif ticket.departamento >= 47 and ticket.departamento <= 60 %}
-                                                <i class="bi bi-person-circle me-1"></i> Concejal
-                                            {% else %}
-                                                <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre|default('Otro') }}
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Description -->
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Descripción</small>
-                                    <p class="mb-0 mt-1 text-truncate-2">{{ ticket.descripcion }}</p>
-                                </div>
-                                
-                                <!-- Request -->
-                                {% if ticket.pedido %}
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Pedido</small>
-                                    <p class="mb-0 mt-1 text-truncate-2">{{ ticket.pedido }}</p>
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Tasks Info -->
-                                {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
-                                {% set totalTasks = ticket.tasks|length %}
-                                {% if totalTasks > 0 %}
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Tareas</small>
-                                    <div class="d-flex align-items-center justify-content-between mt-1">
-                                        <span class="badge bg-{{ pendingTasks > 0 ? 'warning' : 'success' }} rounded-pill">
-                                            <i class="bi bi-list-check me-1"></i>
-                                            {{ pendingTasks }}/{{ totalTasks }} pendientes
-                                        </span>
-                                        {% if pendingTasks > 0 %}
-                                            <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}" class="btn btn-sm btn-outline-warning">
-                                                <i class="bi bi-arrow-right"></i>
-                                            </a>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Creator Info -->
-                                {% if is_granted('ROLE_ADMIN') and ticket.createdBy %}
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Creado por</small>
-                                    <div class="d-flex align-items-center mt-1">
-                                        <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-2" style="width: 28px; height: 28px;">
-                                            <span class="text-primary fw-medium small">
-                                                {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <div class="small fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Date -->
-                                <div class="mb-3">
-                                    <small class="text-muted text-uppercase">Creado</small>
-                                    <div class="mt-1">
-                                        <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
-                                        <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="card-footer bg-transparent border-0 pt-0">
-                                <div class="d-grid">
-                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-primary btn-sm">
-                                        <i class="bi bi-eye me-1"></i>Ver Detalles
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
+        <!-- Cards View - Oculto por defecto -->
+        {# <div id="cardsView" class="view-content" style="display: none;">
+            Vista de tarjetas deshabilitada
+        </div> #}
 
         <!-- Pagination -->
         {% if totalPages > 1 %}
@@ -1060,21 +900,85 @@ function showQuickActions() {
     transition: all 0.2s ease;
 }
 
-/* View mode button styles */
-.btn-group .btn.active {
-    background-color: #0d6efd;
-    color: white;
-    border-color: #0d6efd;
+/* Estilos para el estado de los tickets */
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-radius: 50rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
 }
 
-.ticket-card {
-    transition: all 0.3s ease;
-    border-radius: 0.75rem;
+.status-badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000 !important;
 }
 
-.ticket-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+.status-badge.bg-info {
+    background-color: #0dcaf0 !important;
+    color: #000 !important;
+}
+
+.status-badge.bg-success {
+    background-color: #198754 !important;
+    color: #fff !important;
+}
+
+.status-badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+}
+
+/* Estilos para el select de estado */
+.status-select-container {
+    min-width: 120px;
+}
+
+.status-select-container .form-select {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+/* Mejoras para la tabla */
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+/* Estilos para los badges de departamento */
+.department-badge {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 50rem;
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.department-badge i {
+    flex-shrink: 0;
 }
 
 .avatar-sm {

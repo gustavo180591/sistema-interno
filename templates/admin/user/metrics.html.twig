@@ -1,0 +1,213 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Métricas de Usuarios{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>Métricas de Actividad de Usuarios</h1>
+            <p class="text-muted">Análisis de actividad de los usuarios del sistema</p>
+        </div>
+        <div class="col-md-4 text-end
+            <a href="{{ path('admin_user_index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a Usuarios
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- User Activity Overview -->
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Actividad Reciente</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Último Acceso</th>
+                                    <th>Actividad Reciente</th>
+                                    <th>Total de Acciones</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm bg-light rounded-circle d-flex align-items-center justify-content-center me-2">
+                                                <i class="bi bi-person"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ user.nombre }} {{ user.apellido }}</div>
+                                                <small class="text-muted">{{ user.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{% set lastActivity = user_activity[user.id] ?? null %}
+                            {{ lastActivity and lastActivity.timestamp ? lastActivity.timestamp|date('d/m/Y H:i') : 'Nunca' }}
+                        </td>
+                                    <td>
+                                        {% set lastActivity = user_activity[user.id] ?? null %}
+                                        {% if lastActivity %}
+                                            {{ lastActivity.action }}
+                                            <small class="text-muted d-block">{{ lastActivity.timestamp|date('d/m/Y H:i') }}</small>
+                                        {% else %}
+                                            <span class="text-muted">Sin actividad reciente</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user_activity[user.id].totalActions ?? 0 }}</td>
+                                    <td>
+                                    {% if user.isVerified %}
+        <span class="badge bg-success">Verificado</span>
+    {% else %}
+        <span class="badge bg-secondary">No verificado</span>
+    {% endif %}
+</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="bi bi-people fs-1"></i>
+                                            <p class="mt-2 mb-0">No hay usuarios registrados</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Login Statistics -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Inicios de Sesión por Día (Últimos 30 días)</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loginChart" style="height: 300px;">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Activity Distribution -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Distribución de Actividad</h5>
+                </div>
+                <div class="card-body">
+                    <div id="activityChart" style="height: 300px;">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block javascripts %}
+{{ parent() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Login Chart
+    const loginCtx = document.createElement('canvas');
+    document.getElementById('loginChart').innerHTML = '';
+    document.getElementById('loginChart').appendChild(loginCtx);
+    
+    new Chart(loginCtx, {
+        type: 'line',
+        data: {
+            labels: {{ login_dates|json_encode|raw }},
+            datasets: [{
+                label: 'Inicios de Sesión',
+                data: {{ login_counts|json_encode|raw }},
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Activity Distribution Chart
+    const activityCtx = document.createElement('canvas');
+    document.getElementById('activityChart').innerHTML = '';
+    document.getElementById('activityChart').appendChild(activityCtx);
+    
+    new Chart(activityCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ activity_labels|json_encode|raw }},
+            datasets: [{
+                data: {{ activity_data|json_encode|raw }},
+                backgroundColor: [
+                    '#4e73df',
+                    '#1cc88a',
+                    '#36b9cc',
+                    '#f6c23e',
+                    '#e74a3b'
+                ],
+                hoverBackgroundColor: [
+                    '#2e59d9',
+                    '#17a673',
+                    '#2c9faf',
+                    '#dda20a',
+                    '#be2617'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

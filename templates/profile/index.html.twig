@@ -32,6 +32,22 @@
           <p><strong>Rol(es):</strong> {{ app.user.roles|map(r => r|replace({'ROLE_': ''})|lower|capitalize)|join(', ') }}</p>
         </div>
       </div>
+      
+      <!-- Botón de Historial de Tickets -->
+      <div class="row mt-4">
+        <div class="col-12">
+          <div class="d-grid">
+            <a href="{{ path('ticket_historial_usuario') }}" class="btn btn-outline-primary btn-lg">
+              <i class="bi bi-clock-history me-2"></i>
+              📋 Ver Historial de Tickets
+            </a>
+            <small class="text-muted text-center mt-2">
+              <i class="bi bi-info-circle me-1"></i>
+              Visualiza todos los tickets que has creado en el sistema
+            </small>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

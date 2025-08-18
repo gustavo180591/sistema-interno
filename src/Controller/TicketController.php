@@ -159,6 +159,85 @@ class TicketController extends AbstractController
         return $this->redirectToRoute('ticket_lista');
     }
 
+    #[Route('/historial-usuario', name: 'ticket_historial_usuario')]
+    public function historialUsuario(
+        Request $request,
+        TicketRepository $ticketRepository
+    ): Response {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $user = $this->getUser();
+        
+        $page = max(1, $request->query->getInt('page', 1));
+        
+        // Crear formulario de filtros para el historial
+        $filterForm = $this->createForm(\App\Form\TicketFilterType::class);
+        $filterForm->handleRequest($request);
+
+        $searchData = [
+            'search' => $request->query->get('search'),
+            'estado' => $request->query->get('estado'),
+            'departamento' => $request->query->get('departamento') ? (int)$request->query->get('departamento') : null,
+            'fechaDesde' => $request->query->get('fechaDesde') ? new \DateTime($request->query->get('fechaDesde')) : null,
+            'fechaHasta' => $request->query->get('fechaHasta') ? new \DateTime($request->query->get('fechaHasta')) : null,
+        ];
+
+        if ($filterForm->isSubmitted() && $filterForm->isValid()) {
+            if ($filterForm->get('limpiar')->isClicked()) {
+                return $this->redirectToRoute('ticket_historial_usuario');
+            }
+
+            $formData = $filterForm->getData();
+            $searchData = [
+                'search' => $formData['search'] ?? null,
+                'estado' => $formData['estado'] ?? null,
+                'departamento' => $formData['departamento'] ? (int)$formData['departamento'] : null,
+                'fechaDesde' => $formData['fechaDesde'] ?? null,
+                'fechaHasta' => $formData['fechaHasta'] ?? null,
+            ];
+        }
+
+        // Parámetros de ordenamiento
+        $sortBy = $request->query->get('sort_by', 'createdAt');
+        $sortOrder = $request->query->get('sort_order', 'DESC');
+        
+        // Buscar solo tickets del usuario actual
+        $result = $ticketRepository->search(
+            $searchData['search'],
+            $searchData['estado'],
+            $searchData['departamento'],
+            $searchData['fechaDesde'],
+            $searchData['fechaHasta'],
+            $page,
+            self::ITEMS_PER_PAGE,
+            $sortBy,
+            $sortOrder,
+            $user // Solo tickets del usuario actual
+        );
+        
+        // Estado de ordenamiento para la vista
+        $sortState = [
+            'currentSort' => $sortBy,
+            'currentOrder' => $sortOrder,
+        ];
+
+        // Actualizar formulario con datos de búsqueda actuales
+        $filterForm = $this->createForm(\App\Form\TicketFilterType::class, $searchData);
+
+        return $this->render('ticket/historial_usuario.html.twig', [
+            'tickets' => $result['items'],
+            'filter_form' => $filterForm->createView(),
+            'currentPage' => $result['currentPage'],
+            'totalPages' => $result['totalPages'],
+            'totalItems' => $result['totalItems'],
+            'itemsPerPage' => $result['itemsPerPage'],
+            'searchParams' => array_filter($searchData, function($value) {
+                return $value !== null && $value !== '';
+            }),
+            'sortState' => $sortState,
+            'user' => $user,
+        ]);
+    }
+
     #[Route('/{id}/colaborar', name: 'ticket_colaborar', methods: ['GET', 'POST'])]
     public function colaborar(
         int $id,
