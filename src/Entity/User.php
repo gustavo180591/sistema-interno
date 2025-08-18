@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -24,10 +26,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $email = null;
 
     /**
-     * @var string[] The user roles
+     * @var string[] The user roles (for security)
      */
     #[ORM\Column(type: 'json')]
     private array $roles = [];
+
+    /**
+     * @var Collection<int, Role>
+     */
+    #[ORM\ManyToMany(targetEntity: Role::class, inversedBy: 'users')]
+    #[ORM\JoinTable(name: 'user_roles')]
+    private Collection $userRoles;
 
     /**
      * @var string The hashed password
@@ -47,6 +56,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 50, unique: true)]
     private ?string $username = null;
 
+    public function __construct()
+    {
+        $this->userRoles = new ArrayCollection();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
@@ -55,6 +69,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getEmail(): ?string
     {
         return $this->email;
+    }
+
+    public function setEmail(string $email): static
+    {
+        $this->email = $email;
+        return $this;
     }
 
     public function getUsername(): ?string
@@ -68,39 +88,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function setEmail(string $email): static
-    {
-        $this->email = $email;
-
-        return $this;
-    }
-
-    /**
-     * A visual identifier that represents this user.
-     *
-     * @see UserInterface
-     */
     public function getUserIdentifier(): string
     {
         return (string) $this->email;
     }
 
     /**
-     * @see UserInterface
+     * @return string[]
      */
     public function getRoles(): array
     {
         $roles = $this->roles;
         
-        // Ensure $roles is an array
-        if (!is_array($roles)) {
-            $roles = [];
+        // Add roles from userRoles relationship
+        if ($this->userRoles instanceof Collection) {
+            foreach ($this->userRoles as $role) {
+                if (method_exists($role, 'getRoleName')) {
+                    $roleName = $role->getRoleName();
+                    if (!in_array($roleName, $roles, true)) {
+                        $roles[] = $roleName;
+                    }
+                }
+            }
         }
         
-        // Ensure ROLE_USER is always present
-        if (!in_array('ROLE_USER', $roles, true)) {
-            $roles[] = 'ROLE_USER';
-        }
+        // Ensure we always have at least ROLE_USER
+        $roles[] = 'ROLE_USER';
         
         return array_values(array_unique($roles));
     }
@@ -110,20 +123,60 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function setRoles(array $roles): static
     {
-        // Ensure we only store string values and remove any duplicates
-        $this->roles = array_values(array_unique(array_filter($roles, 'is_string')));
-        
-        // Ensure we always have at least ROLE_USER
-        if (empty($this->roles) || !in_array('ROLE_USER', $this->roles, true)) {
-            $this->roles[] = 'ROLE_USER';
+        $this->roles = [];
+        foreach ($roles as $role) {
+            $this->addRole($role);
+        }
+        return $this;
+    }
+
+    public function addRole(string $role): static
+    {
+        $role = strtoupper($role);
+        if (!in_array($role, $this->roles, true)) {
+            $this->roles[] = $role;
+        }
+        return $this;
+    }
+
+    public function removeRole(string $role): static
+    {
+        $role = strtoupper($role);
+        $key = array_search($role, $this->roles, true);
+        if ($key !== false) {
+            unset($this->roles[$key]);
         }
         return $this;
     }
 
     /**
-     * @see PasswordAuthenticatedUserInterface
+     * @return Collection<int, Role>
      */
-    public function getPassword(): ?string
+    public function getUserRoles(): Collection
+    {
+        return $this->userRoles;
+    }
+
+    public function addUserRole(Role $role): static
+    {
+        if (!$this->userRoles->contains($role)) {
+            $this->userRoles[] = $role;
+        }
+        return $this;
+    }
+
+    public function removeUserRole(Role $role): static
+    {
+        $this->userRoles->removeElement($role);
+        return $this;
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return in_array(strtoupper($role), $this->getRoles(), true);
+    }
+
+    public function getPassword(): string
     {
         return $this->password;
     }
@@ -131,25 +184,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(string $password): static
     {
         $this->password = $password;
-
         return $this;
     }
 
-    /**
-     * Ensure the session doesn't contain actual password hashes by CRC32C-hashing them, as supported since Symfony 7.3.
-     */
-    public function __serialize(): array
-    {
-        $data = (array) $this;
-        $data["\0".self::class."\0password"] = hash('crc32c', $this->password);
-
-        return $data;
-    }
-
-    #[\Deprecated]
     public function eraseCredentials(): void
     {
-        // @deprecated, to be removed when upgrading to Symfony 8
+        // If you store any temporary, sensitive data on the user, clear it here
+    }
+
+    public function getSalt(): ?string
+    {
+        // Not needed when using the "bcrypt" algorithm in security.yaml
+        return null;
     }
 
     public function isVerified(): bool
@@ -160,7 +206,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setIsVerified(bool $isVerified): static
     {
         $this->isVerified = $isVerified;
-
         return $this;
     }
 
@@ -184,5 +229,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->apellido = $apellido;
         return $this;
+    }
+
+    public function __serialize(): array
+    {
+        return [
+            'id' => $this->id,
+            'email' => $this->email,
+            'password' => $this->password,
+            'is_verified' => $this->isVerified,
+            'roles' => $this->roles,
+        ];
+    }
+
+    public function __unserialize(array $data): void
+    {
+        $this->id = $data['id'] ?? null;
+        $this->email = $data['email'] ?? null;
+        $this->password = $data['password'] ?? null;
+        $this->isVerified = $data['is_verified'] ?? false;
+        $this->roles = $data['roles'] ?? [];
     }
 }

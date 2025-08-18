@@ -89,16 +89,33 @@
                     </div>
                     
                     <div class="p-3 border-top">
-                        {{ form_start(task_form, {'attr': {'class': 'd-flex gap-2'}}) }}
-                            <div class="flex-grow-1">
-                                {{ form_widget(task_form.description, {'attr': {
-                                    'class': 'form-control',
-                                    'placeholder': 'Añadir una nueva tarea...'
-                                }}) }}
+                        {{ form_start(task_form, {'attr': {'class': 'task-form', 'id': 'task_form'}}) }}
+                            <div class="mb-3">
+                                {{ form_widget(task_form.taskType, {
+                                    'attr': { 
+                                        'class': 'form-select', 
+                                        'id': 'task_type_select' 
+                                    }
+                                }) }}
                             </div>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-plus-lg"></i> Agregar
-                            </button>
+
+                            <div class="d-flex align-items-start gap-2">
+                                <div class="flex-grow-1" id="custom_task_container" style="display:none">
+                                    {{ form_widget(task_form.description, {
+                                        'attr': { 
+                                            'class': 'form-control', 
+                                            'id': 'task_description', 
+                                            'placeholder': 'Escribe aquí la tarea personalizada...' 
+                                        }
+                                    }) }}
+                                </div>
+
+                                <div>
+                                    <button type="submit" class="btn btn-primary" id="add_task_btn" disabled>
+                                        <i class="bi bi-plus-lg"></i> Agregar
+                                    </button>
+                                </div>
+                            </div>
                         {{ form_end(task_form) }}
                     </div>
                 </div>
@@ -193,17 +210,205 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block javascripts %}
-{{ parent() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Task completion toggle
-    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', async function() {
-            const taskId = this.dataset.taskId;
-            const isCompleted = this.checked;
+    <!-- Delete Task Modal -->
+    <div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Eliminar tarea</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    ¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteTask">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block javascripts %}
+    {{ parent() }}
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('task_form');
+      const typeSel = document.getElementById('task_type_select');
+      const descInp = document.getElementById('task_description');
+      const customBox = document.getElementById('custom_task_container');
+      const addBtn = document.getElementById('add_task_btn');
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+      function updateUI() {
+        const val = (typeSel?.value || '').trim();
+
+        if (val === '') {
+          // Nada seleccionado
+          customBox.style.display = 'none';
+          if (descInp) descInp.required = false;
+          if (addBtn) addBtn.disabled = true;
+          return;
+        }
+
+        if (val === 'other') {
+          // Mostrar input y habilitar botón solo si hay texto
+          if (customBox) customBox.style.display = 'block';
+          if (descInp) {
+            descInp.required = true;
+            descInp.focus();
+          }
+          if (addBtn) addBtn.disabled = !(descInp?.value.trim());
+        } else {
+          // Opción predefinida -> ocultar input y enviar
+          if (customBox) customBox.style.display = 'none';
+          if (descInp) descInp.required = false;
+          if (addBtn) addBtn.disabled = false;
+          
+          // Enviar el formulario automáticamente
+          if (form) {
+            const formData = new FormData(form);
+            formData.set('task[taskType]', val);
+            
+            fetch(form.action, {
+              method: 'POST',
+              body: formData,
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': csrfToken || ''
+              }
+            }).then(response => {
+              if (response.redirected) {
+                window.location.href = response.url;
+              }
+            }).catch(error => {
+              console.error('Error:', error);
+              showToast('Error al agregar la tarea', 'danger');
+            });
+          }
+        }
+      }
+
+      if (typeSel) {
+        typeSel.addEventListener('change', updateUI);
+      }
+      
+      if (descInp) {
+        descInp.addEventListener('input', () => {
+          if (typeSel && typeSel.value === 'other' && addBtn) {
+            addBtn.disabled = (descInp.value.trim() === '');
+          }
+        });
+      }
+
+      // Estado inicial
+      updateUI();
+
+        // Task completion toggle
+        document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', async function() {
+                const taskId = this.dataset.taskId;
+                const isCompleted = this.checked;
+                const taskItem = this.closest('.list-group-item');
+                const label = taskItem.querySelector('.form-check-label');
+                const completedAtElement = taskItem.querySelector('.task-completed-at');
+                
+                try {
+                    const url = '{{ path("task_toggle", {"id": "TASK_ID"}) }}'.replace('TASK_ID', taskId);
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': csrfToken,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            completed: isCompleted,
+                            _token: csrfToken
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.error || 'Error en el servidor');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (!data.ok) {
+                        throw new Error(data.error || 'Error al actualizar la tarea');
+                    }
+                    
+                    // Update UI on success
+                    if (data.completed) {
+                        label.classList.add('text-muted');
+                        if (data.completedAt && !completedAtElement) {
+                            const completedAt = document.createElement('small');
+                            completedAt.className = 'd-block text-muted task-completed-at';
+                            completedAt.textContent = `• Completado el ${data.completedAt}`;
+                            label.appendChild(completedAt);
+                        }
+                    } else {
+                        label.classList.remove('text-muted');
+                        if (completedAtElement) {
+                            completedAtElement.remove();
+                        }
+                    }
+                    
+                    // Show success message
+                    showToast(data.completed ? '✅ Tarea completada' : '🔄 Tarea marcada como pendiente');
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.checked = !isCompleted; // Revert checkbox state
+                    showToast('Error al actualizar la tarea: ' + (error.message || 'Error desconocido'), 'danger');
+                }
+            });
+        });
+        
+        // Helper function to show toast messages
+        function showToast(message, type = 'success') {
+            const toastEl = document.getElementById('toast');
+            if (!toastEl) return;
+            
+            const toastBody = toastEl.querySelector('.toast-body');
+            const toast = new bootstrap.Toast(toastEl);
+            
+            // Update toast appearance based on message type
+            if (type === 'danger') {
+                toastEl.classList.add('bg-danger', 'text-white');
+                toastEl.classList.remove('bg-success');
+            } else {
+                toastEl.classList.add('bg-success', 'text-white');
+                toastEl.classList.remove('bg-danger');
+            }
+            
+            if (toastBody) {
+                toastBody.textContent = message;
+                toast.show();
+            }
+        }
+        
+        // Delete task
+        let taskToDelete = null;
+        const deleteButtons = document.querySelectorAll('.delete-task');
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
+        
+        // Get CSRF token from meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                taskToDelete = this.dataset.taskId;
+                deleteModal.show();
+            });
+        });
+        
+        document.getElementById('confirmDeleteTask')?.addEventListener('click', async function() {
+            if (!taskToDelete) return;
             const taskItem = this.closest('.list-group-item');
             const label = taskItem.querySelector('.form-check-label');
             const completedAtElement = taskItem.querySelector('.task-completed-at');

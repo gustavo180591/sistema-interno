@@ -17,24 +17,24 @@
                 letter-spacing: 0.5px;
                 padding: 0.4em 0.8em;
             }
-            
+
             .badge.bg-warning {
                 background-color: #ffc107 !important;
                 color: #000;
             }
-            
+
             .badge.bg-primary {
                 background-color: #0d6efd !important;
             }
-            
+
             .badge.bg-success {
                 background-color: #198754 !important;
             }
-            
+
             .badge.bg-danger {
                 background-color: #dc3545 !important;
             }
-            
+
             /* Estilos para el modal de colaboración */
             .modal-content {
                 border: none;
@@ -42,21 +42,21 @@
                 border-radius: 0.5rem;
                 overflow: hidden;
             }
-            
+
             .modal-header {
                 border-bottom: 1px solid rgba(0, 0, 0, 0.1);
                 padding: 1.25rem 1.5rem;
             }
-            
+
             .modal-body {
                 padding: 1.5rem;
             }
-            
+
             .modal-footer {
                 border-top: 1px solid rgba(0, 0, 0, 0.1);
                 padding: 1rem 1.5rem;
             }
-            
+
             /* Estilos para los mensajes de validación */
             .is-invalid {
                 border-color: #dc3545 !important;
@@ -66,7 +66,7 @@
                 background-position: right calc(0.375em + 0.1875rem) center;
                 background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
             }
-            
+
             .is-valid {
                 border-color: #198754 !important;
                 padding-right: calc(1.5em + 0.75rem);
@@ -75,7 +75,7 @@
                 background-position: right calc(0.375em + 0.1875rem) center;
                 background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
             }
-            
+
             .invalid-feedback {
                 display: none;
                 width: 100%;
@@ -83,14 +83,14 @@
                 font-size: 0.875em;
                 color: #dc3545;
             }
-            
+
             .was-validated .form-control:invalid ~ .invalid-feedback,
             .was-validated .form-control:invalid ~ .invalid-tooltip,
             .form-control.is-invalid ~ .invalid-feedback,
             .form-control.is-invalid ~ .invalid-tooltip {
                 display: block;
             }
-            
+
             /* Estilos para el timeline en la vista de ticket */
             .timeline {
                 position: relative;
@@ -98,17 +98,17 @@
                 margin: 0 0 0 1rem;
                 border-left: 2px solid #e9ecef;
             }
-            
+
             .timeline-item {
                 position: relative;
                 padding-bottom: 1.5rem;
                 padding-left: 1.5rem;
             }
-            
+
             .timeline-item:last-child {
                 padding-bottom: 0;
             }
-            
+
             .timeline-badge {
                 position: absolute;
                 left: -0.5rem;
@@ -121,16 +121,16 @@
                 color: white;
                 font-size: 0.5rem;
             }
-            
+
             .timeline-content {
                 padding: 0.5rem 0 0 0.5rem;
             }
-            
+
             .timeline-content h6 {
                 margin: 0;
                 font-weight: 600;
             }
-            
+
             .timeline-content p {
                 margin: 0.25rem 0 0 0;
                 font-size: 0.875rem;
@@ -159,10 +159,28 @@
                                 </a>
                             </li>
                             {% if is_granted('ROLE_ADMIN') %}
-                                <li class="nav-item me-2">
-                                    <a class="btn btn-outline-light btn-sm mt-1" href="{{ path('admin_user_index') }}">
-                                        <i class="bi bi-people-fill me-1"></i> Panel de Usuarios
+                                <li class="nav-item dropdown me-2">
+                                    <a class="btn btn-outline-light btn-sm mt-1 dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-gear-fill me-1"></i> Panel
                                     </a>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ path('admin_user_index') }}">
+                                                <i class="bi bi-people-fill me-2"></i>Usuarios
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ path('admin_role_index') }}">
+                                                <i class="bi bi-shield-lock me-2"></i>Roles y Permisos
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ path('ticket_lista') }}">
+                                                <i class="bi bi-ticket-detailed me-2"></i>Ver Tickets
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </li>
                             {% endif %}
                             <li class="nav-item">
@@ -197,7 +215,7 @@
                     {% endfor %}
                 {% endfor %}
             </div>
-            
+
             {% block body %}{% endblock %}
         </main>
 
