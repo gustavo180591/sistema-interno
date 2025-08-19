@@ -130,7 +130,14 @@
                 <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros Avanzados</h6>
             </div>
             <div class="card-body">
-                {{ form_start(filter_form, {'method': 'GET', 'attr': {'class': 'row g-3', 'id': 'filterForm'}}) }}
+                {{ form_start(filter_form, {
+                    'attr': {
+                        'class': 'row g-3',
+                        'id': 'ticket-filter-form',
+                        'data-turbo': 'false'
+                    },
+                    'method': 'GET'
+                }) }}
                     <div class="col-md-4">
                         <label class="form-label small text-muted mb-1">Búsqueda</label>
                         <div class="input-group">
@@ -199,354 +206,33 @@
         </div>
     </div>
 
-    {% if tickets is not empty %}
-        <!-- Table View -->
-        <div id="tableView" class="view-content">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted small">Mostrando {{ tickets|length }} de {{ totalItems }} tickets</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <span class="text-muted small">Página {{ currentPage }} de {{ totalPages }}</span>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0" id="ticketsTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="id-column">
-                                        {{ _self.sortable_header('ID', 'id', sortState) }}
-                                    </th>
-                                    <th class="ticket-id-column">
-                                        {{ _self.sortable_header('Ticket', 'ticketId', sortState) }}
-                                    </th>
-                                    <th style="min-width: 400px;">
-                                        <div class="row g-0">
-                                            <div class="col-6">
-                                                {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
-                                            </div>
-                                            <div class="col-6">
-                                                {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
-                                            </div>
-                                        </div>
-                                    </th>
-                                    <th class="area-column">
-                                        {{ _self.sortable_header('Área', 'departamento', sortState) }}
-                                    </th>
-                                    <th class="status-column text-center">
-                                        {{ _self.sortable_header('Estado', 'estado', sortState) }}
-                                    </th>
-                                    <th class="date-column">
-                                        {{ _self.sortable_header('Creado', 'createdAt', sortState) }}
-                                    </th>
-                                    {% if is_granted('ROLE_ADMIN') %}
-                                    <th class="creator-column">Creado por</th>
-                                    {% endif %}
-                                    <th class="actions-column">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for ticket in tickets %}
-                                    <tr class="ticket-row" data-ticket-id="{{ ticket.id }}">
-                                        <td class="align-middle text-center">{{ ticket.id }}</td>
-                                        <td class="align-middle">
-                                            <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
-                                                <code>{{ ticket.ticketId }}</code>
-                                            </a>
-                                        </td>
-                                        <td class="align-middle">
-                                            <div class="row g-2">
-                                                <div class="col-6">
-                                                    <div class="pedido-column" title="{{ ticket.pedido }}">
-                                                        {{ ticket.pedido ?: '-' }}
-                                                    </div>
-                                                </div>
-                                                <div class="col-6">
-                                                    <div class="descripcion-column" title="{{ ticket.descripcion }}">
-                                                        {{ ticket.descripcion }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="align-middle">
-                                            <div class="d-flex flex-column">
-                                                                                        <span class="badge rounded-pill bg-light text-dark department-badge">
-                                            {% if ticket.departamento == 1 %}
-                                                <i class="bi bi-building me-1"></i> Presidencia
-                                            {% elseif ticket.departamento == 2 %}
-                                                <i class="bi bi-file-earmark-text me-1"></i> Secretaría
-                                            {% elseif ticket.departamento == 3 %}
-                                                <i class="bi bi-journal-text me-1"></i> Prosecretaria Legislativa
-                                            {% elseif ticket.departamento == 4 %}
-                                                <i class="bi bi-gear me-1"></i> Prosecretaria Administrativa
-                                            {% elseif ticket.departamento == 8 %}
-                                                <i class="bi bi-pc-display me-1"></i> Gestión y TIC
-                                            {% elseif ticket.departamento == 9 %}
-                                                <i class="bi bi-people me-1"></i> Desarrollo Humano
-                                            {% elseif ticket.departamento == 10 %}
-                                                <i class="bi bi-person-badge me-1"></i> Personal
-                                            {% elseif ticket.departamento == 11 %}
-                                                <i class="bi bi-people me-1"></i> RR.HH
-                                            {% elseif ticket.departamento == 12 %}
-                                                <i class="bi bi-shield-check me-1"></i> Asuntos Jurídicos
-                                            {% elseif ticket.departamento == 13 %}
-                                                <i class="bi bi-calculator me-1"></i> Contabilidad y Presupuesto
-                                            {% elseif ticket.departamento == 14 %}
-                                                <i class="bi bi-cash-stack me-1"></i> Liquidación de Sueldos
-                                            {% elseif ticket.departamento == 15 %}
-                                                <i class="bi bi-box-seam me-1"></i> Abastecimiento
-                                            {% elseif ticket.departamento == 16 %}
-                                                <i class="bi bi-heart me-1"></i> Salud Mental
-                                            {% elseif ticket.departamento == 17 %}
-                                                <i class="bi bi-tools me-1"></i> Icono
-                                            {% elseif ticket.departamento == 18 %}
-                                                <i class="bi bi-megaphone me-1"></i> RR.PP y Ceremonial
-                                            {% elseif ticket.departamento == 19 %}
-                                                <i class="bi bi-book me-1"></i> Digesto Jurídico
-                                            {% elseif ticket.departamento == 20 %}
-                                                <i class="bi bi-newspaper me-1"></i> Prensa
-                                            {% elseif ticket.departamento >= 47 and ticket.departamento <= 60 %}
-                                                <i class="bi bi-person-circle me-1"></i> Concejal
-                                            {% else %}
-                                                <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre|default('Otro') }}
-                                            {% endif %}
-                                        </span>
-                                            </div>
-                                        </td>
-                                        <td class="align-middle">
-                                            {% set statusColors = {
-                                                'pendiente': 'warning',
-                                                'en proceso': 'info',
-                                                'terminado': 'success',
-                                                'rechazado': 'danger'
-                                            } %}
-                                            {% set statusIcons = {
-                                                'pendiente': 'clock',
-                                                'en proceso': 'arrow-repeat',
-                                                'terminado': 'check-circle',
-                                                'rechazado': 'x-circle'
-                                            } %}
-                                            
-                                            <div class="dropdown d-flex flex-column align-items-center">
-                                                <button class="btn btn-sm p-0 border-0 bg-transparent dropdown-toggle" type="button" id="statusDropdown{{ ticket.id }}" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <span class="badge bg-{{ statusColors[ticket.estado]|default('secondary') }} rounded-pill px-3 py-2">
-                                                        <i class="bi bi-{{ statusIcons[ticket.estado]|default('question-circle') }} me-1"></i>
-                                                        {{ ticket.estado|capitalize }}
-                                                    </span>
-                                                </button>
-                                                <ul class="dropdown-menu" aria-labelledby="statusDropdown{{ ticket.id }}">
-                                                    {% for estado, color in statusColors %}
-                                                        <li>
-                                                            <form method="post" action="{{ path('ticket_cambiar_estado', { id: ticket.id }) }}" class="d-inline">
-                                                                <input type="hidden" name="_token" value="{{ csrf_token('cambiar_estado_' ~ ticket.id) }}">
-                                                                <input type="hidden" name="estado" value="{{ estado }}">
-                                                                <button type="submit" class="dropdown-item d-flex align-items-center {{ ticket.estado == estado ? 'active' : '' }}">
-                                                                    <span class="badge bg-{{ color }} me-2"></span>
-                                                                    {{ estado|capitalize }}
-                                                                    {% if ticket.estado == estado %}
-                                                                        <i class="bi bi-check2 ms-auto"></i>
-                                                                    {% endif %}
-                                                                </button>
-                                                            </form>
-                                                        </li>
-                                                    {% endfor %}
-                                                </ul>
-                                            </div>
-                                            </div>
-                                        </td>
-                                        <td class="date-column">
-                                            <div class="d-flex flex-column">
-                                                <div class="fw-medium">{{ ticket.createdAt|date('d/m/Y') }}</div>
-                                                <div class="text-muted small">{{ ticket.createdAt|date('H:i') }}</div>
-                                                {% if ticket.updatedAt is defined and ticket.updatedAt is not null and ticket.updatedAt|date('Y-m-d H:i') != ticket.createdAt|date('Y-m-d H:i') %}
-                                                    <div class="text-muted small" data-bs-toggle="tooltip" title="Última actualización: {{ ticket.updatedAt|date('d/m/Y H:i') }}">
-                                                        <i class="bi bi-arrow-repeat"></i> {{ ticket.updatedAt|date('d/m/Y') }}
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        {% if is_granted('ROLE_ADMIN') %}
-                                        <td class="creator-column">
-                                            {% if ticket.createdBy %}
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <div class="avatar-sm rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                                            <span class="text-primary fw-medium">
-                                                                {{ ticket.createdBy.nombre|first|upper }}{{ ticket.createdBy.apellido|first|upper }}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div class="flex-grow-1">
-                                                        <div class="fw-medium">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
-                                                        <small class="text-muted">{{ ticket.createdBy.email }}</small>
-                                                    </div>
-                                                </div>
-                                            {% else %}
-                                                <span class="text-muted">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        {% endif %}
-                                        <td class="actions-column">
-                                            <div class="d-flex flex-column gap-1">
-                                                <div class="d-flex gap-1">
-                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary flex-grow-1" data-bs-toggle="tooltip" title="Ver detalles">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Editar ticket">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </a>
-                                                    {% set pendingTasks = ticket.tasks|filter(t => not t.completed)|length %}
-                                                    <a href="{{ path('ticket_show', {'id': ticket.id, '_fragment': 'tasks'}) }}"
-                                                       class="btn btn-sm btn-{{ pendingTasks > 0 ? 'warning' : 'outline-secondary' }} position-relative"
-                                                       data-bs-toggle="tooltip"
-                                                       title="{{ pendingTasks > 0 ? pendingTasks ~ ' tarea(s) pendiente(s)' : 'Ver tareas' }}">
-                                                        <i class="bi bi-list-check"></i>
-                                                        {% if pendingTasks > 0 %}
-                                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                                                {{ pendingTasks }}
-                                                                <span class="visually-hidden">tareas pendientes</span>
-                                                            </span>
-                                                        {% endif %}
-                                                    </a>
-                                                </div>
-                                                {% if is_granted('ROLE_ADMIN') %}
-                                                <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="tooltip" title="Eliminar ticket" onclick="return confirm('¿Estás seguro de eliminar este ticket?')">
-                                                    <i class="bi bi-trash"></i> Eliminar
-                                                </button>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Cards View - Oculto por defecto -->
-        {# <div id="cardsView" class="view-content" style="display: none;">
-            Vista de tarjetas deshabilitada
-        </div> #}
-
-        <!-- Pagination -->
-        {% if totalPages > 1 %}
-        <div class="card border-0 shadow-sm mt-4">
-            <div class="card-body">
-                <nav aria-label="Paginación de tickets">
-                    <ul class="pagination justify-content-center mb-0">
-                        <li class="page-item {{ currentPage == 1 ? 'disabled' }}">
-                            <a class="page-link" href="{{ path('ticket_lista', { page: currentPage - 1 }|merge(searchParams)) }}" aria-label="Anterior">
-                                <span aria-hidden="true">&laquo;</span>
-                            </a>
-                        </li>
-
-                        {% set startPage = max(1, currentPage - 2) %}
-                        {% set endPage = min(totalPages, startPage + 4) %}
-                        {% if endPage - startPage < 4 %}
-                            {% set startPage = max(1, endPage - 4) %}
-                        {% endif %}
-
-                        {% if startPage > 1 %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ path('ticket_lista', { page: 1 }|merge(searchParams)) }}">1</a>
-                            </li>
-                            {% if startPage > 2 %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                            {% endif %}
-                        {% endif %}
-
-                        {% for i in startPage..endPage %}
-                            <li class="page-item {{ i == currentPage ? 'active' }}">
-                                <a class="page-link" href="{{ path('ticket_lista', { page: i }|merge(searchParams)) }}">
-                                    {{ i }}
-                                </a>
-                            </li>
-                        {% endfor %}
-
-                        {% if endPage < totalPages %}
-                            {% if endPage < totalPages - 1 %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                            {% endif %}
-                            <li class="page-item">
-                                <a class="page-link" href="{{ path('ticket_lista', { page: totalPages }|merge(searchParams)) }}">
-                                    {{ totalPages }}
-                                </a>
-                            </li>
-                        {% endif %}
-
-                        <li class="page-item {{ currentPage == totalPages ? 'disabled' }}">
-                            <a class="page-link" href="{{ path('ticket_lista', { page: currentPage + 1 }|merge(searchParams)) }}" aria-label="Siguiente">
-                                <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                    </ul>
-                    <div class="text-center text-muted small mt-2">
-                        Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a
-                        {{ min(currentPage * itemsPerPage, totalItems) }} de {{ totalItems }} tickets
-                    </div>
-                </nav>
-            </div>
-        </div>
-        {% endif %}
-    {% else %}
+    <!-- Table View -->
+    <div id="tableView" class="view-content">
         <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-5">
-                <div class="mb-3">
-                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+            <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small" id="ticket-count">
+                        {% if tickets is not empty %}
+                            Mostrando {{ tickets|length }} de {{ totalItems }} tickets
+                        {% else %}
+                            No se encontraron tickets
+                        {% endif %}
+                    </span>
                 </div>
-                <h5 class="text-muted">No se encontraron tickets</h5>
-                <p class="text-muted mb-3">No hay tickets que coincidan con los criterios de búsqueda.</p>
-                <a href="{{ path('ticket_lista') }}" class="btn btn-outline-primary">
-                    <i class="bi bi-arrow-clockwise me-1"></i>Limpiar filtros
-                </a>
-            </div>
-        </div>
-    {% endif %}
-</div>
-
-<!-- Quick Actions Modal -->
-<div class="modal fade" id="quickActionsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Acciones Rápidas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row g-3">
-                    <div class="col-6">
-                        <button class="btn btn-outline-primary w-100 h-100 py-3" onclick="window.location.href='{{ path('ticket_nuevo') }}'">
-                            <i class="bi bi-plus-lg fs-4 d-block mb-2"></i>
-                            Nuevo Ticket
+                <div class="d-flex align-items-center">
+                    <div class="btn-group btn-group-sm me-2" role="group" aria-label="Vista">
+                        <button type="button" class="btn btn-outline-secondary active" id="tableViewBtn">
+                            <i class="bi bi-list-ul"></i>
                         </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-secondary w-100 h-100 py-3" onclick="document.getElementById('filtrosPanel').classList.add('show')">
-                            <i class="bi bi-funnel fs-4 d-block mb-2"></i>
-                            Filtros
-                        </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-info w-100 h-100 py-3" onclick="window.location.reload()">
-                            <i class="bi bi-arrow-clockwise fs-4 d-block mb-2"></i>
-                            Recargar
-                        </button>
-                    </div>
-                    <div class="col-6">
-                        <button class="btn btn-outline-success w-100 h-100 py-3" onclick="exportTickets()">
-                            <i class="bi bi-download fs-4 d-block mb-2"></i>
-                            Exportar
+                        <button type="button" class="btn btn-outline-secondary" id="cardsViewBtn" disabled>
+                            <i class="bi bi-grid-3x3-gap"></i>
                         </button>
                     </div>
                 </div>
+            </div>
+            <div id="ticket-table-container">
+                <!-- The ticket table will be loaded here via AJAX -->
+                {% include 'ticket/_ticket_table.html.twig' %}
             </div>
         </div>
     </div>
@@ -554,6 +240,141 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Debounce function to limit how often a function can be called
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Function to update the URL with current filters
+    function updateUrl() {
+        const url = new URL(window.location.href);
+        const formData = new FormData(document.getElementById('ticket-filter-form'));
+        
+        // Clear existing params
+        const params = new URLSearchParams();
+        
+        // Add form data to params
+        formData.forEach((value, key) => {
+            if (value && value !== '') {
+                params.set(key, value);
+            }
+        });
+        
+        // Update URL without page reload
+        window.history.pushState({}, '', `${url.pathname}?${params.toString()}`);
+    }
+
+    // Function to load tickets via AJAX
+    function loadTickets() {
+        const formData = new FormData(document.getElementById('ticket-filter-form'));
+        const url = new URL(window.location.href);
+        
+        // Add form data to URL params
+        formData.forEach((value, key) => {
+            if (value && value !== '') {
+                url.searchParams.set(key, value);
+            } else {
+                url.searchParams.delete(key);
+            }
+        });
+        
+        // Show loading state
+        const container = document.getElementById('ticket-table-container');
+        container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>';
+        
+        // Make AJAX request
+        fetch(url.toString(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            container.innerHTML = html;
+            // Re-initialize tooltips
+            const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(tooltipTriggerEl => {
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Update ticket count
+            const ticketCount = container.querySelectorAll('tbody tr').length;
+            const totalItems = {{ totalItems }};
+            document.getElementById('ticket-count').textContent = 
+                ticketCount > 0 
+                    ? `Mostrando ${ticketCount} de ${totalItems} tickets`
+                    : 'No se encontraron tickets';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            container.innerHTML = '<div class="alert alert-danger m-3">Error al cargar los tickets. Por favor, intente de nuevo.</div>';
+        });
+    }
+    
+    // Add event listeners for filter changes
+    const filterForm = document.getElementById('ticket-filter-form');
+    if (filterForm) {
+        // Handle input events with debounce
+        const searchInputs = filterForm.querySelectorAll('input[type="text"], input[type="date"], input[type="search"]');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', debounce(loadTickets, 300));
+        });
+        
+        // Handle select changes
+        const selectInputs = filterForm.querySelectorAll('select');
+        selectInputs.forEach(select => {
+            select.addEventListener('change', loadTickets);
+        });
+        
+        // Handle form submission
+        filterForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            loadTickets();
+        });
+    }
+    
+    // Handle pagination clicks
+    document.addEventListener('click', function(e) {
+        const pageLink = e.target.closest('.page-link');
+        if (pageLink && !pageLink.closest('.disabled')) {
+            e.preventDefault();
+            const page = pageLink.dataset.page;
+            if (page) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', page);
+                window.location.href = url.toString();
+            }
+        }
+    });
+    
+    // Handle sort links
+    document.addEventListener('click', function(e) {
+        const sortLink = e.target.closest('.sort-link');
+        if (sortLink) {
+            e.preventDefault();
+            const field = sortLink.dataset.sort;
+            const order = sortLink.dataset.order;
+            
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort_by', field);
+            url.searchParams.set('sort_order', order);
+            
+            // Reset to first page when changing sort
+            url.searchParams.set('page', '1');
+            
+            window.location.href = url.toString();
+        }
+    });
+    
+    // Initialize tooltips
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {

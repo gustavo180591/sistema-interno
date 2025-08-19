@@ -3,35 +3,45 @@
 {% block title %}Nuevo Ticket de Soporte{% endblock %}
 
 {% block body %}
-<div class="container py-5">
+<div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
                 <!-- Encabezado con degradado -->
-                <div class="card-header bg-primary bg-gradient text-white py-4">
-                    <div class="text-center">
-                        <h1 class="h3 mb-2">📋 Nuevo Ticket de Soporte</h1>
-                        <p class="mb-0 opacity-75">Completa los campos para registrar tu solicitud</p>
+                <div class="card-header bg-primary bg-gradient text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{{ path('ticket_lista') }}" class="btn btn-outline-light btn-sm me-3">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h1 class="h5 mb-0 fw-bold"><i class="bi bi-ticket-detailed me-2"></i>Nuevo Ticket de Soporte</h1>
+                            <small class="opacity-75">Complete el formulario para registrar una nueva solicitud</small>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Cuerpo del formulario -->
-                <div class="card-body p-4 p-md-5">
-                    {# Mensajes flash #}
-                    {% for label, messages in app.flashes %}
-                        {% for message in messages %}
-                            <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'info') }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
+                <div class="card-body p-4">
+                    <!-- Mensajes flash -->
+                    <div class="mb-4">
+                        {% for label, messages in app.flashes %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'info') }} alert-dismissible fade show mb-3" role="alert">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi {{ label == 'success' ? 'bi-check-circle-fill' : (label == 'error' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill') }} me-2"></i>
+                                        <div>{{ message }}</div>
+                                    </div>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
+                    </div>
 
                     {{ form_start(form, { attr: { novalidate: 'novalidate', class: 'needs-validation' } }) }}
                     
                     <div class="row g-4">
                         <!-- Primera columna -->
-                        <div class="col-md-6">
+                        <div class="col-lg-6">
                             <!-- ID de Ticket -->
                             <div class="mb-4">
                                 {{ form_label(form.ticketId, 'ID de Ticket', {'label_attr': {'class': 'form-label fw-bold'}}) }}
@@ -52,25 +62,24 @@
                                 {{ form_errors(form.ticketId) }}
                             </div>
 
-                            <!-- Área de Origen -->
+                            <!-- Área de Origen con buscador -->
                             <div class="mb-4">
                                 {{ form_label(form.departamento, 'Área de Origen', {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                 <div class="input-group">
                                     <span class="input-group-text bg-light">
-                                        <i class="bi bi-building"></i>
+                                        <i class="bi bi-search"></i>
                                     </span>
                                     {{ form_widget(form.departamento, {
                                         'attr': {
-                                            'class': 'form-select form-select-lg',
-                                            'data-choices': 'true',
-                                            'data-search-enabled': 'true',
-                                            'data-placeholder': 'Seleccionar área de origen...'
+                                            'class': 'form-select form-select-lg select2-search',
+                                            'data-placeholder': 'Buscar área de origen...',
+                                            'data-allow-clear': 'true'
                                         }
                                     }) }}
                                 </div>
                                 <div class="form-text text-muted">
                                     <i class="bi bi-info-circle me-1"></i>
-                                    Seleccione el área de origen de la Municipalidad de Posadas
+                                    Escriba para buscar el área de origen
                                 </div>
                                 {{ form_errors(form.departamento) }}
                             </div>
@@ -112,72 +121,74 @@
                         </div>
 
                         <!-- Segunda columna -->
-                        <div class="col-md-6">
+                        <div class="col-lg-6">
                             <!-- Solicitud / Pedido -->
                             <div class="mb-4">
                                 {{ form_label(form.pedido, 'Solicitud / Pedido', {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                 <div class="input-group">
                                     <span class="input-group-text bg-light align-items-start pt-3">
-                                        <i class="bi bi-chat-square-text"></i>
+                                        <i class="bi bi-chat-left-dots"></i>
                                     </span>
                                     {{ form_widget(form.pedido, {
                                         'attr': {
                                             'class': 'form-control form-control-lg',
-                                            'placeholder': 'Describa el pedido o solicitud con el mayor detalle posible...',
-                                            'rows': 5,
-                                            'data-controller': 'textarea-autogrow',
-                                            'style': 'min-height: 120px; resize: vertical;'
+                                            'placeholder': 'Describa el pedido o solicitud...',
+                                            'rows': 4,
+                                            'style': 'min-height: 100px; max-height: 200px; resize: vertical; overflow-y: auto;',
+                                            'oninput': 'this.style.height = "auto"; this.style.height = (this.scrollHeight > 200 ? "200px" : this.scrollHeight + "px");'
                                         }
                                     }) }}
                                 </div>
-                                <div class="form-text text-muted">Describa con detalle lo que se está solicitando</div>
+                                <div class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Describa su solicitud con el mayor detalle posible
+                                </div>
                                 {{ form_errors(form.pedido) }}
                             </div>
 
-                            <!-- Nuestra respuesta / Comentarios -->
+                            <!-- Descripción -->
                             <div class="mb-4">
-                                {{ form_label(form.descripcion, 'Nuestra respuesta / Comentarios', {'label_attr': {'class': 'form-label fw-bold'}}) }}
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light align-items-start pt-3">
-                                        <i class="bi bi-chat-left-dots"></i>
-                                    </span>
-                                    {{ form_widget(form.descripcion, {
-                                        'attr': {
-                                            'class': 'form-control form-control-lg',
-                                            'placeholder': 'Ingrese aquí nuestra respuesta o comentarios sobre el pedido...',
-                                            'rows': 5,
-                                            'data-controller': 'textarea-autogrow',
-                                            'style': 'min-height: 120px; resize: vertical;'
-                                        }
-                                    }) }}
+                                {{ form_label(form.descripcion, 'Descripción', {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                {{ form_widget(form.descripcion, {
+                                    'attr': {
+                                        'class': 'form-control w-100',
+                                        'rows': 5,
+                                        'style': 'width: 100% !important;',
+                                        'placeholder': 'Ingrese aquí la descripción detallada del trabajo o solicitud...',
+                                        'data-controller': 'textarea-autogrow'
+                                    }
+                                }) }}
+                                <div class="form-text text-muted">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Describa con detalle el trabajo o solicitud que se está realizando
                                 </div>
-                                <div class="form-text text-muted">Registre aquí la respuesta o comentarios sobre el pedido realizado</div>
                                 {{ form_errors(form.descripcion) }}
                             </div>
                         </div>
                     </div>
 
-                    <hr class="my-4">
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ path('ticket_lista') }}" class="btn btn-outline-secondary btn-lg px-4">
-                            <i class="bi bi-arrow-left"></i> Volver al listado
-                        </a>
-                        <div class="d-flex gap-3">
-                            <button type="reset" class="btn btn-outline-secondary btn-lg px-4">
-                                <i class="bi bi-arrow-counterclockwise"></i> Limpiar
-                            </button>
-                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
-                                <i class="bi bi-save"></i> Guardar Ticket
-                            </button>
+                    <div class="sticky-bottom bg-white py-3 border-top mt-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="reset" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-counterclockwise me-2"></i> Limpiar formulario
+                                </button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ path('ticket_lista') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="bi bi-save me-2"></i> Guardar Ticket
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-2 text-end">
+                            <i class="bi bi-keyboard"></i> Atajo: <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para guardar
                         </div>
                     </div>
 
-                    <div class="text-muted small mt-4 text-center">
-                        <i class="bi bi-keyboard"></i> Atajo: <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para guardar (con foco en cualquier campo)
-                    </div>
-
-                    {{ form_end(form) }}
+                    {{ form_end(form, {'render_rest': false}) }}
                 </div>
             </div>
         </div>

@@ -70,30 +70,37 @@
                                     'help_attr': {'class': 'form-text text-muted small'}
                                 }) }}
                             </div>
-                            <div class="col-12">
+                            <div class="form-section">
+                                <h3 class="form-section-title">
+                                    <i class="bi bi-shield-lock me-2"></i>Permisos y Roles
+                                </h3>
                                 <div class="mb-3">
-                                    <label class="form-label fw-bold">Roles *</label>
-                                    <div class="border rounded p-3">
-                                        {% for role in form.roles.vars.choices %}
-                                            <div class="form-check form-check-inline">
-                                                <input type="checkbox" 
-                                                       id="{{ form.roles.vars.id }}_{{ loop.index0 }}" 
-                                                       name="{{ form.roles.vars.full_name }}[]" 
-                                                       value="{{ role.value }}" 
-                                                       class="form-check-input {{ form.roles.vars.valid ? '' : 'is-invalid' }}" 
-                                                       {% if role.value in form.roles.vars.value or (form.roles.vars.value is empty and role.value == 'ROLE_USER') %}checked="checked"{% endif %}
-                                                       {% if form.roles.vars.required %}required{% endif %}>
-                                                <label class="form-check-label me-3" for="{{ form.roles.vars.id }}_{{ loop.index0 }}">
-                                                    {{ role.label }}
-                                                </label>
-                                            </div>
-                                        {% endfor %}
-                                        {% if form.roles.vars.help is defined and form.roles.vars.help %}
-                                            <div class="form-text text-muted mt-2">{{ form.roles.vars.help }}</div>
-                                        {% endif %}
-                                        <div class="invalid-feedback d-block">
-                                            {{ form_errors(form.roles) }}
+                                    <div class="p-3 bg-light rounded">
+                                        <p class="text-muted mb-3">Selecciona los roles que tendrá este usuario en el sistema:</p>
+                                        <div class="row g-3">
+                                            {% for choice in form.roles.vars.choices %}
+                                                {% set role = choice.data %}
+                                                <div class="col-md-6">
+                                                    <div class="form-check">
+                                                        <input type="checkbox" 
+                                                               id="{{ form.roles.vars.id }}_{{ loop.index0 }}" 
+                                                               name="{{ form.roles.vars.full_name }}[]" 
+                                                               value="{{ choice.value }}" 
+                                                               class="form-check-input"
+                                                               data-role-name="{{ choice.value }}"
+                                                               {% if choice.value in form.roles.vars.value %}checked{% endif %}>
+                                                        <label class="form-check-label fw-medium d-flex align-items-center" for="{{ form.roles.vars.id }}_{{ loop.index0 }}">
+                                                            <span class="me-2">{{ choice.label|split(' (', 2)[0] }}</span>
+                                                            <span class="badge bg-secondary">{{ choice.value }}</span>
+                                                        </label>
+                                                        {% if choice.attr.description is defined %}
+                                                            <div class="form-text text-muted small ms-4">{{ choice.attr.description }}</div>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
                                         </div>
+                                        {{ form_errors(form.roles) }}
                                     </div>
                                 </div>
                             </div>

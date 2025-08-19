@@ -61,6 +61,37 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->userRoles = new ArrayCollection();
     }
 
+    /**
+     * Get role display names
+     * 
+     * @return array
+     */
+    public function getRoleDisplayNames(): array
+    {
+        $roleMap = [
+            'ROLE_ADMIN' => 'Administrador',
+            'ROLE_USER' => 'Usuario',
+            // Add more role mappings as needed
+        ];
+
+        $displayNames = [];
+        foreach ($this->roles as $role) {
+            $displayNames[] = $roleMap[$role] ?? $role;
+        }
+
+        return $displayNames;
+    }
+
+    /**
+     * Get role display names for Twig templates
+     * 
+     * @return array
+     */
+    public function getRoleDisplayNamesForTwig(): array
+    {
+        return $this->getRoleDisplayNames();
+    }
+
     public function getId(): ?int
     {
         return $this->id;

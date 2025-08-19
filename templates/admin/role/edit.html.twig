@@ -1,27 +1,92 @@
-{% extends 'base.html.twig' %}
+{% extends 'admin/base_form.html.twig' %}
 
 {% block title %}Editar Rol{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8 offset-md-2">
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
             <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h2 class="h5 mb-0">Editar Rol: {{ role.name }}</h2>
+                <div class="card-header text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="h4 mb-0">
+                            <i class="bi bi-shield-lock me-2"></i>Editar Rol: {{ role.name }}
+                        </h1>
+                        <a href="{{ path('admin_role_index') }}" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i> Volver al listado
+                        </a>
+                    </div>
                 </div>
                 <div class="card-body">
-                    {{ form_start(form) }}
-                        {{ form_widget(form) }}
-                        <div class="d-flex justify-content-between mt-4">
-                            <a href="{{ path('admin_role_index') }}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left"></i> Volver al listado
-                            </a>
-                            <div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-save"></i> Guardar Cambios
-                                </button>
+                    {{ form_start(form, {'attr': {'class': 'needs-validation', 'novalidate': 'novalidate'}}) }}
+                        <div class="form-section">
+                            <h3 class="form-section-title">
+                                <i class="bi bi-info-circle me-2"></i>Información Básica
+                            </h3>
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    {{ form_row(form.name, {
+                                        'label': 'Nombre del Rol',
+                                        'attr': {
+                                            'class': 'form-control-lg',
+                                            'placeholder': 'Ej: Administrador'
+                                        },
+                                        'row_attr': {'class': 'form-floating mb-3'},
+                                        'help': 'Nombre único que identifica al rol en el sistema.'
+                                    }) }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form_row(form.roleName, {
+                                        'label': 'Identificador Técnico',
+                                        'attr': {
+                                            'class': 'form-control-lg',
+                                            'placeholder': 'Ej: ROLE_ADMIN'
+                                        },
+                                        'row_attr': {'class': 'form-floating mb-3'},
+                                        'help': 'Identificador único en formato ROLE_MAYUSCULAS. No usar espacios ni caracteres especiales.'
+                                    }) }}
+                                </div>
                             </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3 class="form-section-title">
+                                <i class="bi bi-list-check me-2"></i>Permisos
+                            </h3>
+                            <div class="p-3 bg-light rounded">
+                                <p class="text-muted mb-3">Selecciona los permisos que tendrá este rol:</p>
+                                {% if form.permissions is defined %}
+                                    <div class="row g-3">
+                                        {% for permission in form.permissions %}
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    {{ form_widget(permission, {
+                                                        'attr': {'class': 'form-check-input'}
+                                                    }) }}
+                                                    {{ form_label(permission, null, {
+                                                        'label_attr': {'class': 'form-check-label fw-medium'}
+                                                    }) }}
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    {{ form_errors(form.permissions) }}
+                                {% else %}
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        No hay permisos configurados en el sistema.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
+                            <a href="{{ path('admin_role_index') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-check-lg me-2"></i>Guardar Cambios
+                            </button>
                         </div>
                     {{ form_end(form) }}
                 </div>

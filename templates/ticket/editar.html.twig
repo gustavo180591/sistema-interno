@@ -3,36 +3,43 @@
 {% block title %}Editar Ticket #{{ ticket.ticketId }}{% endblock %}
 
 {% block body %}
-<div class="container py-5">
+<div class="container py-4">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{{ path('ticket_lista') }}">Tickets</a></li>
-                            <li class="breadcrumb-item"><a href="{{ path('ticket_show', {'id': ticket.id}) }}">#{{ ticket.ticketId }}</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Editar</li>
-                        </ol>
-                    </nav>
-                    <h1 class="h3 mb-0">
-                        <i class="bi bi-pencil-square me-2"></i>Editar Ticket #{{ ticket.ticketId }}
-                    </h1>
-                </div>
-            </div>
-
-            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+                <!-- Encabezado con degradado -->
                 <div class="card-header bg-primary bg-gradient text-white py-3">
-                    <h5 class="mb-0">
-                        <i class="bi bi-pencil-square me-2"></i>Editar Ticket #{{ ticket.ticketId }}
-                    </h5>
+                    <div class="d-flex align-items-center">
+                        <a href="{{ path('ticket_lista') }}" class="btn btn-outline-light btn-sm me-3">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h1 class="h5 mb-0 fw-bold"><i class="bi bi-pencil-square me-2"></i>Editar Ticket #{{ ticket.ticketId }}</h1>
+                            <small class="opacity-75">Actualice la información del ticket</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body p-4">
+                    <!-- Mensajes flash -->
+                    <div class="mb-4">
+                        {% for label, messages in app.flashes %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'info') }} alert-dismissible fade show mb-3" role="alert">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi {{ label == 'success' ? 'bi-check-circle-fill' : (label == 'error' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill') }} me-2"></i>
+                                        <div>{{ message }}</div>
+                                    </div>
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+
                     {{ form_start(form, { attr: { novalidate: 'novalidate', class: 'needs-validation' } }) }}
                     
                     <div class="row g-4">
                         <!-- Primera columna -->
-                        <div class="col-md-6">
+                        <div class="col-lg-6">
                             <!-- ID de Ticket -->
                             <div class="mb-4">
                                 {{ form_label(form.ticketId, 'ID de Ticket', {'label_attr': {'class': 'form-label fw-bold'}}) }}
@@ -94,22 +101,27 @@
                         </div>
 
                         <!-- Segunda columna -->
-                        <div class="col-md-6">
+                        <div class="col-lg-6">
                             <!-- Solicitud / Pedido -->
                             <div class="mb-4">
                                 {{ form_label(form.pedido, 'Solicitud / Pedido', {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                 <div class="input-group">
                                     <span class="input-group-text bg-light align-items-start pt-3">
-                                        <i class="bi bi-chat-square-text"></i>
+                                        <i class="bi bi-chat-left-dots"></i>
                                     </span>
                                     {{ form_widget(form.pedido, {
                                         'attr': {
                                             'class': 'form-control form-control-lg',
                                             'placeholder': 'Describa el pedido o solicitud...',
                                             'rows': 4,
-                                            'style': 'min-height: 100px; resize: vertical;'
+                                            'style': 'min-height: 100px; max-height: 200px; resize: vertical; overflow-y: auto;',
+                                            'oninput': 'this.style.height = "auto"; this.style.height = (this.scrollHeight > 200 ? "200px" : this.scrollHeight + "px");'
                                         }
                                     }) }}
+                                </div>
+                                <div class="form-text text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Describa su solicitud con el mayor detalle posible
                                 </div>
                                 {{ form_errors(form.pedido) }}
                             </div>
@@ -135,23 +147,26 @@
                         </div>
                     </div>
 
-                    <hr class="my-4">
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-outline-secondary btn-lg px-4">
-                            <i class="bi bi-arrow-left"></i> Volver al ticket
-                        </a>
-                        <div class="d-flex gap-3">
-                            <button type="reset" class="btn btn-outline-secondary btn-lg px-4">
-                                <i class="bi bi-arrow-counterclockwise"></i> Restaurar
-                            </button>
-                            <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">
-                                <i class="bi bi-save"></i> Guardar Cambios
-                            </button>
+                    <div class="sticky-bottom bg-white py-3 border-top mt-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <button type="reset" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-counterclockwise me-2"></i> Deshacer cambios
+                                </button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ path('ticket_lista') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="bi bi-save me-2"></i> Guardar cambios
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-muted small mt-2 text-end">
+                            <i class="bi bi-keyboard"></i> Atajo: <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para guardar
                         </div>
                     </div>
-
-                    {{ form_end(form) }}
                 </div>
             </div>
         </div>

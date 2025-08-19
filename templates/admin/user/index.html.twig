@@ -65,14 +65,16 @@
                                 </a>
                             </td>
                             <td>
-                                {% for role in user.roles %}
-                                    {% if role == 'ROLE_ADMIN' %}
-                                        <span class="badge bg-danger">Administrador</span>
-                                    {% elseif role == 'ROLE_USER' %}
-                                        <span class="badge bg-primary">Usuario</span>
+                                {% for role in user.roleDisplayNamesForTwig %}
+                                    {% if role == 'Administrador' %}
+                                        <span class="badge bg-danger">{{ role }}</span>
+                                    {% elseif role == 'Usuario' %}
+                                        <span class="badge bg-primary">{{ role }}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">{{ role }}</span>
                                     {% endif %}
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Sin roles</span>
                                 {% endfor %}
                             </td>
                             <td class="text-end">

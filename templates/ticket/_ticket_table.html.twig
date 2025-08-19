@@ -1,0 +1,239 @@
+{# templates/ticket/_ticket_table.html.twig #}
+
+{% macro sortable_header(label, field, sortState) %}
+    {% set currentOrder = sortState.currentSort == field ? sortState.currentOrder : 'none' %}
+    {% set newOrder = currentOrder == 'ASC' ? 'DESC' : 'ASC' %}
+
+    {% set sortIcon = '' %}
+    {% if sortState.currentSort == field %}
+        {% if currentOrder == 'ASC' %}
+            {% set sortIcon = '<i class="bi bi-sort-down ms-1"></i>' %}
+        {% else %}
+            {% set sortIcon = '<i class="bi bi-sort-up ms-1"></i>' %}
+        {% endif %}
+    {% else %}
+        {% set sortIcon = '<i class="bi bi-arrow-down-up text-muted ms-1" style="opacity: 0.5;"></i>' %}
+    {% endif %}
+
+    <a href="#" class="text-decoration-none text-dark sort-link" data-sort="{{ field }}" data-order="{{ newOrder }}">
+        {{ label|raw }} {{ sortIcon|raw }}
+    </a>
+{% endmacro %}
+
+{% if tickets is not empty %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" id="ticketsTable">
+            <thead class="table-light">
+                <tr>
+                    <th class="id-column">
+                        {{ _self.sortable_header('ID', 'id', sortState) }}
+                    </th>
+                    <th class="ticket-id-column">
+                        {{ _self.sortable_header('Ticket', 'ticketId', sortState) }}
+                    </th>
+                    <th style="min-width: 400px;">
+                        <div class="row g-0">
+                            <div class="col-6">
+                                {{ _self.sortable_header('Pedido', 'pedido', sortState) }}
+                            </div>
+                            <div class="col-6">
+                                {{ _self.sortable_header('Descripción', 'descripcion', sortState) }}
+                            </div>
+                        </div>
+                    </th>
+                    <th class="area-column">
+                        {{ _self.sortable_header('Área', 'departamento', sortState) }}
+                    </th>
+                    <th class="status-column text-center">
+                        {{ _self.sortable_header('Estado', 'estado', sortState) }}
+                    </th>
+                    <th class="date-column">
+                        {{ _self.sortable_header('Creado', 'createdAt', sortState) }}
+                    </th>
+                    {% if is_granted('ROLE_ADMIN') %}
+                    <th class="creator-column">Creado por</th>
+                    {% endif %}
+                    <th class="actions-column">Acciones</th>
+            <tbody>
+                {% for ticket in tickets %}
+                    <tr class="ticket-row" data-ticket-id="{{ ticket.id }}">
+                        <td class="align-middle text-center">{{ ticket.id }}</td>
+                        <td class="align-middle">
+                            <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none" data-bs-toggle="tooltip" data-bs-placement="top" title="Ver detalles">
+                                <code>{{ ticket.ticketId }}</code>
+                            </a>
+                        </td>
+                        <td class="align-middle">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="pedido-column" title="{{ ticket.pedido }}">
+                                        {{ ticket.pedido ?: '-' }}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="descripcion-column" title="{{ ticket.descripcion }}">
+                                        {{ ticket.descripcion }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="align-middle">
+                            {% if ticket.departamento and ticket.departamentoNombre %}
+                                <span class="badge rounded-pill border border-secondary text-dark department-badge bg-transparent">
+                                    {% if ticket.departamento == 1 %}
+                                        <i class="bi bi-building me-1"></i> Presidencia
+                                    {% elseif ticket.departamento == 2 %}
+                                        <i class="bi bi-file-earmark-text me-1"></i> Secretaría
+                                    {% elseif ticket.departamento == 3 %}
+                                        <i class="bi bi-journal-text me-1"></i> Prosecretaria Legislativa
+                                    {% elseif ticket.departamento == 4 %}
+                                        <i class="bi bi-gear me-1"></i> Prosecretaria Administrativa
+                                    {% elseif ticket.departamento == 8 %}
+                                        <i class="bi bi-pc-display me-1"></i> Gestión y TIC
+                                    {% elseif ticket.departamento == 9 %}
+                                        <i class="bi bi-people me-1"></i> Desarrollo Humano
+                                    {% elseif ticket.departamento == 10 %}
+                                        <i class="bi bi-person-badge me-1"></i> Personal
+                                    {% elseif ticket.departamento == 11 %}
+                                        <i class="bi bi-people me-1"></i> RR.HH
+                                    {% else %}
+                                        <i class="bi bi-building me-1"></i> {{ ticket.departamentoNombre }}
+                                    {% endif %}
+                                </span>
+                            {% else %}
+                                <span class="badge rounded-pill border border-secondary text-muted department-badge bg-transparent">
+                                    <i class="bi bi-question-circle me-1"></i> Sin asignar
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="align-middle text-center">
+                            {% set statusColors = {
+                                'pendiente': 'warning',
+                                'en proceso': 'info',
+                                'terminado': 'success',
+                                'cancelado': 'secondary'
+                            } %}
+                            <span class="badge border border-{{ statusColors[ticket.estado|lower] ?? 'secondary' }} text-{{ statusColors[ticket.estado|lower] ?? 'secondary' }} bg-transparent w-100">
+                                {% if ticket.estado == 'pendiente' %}
+                                    <i class="bi bi-hourglass-split me-1"></i>
+                                {% elseif ticket.estado == 'en proceso' %}
+                                    <i class="bi bi-arrow-repeat me-1"></i>
+                                {% elseif ticket.estado == 'terminado' %}
+                                    <i class="bi bi-check-circle me-1"></i>
+                                {% elseif ticket.estado == 'cancelado' %}
+                                    <i class="bi bi-x-circle me-1"></i>
+                                {% endif %}
+                                {{ ticket.estado|capitalize }}
+                            </span>
+                        </td>
+                        <td class="align-middle">
+                            <span class="small text-muted" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ ticket.createdAt|date('d/m/Y H:i:s') }}">
+                                {{ ticket.createdAt|date('d/m/Y') }}
+                            </span>
+                        </td>
+                        {% if is_granted('ROLE_ADMIN') %}
+                        <td class="align-middle">
+                            {% if ticket.createdBy %}
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0 me-2">
+                                        <div class="avatar-sm rounded-circle border border-primary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
+                                            <i class="bi bi-person text-primary" style="font-size: 0.8rem;"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-medium small">{{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}</div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <span class="text-muted small">No asignado</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td class="align-middle">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Ver">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if is_granted('ROLE_ADMIN') or app.user == ticket.createdBy or ticket.isCollaborator(app.user) %}
+                                    <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if totalPages > 1 %}
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="text-muted small">
+                Mostrando {{ tickets|length }} de {{ totalItems }} registros
+            </div>
+            <nav aria-label="Paginación de tickets">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item {{ currentPage == 1 ? 'disabled' }}">
+                        <a class="page-link" href="#" data-page="{{ currentPage - 1 }}" aria-label="Anterior">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    
+                    {% for page in 1..totalPages %}
+                        <li class="page-item {{ page == currentPage ? 'active' }}">
+                            <a class="page-link" href="#" data-page="{{ page }}">{{ page }}</a>
+                        </li>
+                    {% endfor %}
+                    
+                    <li class="page-item {{ currentPage == totalPages ? 'disabled' }}">
+                        <a class="page-link" href="#" data-page="{{ currentPage + 1 }}" aria-label="Siguiente">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-5">
+            <div class="mb-3">
+                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+            </div>
+            <h5 class="text-muted mb-3">No se encontraron tickets</h5>
+            <p class="text-muted mb-0">
+                {% if searchParams|length > 0 %}
+                    No hay tickets que coincidan con los criterios de búsqueda.<br>
+                    <a href="{{ path('ticket_lista') }}" class="btn btn-link p-0">Limpiar filtros</a>
+                {% else %}
+                    No hay tickets registrados. <a href="{{ path('ticket_nuevo') }}">Crear nuevo ticket</a>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+{% endif %}
+
+{# This script will be executed when the partial is loaded via AJAX #}
+<script>
+// Re-initialize tooltips after AJAX load
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(tooltipTriggerEl => {
+    new bootstrap.Tooltip(tooltipTriggerEl);
+});
+
+// Add hover effect for table rows
+const tableRows = document.querySelectorAll('.ticket-row');
+tableRows.forEach(row => {
+    row.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.transform = 'scale(1.01)';
+        this.style.transition = 'all 0.2s ease';
+    });
+    
+    row.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+        this.style.transform = '';
+    });
+});
+</script>

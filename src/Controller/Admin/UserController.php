@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Doctrine\DBAL\Connection;
+use App\Repository\RoleRepository;
 
 #[Route('/admin')]
 class UserController extends AbstractController
@@ -156,20 +157,14 @@ class UserController extends AbstractController
                 $this->addFlash('error', 'Error en el formulario: ' . implode(', ', $errors));
             } else {
                 try {
-                    // Set password if provided
-                    $plainPassword = $form->get('plainPassword')->getData();
-                    if ($plainPassword) {
+                    // Set the password if provided
+                    if ($plainPassword = $form->get('plainPassword')->getData()) {
                         $user->setPassword(
                             $passwordHasher->hashPassword($user, $plainPassword)
                         );
                     }
                     
-                    // Handle roles
-                    $roles = $form->get('roles')->getData();
-                    if (empty($roles)) {
-                        $roles = ['ROLE_USER'];
-                    }
-                    $user->setRoles($roles);
+                    // Handle roles - The form now handles the userRoles relationship directly
                     
                     $entityManager->persist($user);
                     $entityManager->flush();
@@ -209,20 +204,14 @@ class UserController extends AbstractController
                 $this->addFlash('error', 'Error en el formulario: ' . implode(', ', $errors));
             } else {
                 try {
-                    // Update password if provided
-                    $plainPassword = $form->get('plainPassword')->getData();
-                    if ($plainPassword) {
+                    // Update password if a new one was entered
+                    if ($plainPassword = $form->get('plainPassword')->getData()) {
                         $user->setPassword(
                             $passwordHasher->hashPassword($user, $plainPassword)
                         );
                     }
                     
-                    // Handle roles
-                    $roles = $form->get('roles')->getData();
-                    if (empty($roles)) {
-                        $roles = ['ROLE_USER'];
-                    }
-                    $user->setRoles($roles);
+                    // The form now handles the userRoles relationship directly
                     
                     $entityManager->flush();
 

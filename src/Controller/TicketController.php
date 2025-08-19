@@ -86,8 +86,9 @@ class TicketController extends AbstractController
 
         // Update form with current search data
         $filterForm = $this->createForm(\App\Form\TicketFilterType::class, $searchData);
-
-        return $this->render('ticket/index.html.twig', [
+        
+        // Prepare the view data
+        $viewData = [
             'tickets' => $result['items'],
             'filter_form' => $filterForm->createView(),
             'currentPage' => $result['currentPage'],
@@ -98,8 +99,17 @@ class TicketController extends AbstractController
                 return $value !== null && $value !== '';
             }),
             'sortState' => $sortState,
-            'isAdmin' => $isAdmin,
-        ]);
+        ];
+        
+        // If it's an AJAX request, return only the table content
+        if ($request->isXmlHttpRequest()) {
+            $content = $this->renderView('ticket/_ticket_table.html.twig', $viewData);
+            return new Response($content);
+        }
+        
+        $viewData['isAdmin'] = $isAdmin;
+        
+        return $this->render('ticket/index.html.twig', $viewData);
     }
 
     #[Route('/nuevo', name: 'ticket_nuevo')]
@@ -395,9 +405,9 @@ class TicketController extends AbstractController
             throw $this->createNotFoundException('Ticket no encontrado');
         }
 
-        // Verify user is either creator or collaborator
+        // Verify user is admin, creator, or collaborator
         $user = $this->getUser();
-        if ($ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
+        if (!$this->isGranted('ROLE_ADMIN') && $ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
             throw $this->createAccessDeniedException('No tienes permiso para editar este ticket');
         }
 
