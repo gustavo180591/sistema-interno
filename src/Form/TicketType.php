@@ -4,15 +4,20 @@
 namespace App\Form;
 
 use App\Entity\Ticket;
+use App\Entity\Area;
+use App\Repository\AreaRepository;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 
 class TicketType extends AbstractType
 {
+    public function __construct(private AreaRepository $areaRepository) {}
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -37,6 +42,27 @@ class TicketType extends AbstractType
                     ]),
                 ],
                 'help' => 'Código interno para rastrear la tarea.',
+            ])
+            ->add('area', EntityType::class, [
+                'class' => Area::class,
+                'label' => 'Área de Origen',
+                'placeholder' => 'Seleccione un área',
+                'required' => true,
+                'query_builder' => function (AreaRepository $er) {
+                    return $er->createQueryBuilder('a')
+                        ->where('a.activo = :activo')
+                        ->setParameter('activo', true)
+                        ->orderBy('a.nombre', 'ASC');
+                },
+                'choice_label' => 'nombre',
+                'attr' => [
+                    'class' => 'form-select',
+                ],
+                'constraints' => [
+                    new \Symfony\Component\Validator\Constraints\NotNull([
+                        'message' => 'Por favor seleccione un área de origen',
+                    ]),
+                ],
             ])
             ->add('pedido', TextType::class, [
                 'label' => 'Solicitud / Pedido',

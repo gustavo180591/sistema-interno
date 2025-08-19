@@ -47,6 +47,10 @@ class Ticket
     #[ORM\OrderBy(['completed' => 'ASC', 'createdAt' => 'DESC'])]
     private Collection $tasks;
 
+    #[ORM\ManyToOne(targetEntity: Area::class, inversedBy: 'tickets')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Area $area = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -191,16 +195,11 @@ class Ticket
         return $this;
     }
 
-    public function getCreatedBy(): ?User
-    {
-        return $this->createdBy;
-    }
+    public function getCreatedBy(): ?User { return $this->createdBy; }
+    public function setCreatedBy(?User $createdBy): static { $this->createdBy = $createdBy; return $this; }
 
-    public function setCreatedBy(?User $createdBy): static
-    {
-        $this->createdBy = $createdBy;
-        return $this;
-    }
+    public function getArea(): ?Area { return $this->area; }
+    public function setArea(?Area $area): static { $this->area = $area; return $this; }
 
     /**
      * @return Collection<int, TicketCollaborator>

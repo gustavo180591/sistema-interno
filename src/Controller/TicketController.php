@@ -120,6 +120,15 @@ class TicketController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Check if area is selected
+            if (!$ticket->getArea()) {
+                $this->addFlash('error', 'Por favor seleccione un área de origen.');
+                return $this->render('ticket/nuevo.html.twig', [
+                    'form' => $form->createView(),
+                    'existing_ticket' => null,
+                ]);
+            }
+
             $existingTicket = $ticketRepository->findOneBy(['ticketId' => $ticket->getTicketId()]);
             
             if ($existingTicket) {
@@ -379,15 +388,32 @@ class TicketController extends AbstractController
         EntityManagerInterface $em,
         TicketRepository $ticketRepository
     ): Response {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
         $ticket = $ticketRepository->find($id);
+        
         if (!$ticket) {
             throw $this->createNotFoundException('Ticket no encontrado');
+        }
+
+        // Verify user is either creator or collaborator
+        $user = $this->getUser();
+        if ($ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
+            throw $this->createAccessDeniedException('No tienes permiso para editar este ticket');
         }
 
         $form = $this->createForm(TicketType::class, $ticket);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Check if area is selected
+            if (!$ticket->getArea()) {
+                $this->addFlash('error', 'Por favor seleccione un área de origen.');
+                return $this->render('ticket/editar.html.twig', [
+                    'form' => $form->createView(),
+                    'ticket' => $ticket,
+                ]);
+            }
+            
             $em->flush();
             $this->addFlash('success', '✅ Ticket actualizado correctamente.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
