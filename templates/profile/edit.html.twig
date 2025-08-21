@@ -1,0 +1,108 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Perfil{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="h4 mb-0">Editar Perfil</h1>
+                </div>
+                <div class="card-body">
+                    {{ form_start(form, {'attr': {'class': 'needs-validation', 'novalidate': 'novalidate'}}) }}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form_row(form.nombre, {
+                                    'label': 'Nombre',
+                                    'attr': {
+                                        'class': 'form-control',
+                                        'placeholder': 'Ingrese su nombre'
+                                    }
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.apellido, {
+                                    'label': 'Apellido',
+                                    'attr': {
+                                        'class': 'form-control',
+                                        'placeholder': 'Ingrese su apellido'
+                                    }
+                                }) }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_row(form.username, {
+                                'label': 'Nombre de usuario',
+                                'attr': {
+                                    'class': 'form-control',
+                                    'placeholder': 'Ingrese un nombre de usuario'
+                                }
+                            }) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_row(form.email, {
+                                'label': 'Correo electrónico',
+                                'attr': {
+                                    'class': 'form-control',
+                                    'disabled': 'disabled'
+                                },
+                                'help': 'Para cambiar el correo electrónico, por favor contacte al administrador.'
+                            }) }}
+                        </div>
+
+                        <div class="mb-4">
+                            {{ form_row(form.plainPassword, {
+                                'label': 'Nueva contraseña',
+                                'attr': {
+                                    'class': 'form-control',
+                                    'placeholder': 'Deje en blanco para mantener la contraseña actual',
+                                    'autocomplete': 'new-password'
+                                },
+                                'help': 'Mínimo 6 caracteres. Deje en blanco para mantener la contraseña actual.'
+                            }) }}
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ path('app_profile_show') }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar cambios
+                            </button>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Example of client-side validation
+        (function() {
+            'use strict';
+            
+            // Fetch all the forms we want to apply custom Bootstrap validation styles to
+            const forms = document.querySelectorAll('.needs-validation');
+            
+            // Loop over them and prevent submission
+            Array.from(forms).forEach(form => {
+                form.addEventListener('submit', event => {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        })();
+    </script>
+{% endblock %}

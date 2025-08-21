@@ -1,0 +1,89 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Usuario: {{ user.nombreCompleto }}{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="h4 mb-0">Detalles del Usuario</h2>
+                        <div>
+                            <a href="{{ path('admin_user_edit', {'id': user.id}) }}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i> Editar
+                            </a>
+                            <a href="{{ path('admin_user_index') }}" class="btn btn-secondary btn-sm">
+                                <i class="fas fa-arrow-left"></i> Volver
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-bordered">
+                            <tr>
+                                <th>ID</th>
+                                <td>{{ user.id }}</td>
+                            </tr>
+                            <tr>
+                                <th>Nombre</th>
+                                <td>{{ user.nombreCompleto }}</td>
+                            </tr>
+                            <tr>
+                                <th>Email</th>
+                                <td>{{ user.email }}</td>
+                            </tr>
+                            <tr>
+                                <th>Nombre de usuario</th>
+                                <td>{{ user.username }}</td>
+                            </tr>
+                            <tr>
+                                <th>Roles</th>
+                                <td>
+                                    {% for role in user.roleDisplayNamesForTwig %}
+                                        <span class="badge bg-primary">{{ role }}</span>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Estado</th>
+                                <td>
+                                    <span class="badge {{ user.isActive ? 'bg-success' : 'bg-secondary' }}">
+                                        {{ user.isActive ? 'Activo' : 'Inactivo' }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Fecha de creación</th>
+                                <td>{{ user.createdAt|date('d/m/Y H:i') }}</td>
+                            </tr>
+                            <tr>
+                                <th>Última actualización</th>
+                                <td>{{ user.updatedAt ? user.updatedAt|date('d/m/Y H:i') : 'Nunca' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Último inicio de sesión</th>
+                                <td>{{ user.lastLoginAt ? user.lastLoginAt|date('d/m/Y H:i') : 'Nunca' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    {% if app.user.id != user.id %}
+                        <form method="post" action="{{ path('admin_user_delete', {'id': user.id}) }}" 
+                              onsubmit="return confirm('¿Está seguro que desea eliminar este usuario? Esta acción no se puede deshacer.');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ user.id) }}">
+                            <button class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Eliminar Usuario
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            No puedes eliminar tu propio usuario mientras estás conectado.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
