@@ -112,9 +112,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getUsername(): ?string
+    public function getUsername(): string
     {
-        return $this->username;
+        return (string) $this->username;
+    }
+
+    public function getFullName(): string
+    {
+        return trim(sprintf('%s %s', 
+            $this->nombre ?? '', 
+            $this->apellido ?? ''
+        )) ?: $this->getUsername();
     }
 
     public function setUsername(string $username): self
@@ -184,9 +192,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->password;
     }
 
+    /**
+     * Sets the user's password (hashed)
+     */
     public function setPassword(string $hashed): self
     {
         $this->password = $hashed;
+        return $this;
+    }
+    
+    /**
+     * Sets a plain password (to be hashed by the UserPasswordHasher)
+     */
+    public function setPlainPassword(string $plainPassword): self
+    {
+        // This is just a setter, the actual hashing will be done by the UserPasswordHasher
+        $this->password = $plainPassword;
         return $this;
     }
 

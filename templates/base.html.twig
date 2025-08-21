@@ -20,6 +20,20 @@
         {% endblock %}
     </head>
     <body>
+        {# Flash messages #}
+        <div class="flash-messages">
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type }} alert-dismissible fade show mb-0 rounded-0" role="alert">
+                        <div class="container">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
                 <a class="navbar-brand" href="{{ path('app_home') }}">Sistema Interno</a>
@@ -32,12 +46,17 @@
                             <a class="nav-link" href="{{ path('app_home') }}">Inicio</a>
                         </li>
                         {% if is_granted('ROLE_ADMIN') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('ticket_index') }}">
+                                <i class="fas fa-ticket-alt me-1"></i> Tickets
+                            </a>
+                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Administración
+                                <i class="fas fa-cog me-1"></i> Administración
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                <li><a class="dropdown-item" href="{{ path('admin_user_index') }}">Usuarios</a></li>
+                                <li><a class="dropdown-item" href="{{ path('admin_user_index') }}"><i class="fas fa-users me-1"></i> Usuarios</a></li>
                                 <!-- Add more admin links here -->
                             </ul>
                         </li>

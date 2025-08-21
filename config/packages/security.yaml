@@ -3,13 +3,14 @@ security:
     password_hashers:
         App\Entity\User:
             algorithm: auto
+            cost: 12  # Higher is more secure but slower
+            time_cost: 3  # For Argon2i
+            memory_cost: 65536  # For Argon2i
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
         app_user_provider:
-            entity:
-                class: App\Entity\User
-                property: email
+            id: App\Security\UserProvider
 
     firewalls:
         dev:
@@ -26,6 +27,14 @@ security:
                 username_parameter: _username
                 password_parameter: _password
                 default_target_path: app_home
+                post_only: true
+                use_forward: false
+                use_referer: false
+                always_use_default_target_path: false
+                target_path_parameter: _target_path
+                failure_path: app_login
+                failure_forward: false
+                failure_path_parameter: _failure_path
             logout:
                 path: app_logout
                 target: app_home
