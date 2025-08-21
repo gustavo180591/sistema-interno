@@ -1,0 +1,21 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.dev
+/.env.test
+/.env.prod
+/.env.qa
+/.env.staging
+/.env.acceptance
+/.env.integration
+/.env.production
+/.env.sandbox
+/.env.development
+/.env
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###

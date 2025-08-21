@@ -1,0 +1,47 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Inicio - Sistema Interno{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="card shadow-sm my-5">
+                <div class="card-body p-5">
+                    <h1 class="display-4 mb-4">{{ welcome_message }}</h1>
+                    <p class="lead">
+                        Bienvenido al sistema de gestión interna. Seleccione una opción del menú para comenzar.
+                    </p>
+                    <hr class="my-4">
+                    <div class="row mt-5">
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">Módulo 1</h5>
+                                    <p class="card-text">Descripción breve del módulo 1.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">Módulo 2</h5>
+                                    <p class="card-text">Descripción breve del módulo 2.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">Módulo 3</h5>
+                                    <p class="card-text">Descripción breve del módulo 3.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
