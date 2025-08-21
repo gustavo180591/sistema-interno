@@ -65,35 +65,43 @@
                                 </a>
                             </td>
                             <td>
-                                {% for role in user.roleDisplayNamesForTwig %}
-                                    {% if role == 'Administrador' %}
-                                        <span class="badge bg-danger">{{ role }}</span>
-                                    {% elseif role == 'Usuario' %}
-                                        <span class="badge bg-primary">{{ role }}</span>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% set roles = user.roles|filter(role => role != 'ROLE_USER')|merge(['ROLE_USER']) %}
+                                    {% for role in roles %}
+                                        {% if role == 'ROLE_ADMIN' or role == 'ROLE_USER' or role == 'ROLE_AUDITOR' %}
+                                            <span class="badge {% if role == 'ROLE_ADMIN' %}bg-danger{% elseif role == 'ROLE_USER' %}bg-primary{% else %}bg-success{% endif %} d-flex align-items-center">
+                                                <i class="bi {% if role == 'ROLE_ADMIN' %}bi-shield-lock{% elseif role == 'ROLE_USER' %}bi-person{% else %}bi-eye{% endif %} me-1"></i>
+                                                {{ role == 'ROLE_ADMIN' ? 'Administrador' : (role == 'ROLE_USER' ? 'Usuario' : 'Auditor') }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary d-flex align-items-center">
+                                                <i class="bi bi-tag me-1"></i>{{ role }}
+                                            </span>
+                                        {% endif %}
                                     {% else %}
-                                        <span class="badge bg-secondary">{{ role }}</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="badge bg-light text-dark">Sin roles</span>
-                                {% endfor %}
+                                        <span class="badge bg-light text-dark d-flex align-items-center">
+                                            <i class="bi bi-dash-circle me-1"></i>Sin roles
+                                        </span>
+                                    {% endfor %}
+                                </div>
                             </td>
                             <td class="text-end">
                                 <div class="btn-group" role="group">
-                                    <a href="{{ path('admin_user_edit', {'id': user.id}) }}" 
-                                       class="btn btn-sm btn-outline-primary" 
-                                       data-bs-toggle="tooltip" 
+                                    <a href="{{ path('admin_user_edit', {'id': user.id}) }}"
+                                       class="btn btn-sm btn-outline-primary"
+                                       data-bs-toggle="tooltip"
                                        title="Editar usuario">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     {% if app.user.id != user.id %}
-                                        <form method="post" 
-                                              action="{{ path('admin_user_delete', {'id': user.id}) }}" 
-                                              onsubmit="return confirm('¿Estás seguro de que deseas eliminar este usuario?')" 
+                                        <form method="post"
+                                              action="{{ path('admin_user_delete', {'id': user.id}) }}"
+                                              onsubmit="return confirm('¿Estás seguro de que deseas eliminar este usuario?')"
                                               class="d-inline">
                                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ user.id) }}">
-                                            <button type="submit" 
+                                            <button type="submit"
                                                     class="btn btn-sm btn-outline-danger"
-                                                    data-bs-toggle="tooltip" 
+                                                    data-bs-toggle="tooltip"
                                                     title="Eliminar usuario">
                                                 <i class="bi bi-trash"></i>
                                             </button>

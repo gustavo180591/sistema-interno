@@ -219,16 +219,6 @@
                         {% endif %}
                     </span>
                 </div>
-                <div class="d-flex align-items-center">
-                    <div class="btn-group btn-group-sm me-2" role="group" aria-label="Vista">
-                        <button type="button" class="btn btn-outline-secondary active" id="tableViewBtn">
-                            <i class="bi bi-list-ul"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary" id="cardsViewBtn" disabled>
-                            <i class="bi bi-grid-3x3-gap"></i>
-                        </button>
-                    </div>
-                </div>
             </div>
             <div id="ticket-table-container">
                 <!-- The ticket table will be loaded here via AJAX -->
@@ -390,36 +380,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // View mode switching
-    const viewTable = document.getElementById('viewTable');
-    const viewCards = document.getElementById('viewCards');
-    const tableView = document.getElementById('tableView');
-    const cardsView = document.getElementById('cardsView');
-
-    viewTable.addEventListener('click', function() {
-        viewTable.classList.add('active');
-        viewCards.classList.remove('active');
-        tableView.style.display = 'block';
-        cardsView.style.display = 'none';
-        localStorage.setItem('ticketViewMode', 'table');
-    });
-
-    viewCards.addEventListener('click', function() {
-        viewCards.classList.add('active');
-        viewTable.classList.remove('active');
-        cardsView.style.display = 'block';
-        tableView.style.display = 'none';
-        localStorage.setItem('ticketViewMode', 'cards');
-    });
-
-    // Load saved view mode
-    const savedViewMode = localStorage.getItem('ticketViewMode') || 'table';
-    if (savedViewMode === 'cards') {
-        viewCards.click();
-    } else {
-        viewTable.click();
-    }
-
     // Real-time search
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
@@ -505,48 +465,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Table row hover effects
-    const tableRows = document.querySelectorAll('.ticket-row');
-    tableRows.forEach(row => {
-        row.addEventListener('mouseenter', function() {
-            this.style.backgroundColor = '#f8f9fa';
-            this.style.transform = 'scale(1.01)';
-            this.style.transition = 'all 0.2s ease';
-        });
-        
-        row.addEventListener('mouseleave', function() {
-            this.style.backgroundColor = '';
-            this.style.transform = 'scale(1)';
-        });
-    });
+    // Export function
+    function exportTickets() {
+        // Implementation for exporting tickets
+        alert('Función de exportación en desarrollo');
+    }
 
-    // Card hover effects
-    const ticketCards = document.querySelectorAll('.ticket-card');
-    ticketCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-5px)';
-            this.style.boxShadow = '0 0.5rem 1rem rgba(0, 0, 0, 0.15)';
-            this.style.transition = 'all 0.3s ease';
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-            this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
-        });
-    });
+    // Quick actions modal functionality removed - no longer used
 });
-
-// Export function
-function exportTickets() {
-    // Implementation for exporting tickets
-    alert('Función de exportación en desarrollo');
-}
-
-// Quick actions function
-function showQuickActions() {
-    const modal = new bootstrap.Modal(document.getElementById('quickActionsModal'));
-    modal.show();
-}
 </script>
 
 <style>

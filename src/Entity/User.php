@@ -63,28 +63,50 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * Get role display names
-     * 
+     *
      * @return array
      */
     public function getRoleDisplayNames(): array
     {
         $roleMap = [
-            'ROLE_ADMIN' => 'Administrador',
-            'ROLE_USER' => 'Usuario',
+            'ROLE_ADMIN'   => 'Administrador',
+            'ROLE_USER'    => 'Usuario',
+            'ROLE_AUDITOR' => 'Auditor',
             // Add more role mappings as needed
         ];
 
         $displayNames = [];
+        
+        // Add roles from $this->roles
         foreach ($this->roles as $role) {
-            $displayNames[] = $roleMap[$role] ?? $role;
+            if (isset($roleMap[$role])) {
+                $displayNames[] = $roleMap[$role];
+            }
+        }
+        
+        // Add roles from userRoles relationship
+        if ($this->userRoles instanceof Collection) {
+            foreach ($this->userRoles as $role) {
+                if (method_exists($role, 'getRoleName')) {
+                    $roleName = $role->getRoleName();
+                    if (isset($roleMap[$roleName]) && !in_array($roleMap[$roleName], $displayNames, true)) {
+                        $displayNames[] = $roleMap[$roleName];
+                    }
+                }
+            }
+        }
+        
+        // If no roles found, add default ROLE_USER
+        if (empty($displayNames)) {
+            $displayNames[] = $roleMap['ROLE_USER'] ?? 'Usuario';
         }
 
-        return $displayNames;
+        return array_values(array_unique($displayNames));
     }
 
     /**
      * Get role display names for Twig templates
-     * 
+     *
      * @return array
      */
     public function getRoleDisplayNamesForTwig(): array
@@ -130,7 +152,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getRoles(): array
     {
         $roles = $this->roles;
-        
+
         // Add roles from userRoles relationship
         if ($this->userRoles instanceof Collection) {
             foreach ($this->userRoles as $role) {
@@ -142,10 +164,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 }
             }
         }
-        
+
         // Ensure we always have at least ROLE_USER
         $roles[] = 'ROLE_USER';
-        
+
         return array_values(array_unique($roles));
     }
 
@@ -154,10 +176,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function setRoles(array $roles): static
     {
+        // Clear current roles
         $this->roles = [];
+        
+        // Normalize and add all provided roles
         foreach ($roles as $role) {
-            $this->addRole($role);
+            $role = strtoupper(trim($role));
+            if ($role && !in_array($role, $this->roles, true)) {
+                $this->roles[] = $role;
+            }
         }
+        
+        // If no roles were provided or ROLE_USER was not included, add it
+        if (!in_array('ROLE_USER', $this->roles, true)) {
+            $this->roles[] = 'ROLE_USER';
+        }
+        
+        // Ensure roles are unique
+        $this->roles = array_values(array_unique($this->roles));
+        
         return $this;
     }
 

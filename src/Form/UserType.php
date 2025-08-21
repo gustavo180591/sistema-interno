@@ -117,8 +117,18 @@ class UserType extends AbstractType
         $roles = $this->entityManager->getRepository(Role::class)->findBy([], ['name' => 'ASC']);
         $roleChoices = [];
         
+        // Add default ROLE_USER if it doesn't exist
+        $hasUserRole = false;
         foreach ($roles as $role) {
+            if ($role->getRoleName() === 'ROLE_USER') {
+                $hasUserRole = true;
+            }
             $roleChoices[sprintf('%s (%s)', $role->getName(), $role->getRoleName())] = $role->getRoleName();
+        }
+        
+        // Add ROLE_USER if it doesn't exist in the database
+        if (!$hasUserRole) {
+            $roleChoices['Usuario (ROLE_USER)'] = 'ROLE_USER';
         }
         
         $builder->add('roles', ChoiceType::class, [
@@ -139,6 +149,7 @@ class UserType extends AbstractType
             },
             'label_attr' => ['class' => 'form-check-label me-3'],
             'row_attr' => ['class' => 'mb-3'],
+            'data' => $options['data'] ? $options['data']->getRoles() : ['ROLE_USER'],
         ]);
     }
 

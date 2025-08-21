@@ -214,11 +214,12 @@
 {% block javascripts %}
 {{ parent() }}
 <script>
-// Initialize tooltips
-const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl);
-});
+// Initialize tooltips when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 
 // Enhanced search functionality
 document.addEventListener('DOMContentLoaded', function() {
@@ -242,8 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.role-row').forEach((row, index) => {
         row.style.opacity = '0';
         row.style.transform = 'translateY(10px)';
-        row.style.transition = `opacity 0.3s ease-out, transform 0.3s ease-out`;
-        row.style.transitionDelay = `${index * 0.05}s`;
+        row.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+        row.style.transitionDelay = (index * 0.05) + 's';
         
         // Trigger reflow
         void row.offsetWidth;
@@ -253,6 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.style.transform = 'translateY(0)';
     });
 });
+}); // Close the DOMContentLoaded event
 </script>
 
 <style>

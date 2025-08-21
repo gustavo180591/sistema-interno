@@ -44,6 +44,11 @@ class RoleController extends AbstractController
             [
                 'name' => 'Usuario',
                 'roleName' => 'ROLE_USER'
+            ],
+            [
+                'name' => 'Auditor',
+                'roleName' => 'ROLE_AUDITOR',
+                'description' => 'Rol con permisos de solo lectura para auditar el sistema'
             ]
         ];
 
@@ -54,7 +59,9 @@ class RoleController extends AbstractController
                 $role = new Role();
                 $role->setName($roleData['name']);
                 $role->setRoleName($roleData['roleName']);
-                $role->setDescription($roleData['description']);
+                // Set empty description if not provided
+                $description = $roleData['description'] ?? '';
+                $role->setDescription($description);
                 $role->setCreatedAt(new \DateTime());
                 
                 $entityManager->persist($role);
@@ -86,8 +93,15 @@ class RoleController extends AbstractController
     }
 
     #[Route('/{id}/edit', name: 'admin_role_edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, Role $role, EntityManagerInterface $entityManager): Response
+    public function edit(Request $request, RoleRepository $roleRepository, int $id, EntityManagerInterface $entityManager): Response
     {
+        $role = $roleRepository->find($id);
+        
+        if (!$role) {
+            $this->addFlash('error', 'El rol solicitado no existe.');
+            return $this->redirectToRoute('admin_role_index');
+        }
+        
         $form = $this->createForm(RoleType::class, $role);
         $form->handleRequest($request);
 
@@ -105,9 +119,16 @@ class RoleController extends AbstractController
     }
 
     #[Route('/{id}', name: 'admin_role_delete', methods: ['POST'])]
-    public function delete(Request $request, Role $role, EntityManagerInterface $entityManager): Response
+    public function delete(Request $request, RoleRepository $roleRepository, int $id, EntityManagerInterface $entityManager): Response
     {
-        if ($this->isCsrfTokenValid('delete'.$role->getId(), $request->request->get('_token'))) {
+        $role = $roleRepository->find($id);
+        
+        if (!$role) {
+            $this->addFlash('error', 'El rol solicitado no existe.');
+            return $this->redirectToRoute('admin_role_index');
+        }
+        
+        if ($this->isCsrfTokenValid('delete'.$id, $request->request->get('_token'))) {
             $entityManager->remove($role);
             $entityManager->flush();
             $this->addFlash('success', 'Rol eliminado exitosamente.');

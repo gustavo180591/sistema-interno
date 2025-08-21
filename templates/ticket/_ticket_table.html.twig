@@ -52,6 +52,7 @@
                     </th>
                     {% if is_granted('ROLE_ADMIN') %}
                     <th class="creator-column">Creado por</th>
+                    <th class="role-column">Rol</th>
                     {% endif %}
                     <th class="actions-column">Acciones</th>
             <tbody>
@@ -148,6 +149,25 @@
                                 <span class="text-muted small">No asignado</span>
                             {% endif %}
                         </td>
+                        <td class="align-middle">
+                            {% if ticket.createdBy %}
+                                {% for role in ticket.createdBy.roleDisplayNamesForTwig %}
+                                    {% if role == 'Administrador' %}
+                                        <span class="badge bg-danger">{{ role }}</span>
+                                    {% elseif role == 'Usuario' %}
+                                        <span class="badge bg-primary">Usuario</span>
+                                    {% elseif role == 'Auditor' %}
+                                        <span class="badge bg-success">Auditor</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ role }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Sin rol</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">-</span>
+                            {% endif %}
+                        </td>
                         {% endif %}
                         <td class="align-middle">
                             <div class="btn-group btn-group-sm" role="group">
@@ -220,20 +240,5 @@
 // Re-initialize tooltips after AJAX load
 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(tooltipTriggerEl => {
     new bootstrap.Tooltip(tooltipTriggerEl);
-});
-
-// Add hover effect for table rows
-const tableRows = document.querySelectorAll('.ticket-row');
-tableRows.forEach(row => {
-    row.addEventListener('mouseenter', function() {
-        this.style.backgroundColor = '#f8f9fa';
-        this.style.transform = 'scale(1.01)';
-        this.style.transition = 'all 0.2s ease';
-    });
-    
-    row.addEventListener('mouseleave', function() {
-        this.style.backgroundColor = '';
-        this.style.transform = '';
-    });
 });
 </script>
