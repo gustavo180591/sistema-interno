@@ -45,27 +45,27 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>ID</th>
-                                        <th>Título</th>
-                                        <th>Estado</th>
-                                        <th>Prioridad</th>
+                                        <th>ID Ticket Externo</th>
+                                        <th>Ticket</th>
+                                        <th>Área De Origen</th>
                                         <th>Fecha</th>
-                                        <th>Acciones</th>
+                                        <th>Estado</th>
+                                        <th>Observación</th>
+                                        <th>Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for ticket in tickets %}
                                         <tr>
                                             <td>#{{ '%04d'|format(ticket.id) }}</td>
+                                            <td>{{ ticket.idSistemaInterno ?? 'N/A' }}</td>
                                             <td>
                                                 <a href="#" class="text-decoration-none" title="{{ ticket.title }}">
                                                     {{ ticket.title|length > 40 ? ticket.title|slice(0, 40) ~ '...' : ticket.title }}
                                                 </a>
-                                                {% if ticket.assignedTo %}
-                                                    <div class="small text-muted">
-                                                        Asignado a: {{ ticket.assignedTo }}
-                                                    </div>
-                                                {% endif %}
                                             </td>
+                                            <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
+                                            <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
                                             <td>
                                                 <span class="badge bg-{{ 
                                                     ticket.status == 'open' ? 'info' : 
@@ -75,16 +75,7 @@
                                                     {{ ticket.status|trans }}
                                                 </span>
                                             </td>
-                                            <td>
-                                                <span class="badge bg-{{ 
-                                                    ticket.priority == 'low' ? 'info' : 
-                                                    (ticket.priority == 'medium' ? 'primary' : 
-                                                    (ticket.priority == 'high' ? 'warning' : 'danger')) 
-                                                }}">
-                                                    {{ ticket.priority|trans }}
-                                                </span>
-                                            </td>
-                                            <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
+                                            <td>{{ ticket.description|length > 50 ? ticket.description|slice(0, 50) ~ '...' : (ticket.description ?? 'N/A') }}</td>
                                             <td>
                                                 <div class="btn-group">
                                                     <a href="#" class="btn btn-sm btn-outline-primary" title="Ver">
@@ -94,6 +85,9 @@
                                                         <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
+                                                        <button type="button" class="btn btn-sm btn-outline-info" title="Asignar" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="{{ ticket.id }}">
+                                                            <i class="fas fa-user-plus"></i>
+                                                        </button>
                                                     {% endif %}
                                                 </div>
                                             </td>

@@ -20,8 +20,8 @@ class Ticket
     const PRIORITY_CRITICAL = 'critical';
 
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\GeneratedValue(strategy: 'AUTO')]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
@@ -49,6 +49,12 @@ class Ticket
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $updatedAt = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $areaOrigen = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $idSistemaInterno = null;
 
     public function __construct()
     {
@@ -141,6 +147,28 @@ class Ticket
     public function getUpdatedAt(): ?\DateTimeInterface
     {
         return $this->updatedAt;
+    }
+
+    public function getAreaOrigen(): ?string
+    {
+        return $this->areaOrigen;
+    }
+
+    public function setAreaOrigen(?string $areaOrigen): self
+    {
+        $this->areaOrigen = $areaOrigen;
+        return $this;
+    }
+
+    public function getIdSistemaInterno(): ?string
+    {
+        return $this->idSistemaInterno;
+    }
+
+    public function setIdSistemaInterno(?string $idSistemaInterno): self
+    {
+        $this->idSistemaInterno = $idSistemaInterno;
+        return $this;
     }
 
     public function setUpdatedAt(\DateTimeInterface $updatedAt): self

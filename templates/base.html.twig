@@ -45,12 +45,15 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('app_home') }}">Inicio</a>
                         </li>
-                        {% if is_granted('ROLE_ADMIN') %}
+                        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('ticket_index') }}">
                                 <i class="fas fa-ticket-alt me-1"></i> Tickets
                             </a>
                         </li>
+                        {% endif %}
+                        
+                        {% if is_granted('ROLE_ADMIN') %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="fas fa-cog me-1"></i> Administración
