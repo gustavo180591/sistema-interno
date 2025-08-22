@@ -67,27 +67,65 @@
                                             <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
                                             <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
                                             <td>
-                                                <span class="badge bg-{{ 
-                                                    ticket.status == 'open' ? 'info' : 
-                                                    (ticket.status == 'in_progress' ? 'warning' : 
-                                                    (ticket.status == 'resolved' ? 'success' : 'secondary')) 
-                                                }}">
-                                                    {{ ticket.status|trans }}
-                                                </span>
+                                                {% if is_granted('ROLE_AUDITOR') %}
+                                                    <form action="{{ path('ticket_update_status', {'id': ticket.id}) }}" method="post" class="d-inline" onchange="this.submit()">
+                                                        <select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block; height: auto; padding: 0.25rem 0.5rem;">
+                                                            <option value="in_progress" {{ ticket.status == 'in_progress' ? 'selected' : '' }} class="text-warning">En progreso</option>
+                                                            <option value="pending" {{ ticket.status == 'pending' ? 'selected' : '' }} class="text-info">Pendiente</option>
+                                                            <option value="rejected" {{ ticket.status == 'rejected' ? 'selected' : '' }} class="text-danger">Rechazado</option>
+                                                            <option value="completed" {{ ticket.status == 'completed' ? 'selected' : '' }} class="text-success">Terminado</option>
+                                                            <option value="delayed" {{ ticket.status == 'delayed' ? 'selected' : '' }} class="text-warning">Demorado</option>
+                                                        </select>
+                                                    </form>
+                                                {% else %}
+                                                    <span class="badge bg-{{ 
+                                                        ticket.status == 'in_progress' ? 'warning' : 
+                                                        (ticket.status == 'pending' ? 'info' : 
+                                                        (ticket.status == 'rejected' ? 'danger' : 
+                                                        (ticket.status == 'completed' ? 'success' : 
+                                                        (ticket.status == 'delayed' ? 'warning' : 'secondary')))) 
+                                                    }}">
+                                                        {{ ({
+                                                            'in_progress': 'En progreso',
+                                                            'pending': 'Pendiente',
+                                                            'rejected': 'Rechazado',
+                                                            'completed': 'Terminado',
+                                                            'delayed': 'Demorado'
+                                                        })[ticket.status] }}
+                                                    </span>
+                                                {% endif %}
                                             </td>
                                             <td>{{ ticket.description|length > 50 ? ticket.description|slice(0, 50) ~ '...' : (ticket.description ?? 'N/A') }}</td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <a href="#" class="btn btn-sm btn-outline-primary" title="Ver">
+                                                    <!-- Ver -->
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary" title="Ver">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    {% if is_granted('ROLE_ADMIN') %}
-                                                        <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                    
+                                                    <!-- Editar -->
+                                                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                                                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
+                                                    {% endif %}
+                                                    
+                                                    <!-- Asignar - Solo para Auditores -->
+                                                    {% if is_granted('ROLE_AUDITOR') %}
                                                         <button type="button" class="btn btn-sm btn-outline-info" title="Asignar" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="{{ ticket.id }}">
                                                             <i class="fas fa-user-plus"></i>
                                                         </button>
+                                                    {% endif %}
+                                                    
+                                                    <!-- Eliminar -->
+                                                    {% if is_granted('ROLE_ADMIN') %}
+                                                        <form action="{{ path('ticket_delete', {'id': ticket.id}) }}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro que desea eliminar este ticket?');">
+                                                            <input type="hidden" name="_method" value="DELETE">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ ticket.id) }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
                                                     {% endif %}
                                                 </div>
                                             </td>

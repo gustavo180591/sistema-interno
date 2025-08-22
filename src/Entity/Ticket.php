@@ -9,15 +9,11 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
 class Ticket
 {
-    const STATUS_OPEN = 'open';
     const STATUS_IN_PROGRESS = 'in_progress';
-    const STATUS_RESOLVED = 'resolved';
-    const STATUS_CLOSED = 'closed';
-
-    const PRIORITY_LOW = 'low';
-    const PRIORITY_MEDIUM = 'medium';
-    const PRIORITY_HIGH = 'high';
-    const PRIORITY_CRITICAL = 'critical';
+    const STATUS_PENDING = 'pending';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_DELAYED = 'delayed';
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
@@ -31,10 +27,7 @@ class Ticket
     private ?string $description = null;
 
     #[ORM\Column(length: 20)]
-    private string $status = self::STATUS_OPEN;
-
-    #[ORM\Column(length: 20)]
-    private string $priority = self::PRIORITY_MEDIUM;
+    private string $status = self::STATUS_PENDING;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -55,6 +48,9 @@ class Ticket
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $idSistemaInterno = null;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $dueDate = null;
 
     public function __construct()
     {
@@ -96,26 +92,19 @@ class Ticket
 
     public function setStatus(string $status): self
     {
-        if (!in_array($status, [self::STATUS_OPEN, self::STATUS_IN_PROGRESS, self::STATUS_RESOLVED, self::STATUS_CLOSED])) {
+        if (!in_array($status, [
+            self::STATUS_IN_PROGRESS,
+            self::STATUS_PENDING,
+            self::STATUS_REJECTED,
+            self::STATUS_COMPLETED,
+            self::STATUS_DELAYED
+        ])) {
             throw new \InvalidArgumentException("Invalid status");
         }
         $this->status = $status;
         return $this;
     }
 
-    public function getPriority(): string
-    {
-        return $this->priority;
-    }
-
-    public function setPriority(string $priority): self
-    {
-        if (!in_array($priority, [self::PRIORITY_LOW, self::PRIORITY_MEDIUM, self::PRIORITY_HIGH, self::PRIORITY_CRITICAL])) {
-            throw new \InvalidArgumentException("Invalid priority");
-        }
-        $this->priority = $priority;
-        return $this;
-    }
 
     public function getCreatedBy(): ?User
     {
@@ -174,6 +163,17 @@ class Ticket
     public function setUpdatedAt(\DateTimeInterface $updatedAt): self
     {
         $this->updatedAt = $updatedAt;
+        return $this;
+    }
+
+    public function getDueDate(): ?\DateTimeInterface
+    {
+        return $this->dueDate;
+    }
+
+    public function setDueDate(\DateTimeInterface $dueDate): self
+    {
+        $this->dueDate = $dueDate;
         return $this;
     }
 

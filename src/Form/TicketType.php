@@ -40,6 +40,38 @@ class TicketType extends AbstractType
                     'class' => 'mb-3'
                 ]
             ])
+            ->add('status', ChoiceType::class, [
+                'label' => 'Estado',
+                'choices' => [
+                    'En Progreso' => Ticket::STATUS_IN_PROGRESS,
+                    'Pendiente' => Ticket::STATUS_PENDING,
+                    'Rechazado' => Ticket::STATUS_REJECTED,
+                    'Completado' => Ticket::STATUS_COMPLETED,
+                    'Atrasado' => Ticket::STATUS_DELAYED,
+                ],
+                'attr' => [
+                    'class' => 'form-select',
+                ],
+                'choice_label' => function($choice, $key, $value) {
+                    return $key; // Use the translated labels as display text
+                },
+                'row_attr' => [
+                    'class' => 'mb-3'
+                ]
+            ])
+            ->add('assignedTo', EntityType::class, [
+                'label' => 'Asignar a',
+                'class' => User::class,
+                'choice_label' => 'username',
+                'placeholder' => 'Seleccionar usuario',
+                'required' => false,
+                'attr' => [
+                    'class' => 'form-select',
+                ],
+                'row_attr' => [
+                    'class' => 'mb-3'
+                ]
+            ])
             ->add('areaOrigen', ChoiceType::class, [
                 'label' => 'Área de Origen',
                 'choices' => [
