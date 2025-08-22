@@ -178,7 +178,14 @@
                     </a>
                 {% endif %}
                 {% if is_granted('ROLE_AUDITOR') %}
-                    <button type="button" class="btn btn-info text-white" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="{{ ticket.id }}">
+                    <button type="button" 
+                            class="btn btn-primary btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#assignTicketModal" 
+                            data-ticket-id="{{ ticket.id }}"
+                            {% if ticket.status in ['completed', 'rejected'] %} 
+                                title="No se pueden asignar usuarios a un ticket cerrado"
+                            {% endif %}>
                         <i class="fas fa-user-plus me-1"></i> Asignar
                     </button>
                 {% endif %}
@@ -289,9 +296,34 @@
                         <div class="info-content">
                             <div class="info-label">Asignado a</div>
                             <div class="info-value">
-                                {% if ticket.assignedTo %}
-                                    <i class="fas fa-user-check me-1"></i>
-                                    {{ ticket.assignedTo.email }}
+                                {% if ticket.assignedTo|length > 0 %}
+                                    <ul class="list-unstyled mb-0">
+                                        {% for assignment in ticket.orderedAssignments %}
+                                            {% set user = assignment.user %}
+                                            <li class="d-flex align-items-center mb-3">
+                                                <i class="fas fa-user-check me-2"></i>
+                                                <div class="d-flex flex-column w-100">
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        <span class="me-2 fw-bold">{{ user.nombre }} {{ user.apellido }}</span>
+                                                        {% if 'ROLE_AUDITOR' in user.roles %}
+                                                            <span class="badge bg-info me-2">Auditor</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary me-2">Usuario</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="badge bg-light text-dark border">
+                                                            <i class="far fa-clock me-1"></i>
+                                                            Asignado el {{ assignment.assignedAt|date('d/m/Y H:i:s') }}
+                                                        </span>
+                                                        {% if app.debug %}
+                                                            <small class="text-muted ms-2">(ID: {{ user.id }})</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
                                 {% else %}
                                     <span class="text-muted">Sin asignar</span>
                                 {% endif %}
@@ -319,4 +351,113 @@
         </div>
     </div>
 </div>
+
+<!-- Assign Ticket Modal -->
+<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form action="{{ path('ticket_assign') }}" method="post" onsubmit="return false;">
+        <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
+        <input type="hidden" name="ticket_id" id="assign_ticket_id">
+        <div class="modal-body">
+
+          <div class="mb-3">
+            <label class="form-label mb-3">Seleccionar usuarios para asignar:</label>
+            <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+              {% for user in users|default([]) %}
+                <label class="list-group-item d-flex align-items-center">
+                  <input class="form-check-input me-2" 
+                         type="checkbox" 
+                         name="assigned_users[]" 
+                         value="{{ user.id }}" 
+                         {% if ticket.isAssignedToUser(user) %}checked{% endif %}
+                         {% if ticket.status in ['completed', 'rejected'] %}disabled{% endif %}>
+                  <div>
+                    <div class="fw-bold">{{ user.nombre }} {{ user.apellido }}</div>
+                    <small class="text-muted">{{ user.email }}</small>
+                    <span class="badge bg-{{ 'ROLE_AUDITOR' in user.roles ? 'info' : 'secondary' }} ms-2">
+                      {{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}
+                    </span>
+                  </div>
+                </label>
+              {% endfor %}
+            </div>
+            <div id="userSelectionError" class="invalid-feedback d-none">
+              Por favor seleccione al menos un usuario.
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Asignar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Initialize assign ticket modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const assignModal = document.getElementById('assignTicketModal');
+            const assignForm = assignModal?.querySelector('form');
+            
+            if (assignModal) {
+                // When modal is shown
+                assignModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const ticketId = button.getAttribute('data-ticket-id');
+                    const modalTicketId = document.getElementById('assign_ticket_id');
+                    if (modalTicketId) {
+                        modalTicketId.value = ticketId;
+                        console.log('Setting ticket ID:', ticketId);
+                    }
+                });
+                
+                // When form is submitted
+                if (assignForm) {
+                    assignForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        const checkboxes = assignForm.querySelectorAll('input[name^="assigned_users"]:checked');
+                        const errorElement = document.getElementById('userSelectionError');
+                        
+                        if (checkboxes.length === 0) {
+                            errorElement.classList.remove('d-none');
+                            return false;
+                        }
+                        
+                        errorElement.classList.add('d-none');
+                        
+                        // Submit the form via AJAX
+                        fetch(assignForm.action, {
+                            method: 'POST',
+                            body: new FormData(assignForm)
+                        })
+                        .then(response => {
+                            if (response.ok) {
+                                // Close the modal on success
+                                const modal = bootstrap.Modal.getInstance(assignModal);
+                                modal.hide();
+                                // Optionally refresh the page to see changes
+                                window.location.reload();
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                        
+                        return false;
+                    });
+                }
+            }
+        });
+    </script>
+{% endblock %}
+
 {% endblock %}

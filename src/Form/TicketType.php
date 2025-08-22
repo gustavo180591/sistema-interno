@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Ticket;
 use App\Entity\User;
+use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -62,11 +63,23 @@ class TicketType extends AbstractType
             ->add('assignedTo', EntityType::class, [
                 'label' => 'Asignar a',
                 'class' => User::class,
-                'choice_label' => 'username',
-                'placeholder' => 'Seleccionar usuario',
+                'choice_label' => function(User $user) {
+                    return $user->getNombre() . ' ' . $user->getApellido() . ' (' . $user->getEmail() . ')';
+                },
+                'multiple' => true,
+                'expanded' => false,
                 'required' => false,
+                'query_builder' => function (UserRepository $userRepository) {
+                    return $userRepository->createQueryBuilder('u')
+                        ->where('u.roles LIKE :role1 OR u.roles LIKE :role2')
+                        ->setParameter('role1', '%ROLE_USER%')
+                        ->setParameter('role2', '%ROLE_AUDITOR%')
+                        ->orderBy('u.nombre', 'ASC');
+                },
                 'attr' => [
                     'class' => 'form-select',
+                    'data-placeholder' => 'Seleccionar usuarios',
+                    'multiple' => 'multiple'
                 ],
                 'row_attr' => [
                     'class' => 'mb-3'

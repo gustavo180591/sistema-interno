@@ -5,6 +5,9 @@ namespace App\Entity;
 use App\Repository\TicketRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use App\Entity\TicketAssignment;
 
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
 class Ticket
@@ -33,9 +36,11 @@ class Ticket
     #[ORM\JoinColumn(nullable: false)]
     private ?User $createdBy = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?User $assignedTo = null;
+    /**
+     * @var Collection|TicketAssignment[]
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketAssignment::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $ticketAssignments;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $createdAt = null;
@@ -55,6 +60,7 @@ class Ticket
     public function __construct()
     {
         $this->createdAt = new \DateTime();
+        $this->ticketAssignments = new ArrayCollection();
     }
 
     // Getters and Setters
@@ -117,15 +123,74 @@ class Ticket
         return $this;
     }
 
-    public function getAssignedTo(): ?User
+    /**
+     * @return Collection|User[]
+     */
+    public function getAssignedTo(): Collection
     {
-        return $this->assignedTo;
+        return $this->ticketAssignments->map(fn(TicketAssignment $assignment) => $assignment->getUser());
     }
 
-    public function setAssignedTo(?User $assignedTo): self
+    /**
+     * @return Collection|TicketAssignment[]
+     */
+    public function getTicketAssignments(): Collection
     {
-        $this->assignedTo = $assignedTo;
+        return $this->ticketAssignments;
+    }
+
+    public function addAssignedTo(User $user): self
+    {
+        if (!$this->isAssignedToUser($user)) {
+            $assignment = new TicketAssignment();
+            $assignment->setUser($user);
+            $assignment->setTicket($this);
+            $this->ticketAssignments[] = $assignment;
+        }
         return $this;
+    }
+
+    public function removeAssignedTo(User $user): self
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                $this->ticketAssignments->removeElement($assignment);
+                break;
+            }
+        }
+        return $this;
+    }
+
+    public function isAssignedToUser(User $user): bool
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function getUserAssignmentTime(User $user): ?\DateTimeInterface
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                return $assignment->getAssignedAt();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get assignments ordered by assignment date (oldest first)
+     */
+    public function getOrderedAssignments(): Collection
+    {
+        $assignments = $this->ticketAssignments->toArray();
+        usort($assignments, function($a, $b) {
+            return $a->getAssignedAt() <=> $b->getAssignedAt();
+        });
+        return new ArrayCollection($assignments);
     }
 
     public function getCreatedAt(): ?\DateTimeInterface

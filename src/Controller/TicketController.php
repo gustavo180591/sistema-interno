@@ -16,6 +16,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 class TicketController extends AbstractController
 {
+    private const STATUS_PENDING = 'pending';
+    private const STATUS_IN_PROGRESS = 'in_progress';
+    private const STATUS_COMPLETED = 'completed';
+    private const STATUS_REJECTED = 'rejected';
     public function __construct(
         private EntityManagerInterface $entityManager,
         private TicketRepository $ticketRepository,
@@ -85,51 +89,153 @@ class TicketController extends AbstractController
         return $this->redirectToRoute('ticket_index');
     }
 
-    #[Route('/tickets/{id}/assign', name: 'ticket_assign', methods: ['POST'])]
+    #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
     #[IsGranted('ROLE_AUDITOR')]
-    public function assign(Request $request, Ticket $ticket): Response
+    public function assign(Request $request, EntityManagerInterface $em, TicketRepository $tickets, UserRepository $users): Response
     {
-        $assignedUserIds = $request->request->all('assigned_users');
-        $dueDate = new \DateTime($request->request->get('due_date'));
+        $this->denyAccessUnlessGranted('ROLE_AUDITOR');
+        $this->isCsrfTokenValid('assign_ticket', $request->request->get('_token')) || throw $this->createAccessDeniedException();
+
+        $ticketId = $request->request->get('ticket_id');
+        $userIds = $request->request->all('assigned_users');
         
-        if (empty($assignedUserIds)) {
-            $this->addFlash('error', 'Debe seleccionar al menos un usuario para asignar el ticket.');
-            return $this->redirectToRoute('ticket_index');
+        // Debug: Log the raw request data
+        error_log('Raw request data: ' . print_r($request->request->all(), true));
+        
+        // Handle different formats of user IDs
+        if (is_string($userIds)) {
+            $userIds = [$userIds];
+        } elseif (!is_array($userIds)) {
+            $userIds = [];
         }
         
-        $assignedUsers = $this->entityManager->getRepository(User::class)->findBy(['id' => $assignedUserIds]);
+        // Filter out any empty values and convert to integers
+        $userIds = array_filter(array_map('intval', $userIds), function($value) {
+            return $value > 0;
+        });
         
-        if (count($assignedUsers) !== count($assignedUserIds)) {
-            $this->addFlash('error', 'Uno o más usuarios no fueron encontrados.');
+        // Debug: Log processed data
+        error_log('Processed ticket_id: ' . $ticketId);
+        error_log('Processed user IDs: ' . print_r($userIds, true));
+        
+        if (empty($userIds)) {
+            $this->addFlash('danger', 'Debe seleccionar al menos un usuario para asignar el ticket.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+        }
+
+        $ticket = $tickets->find($ticketId);
+        if (!$ticket) {
+            $this->addFlash('danger', 'Ticket no encontrado');
             return $this->redirectToRoute('ticket_index');
         }
-        
-        // Clone the ticket for each assigned user
-        foreach ($assignedUsers as $user) {
-            if ($user === $ticket->getCreatedBy()) {
-                continue; // Skip if the user is the creator of the ticket
+
+        // Check if ticket is closed
+        if ($ticket->getStatus() === self::STATUS_COMPLETED || $ticket->getStatus() === self::STATUS_REJECTED) {
+            $this->addFlash('warning', 'No se pueden asignar usuarios a un ticket cerrado.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+        }
+
+        try {
+            // Debug: Log the raw user IDs from the request
+            error_log('Raw user IDs from request: ' . print_r($userIds, true));
+            
+            // Convert string IDs to integers and filter out any invalid values
+            $userIds = array_filter(array_map('intval', $userIds), function($id) {
+                return $id > 0;
+            });
+            
+            if (empty($userIds)) {
+                throw new \Exception('No se proporcionaron IDs de usuario válidos.');
             }
             
-            $ticketClone = clone $ticket;
-            $ticketClone->setAssignedTo($user);
-            $ticketClone->setDueDate(clone $dueDate);
-            $ticketClone->setCreatedAt(new \DateTime());
-            $ticketClone->setStatus('pending'); // Reset status for the new assignment
+            error_log('Processed user IDs: ' . print_r($userIds, true));
             
-            $this->entityManager->persist($ticketClone);
+            // Get all users with the given IDs first
+            $allUsers = $users->createQueryBuilder('u')
+                ->where('u.id IN (:ids)')
+                ->setParameter('ids', $userIds)
+                ->getQuery()
+                ->getResult();
+                
+            error_log('Found ' . count($allUsers) . ' users with the given IDs');
+            
+            // Filter users by role in PHP to ensure we see what's happening
+            $validUsers = [];
+            foreach ($allUsers as $user) {
+                $roles = $user->getRoles();
+                error_log(sprintf(
+                    'User ID: %d, Roles: %s', 
+                    $user->getId(), 
+                    json_encode($roles)
+                ));
+                
+                if (in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles)) {
+                    $validUsers[] = $user;
+                }
+            }
+            
+            error_log('Found ' . count($validUsers) . ' valid users after role filtering');
+
+            if (empty($validUsers)) {
+                throw new \Exception('No se encontraron usuarios válidos para asignar. Los usuarios deben tener el rol ROLE_USER o ROLE_AUDITOR.');
+            }
+
+            // Get current assignments to preserve timestamps
+            $currentAssignments = $ticket->getTicketAssignments();
+            $currentUserIds = [];
+            foreach ($currentAssignments as $assignment) {
+                $currentUserIds[] = $assignment->getUser()->getId();
+            }
+
+            // Remove assignments for users that are no longer assigned
+            foreach ($currentAssignments as $assignment) {
+                $userId = $assignment->getUser()->getId();
+                if (!in_array($userId, $userIds)) {
+                    $ticket->removeAssignedTo($assignment->getUser());
+                }
+            }
+
+            // Add new assignments only for users that don't have existing assignments
+            foreach ($validUsers as $user) {
+                if (!in_array($user->getId(), $currentUserIds)) {
+                    $ticket->addAssignedTo($user);
+                }
+            }
+            
+            // Update status if it's pending
+            if ($ticket->getStatus() === 'pending') {
+                $ticket->setStatus('in_progress');
+            }
+            
+            $em->persist($ticket);
+            $em->flush();
+            
+            $this->addFlash('success', 'Usuarios asignados correctamente al ticket.');
+        } catch (\Exception $e) {
+            $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
         }
-        
-        $this->entityManager->flush();
-        
-        $this->addFlash('success', 'Ticket asignado exitosamente a los usuarios seleccionados.');
-        return $this->redirectToRoute('ticket_index');
+
+        return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
     }
 
     #[Route('/tickets/{id}', name: 'ticket_show', methods: ['GET'])]
-    public function show(Ticket $ticket): Response
+    public function show(Ticket $ticket, UserRepository $userRepository): Response
     {
+        // Get all users and filter by role in PHP
+        $allUsers = $userRepository->findAll();
+        $users = array_filter($allUsers, function($user) {
+            $roles = $user->getRoles();
+            return in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles);
+        });
+        
+        // Sort users by name
+        usort($users, function($a, $b) {
+            return strcmp($a->getNombre(), $b->getNombre());
+        });
+
         return $this->render('ticket/show.html.twig', [
             'ticket' => $ticket,
+            'users' => $users,
         ]);
     }
 
