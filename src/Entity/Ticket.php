@@ -49,6 +49,13 @@ class Ticket
     #[ORM\OrderBy(['createdAt' => 'DESC'])]
     private Collection $updates;
 
+    /**
+     * @var Collection<int, Note>
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: Note::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
+    private Collection $notes;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $createdAt = null;
 
@@ -76,6 +83,7 @@ class Ticket
         $this->createdAt = new \DateTime();
         $this->ticketAssignments = new ArrayCollection();
         $this->updates = new ArrayCollection();
+        $this->notes = new ArrayCollection();
     }
 
     // Getters and Setters
@@ -160,6 +168,36 @@ class Ticket
     public function getUpdates(): Collection
     {
         return $this->updates;
+    }
+
+    /**
+     * @return Collection<int, Note>
+     */
+    public function getNotes(): Collection
+    {
+        return $this->notes;
+    }
+
+    public function addNote(Note $note): self
+    {
+        if (!$this->notes->contains($note)) {
+            $this->notes[] = $note;
+            $note->setTicket($this);
+        }
+
+        return $this;
+    }
+
+    public function removeNote(Note $note): self
+    {
+        if ($this->notes->removeElement($note)) {
+            // set the owning side to null (unless already changed)
+            if ($note->getTicket() === $this) {
+                $note->setTicket(null);
+            }
+        }
+
+        return $this;
     }
 
     public function addAssignedTo(User $user): self

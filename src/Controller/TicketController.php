@@ -26,6 +26,95 @@ class TicketController extends AbstractController
         private UserRepository $userRepository
     ) {
     }
+    
+    #[Route('/tickets/{id}/update-status/{status?}', name: 'ticket_update_status', methods: ['POST'], priority: 10)]
+    #[IsGranted('edit', 'ticket')]
+    public function updateStatus(Request $request, Ticket $ticket, ?string $status = null): Response
+    {
+        // Handle the new route with status in URL
+        if ($status !== null) {
+            $validStatuses = [
+                'rechazado' => self::STATUS_REJECTED,
+                'en_progreso' => self::STATUS_IN_PROGRESS,
+                'completado' => self::STATUS_COMPLETED
+            ];
+            
+            if (!array_key_exists($status, $validStatuses)) {
+                $this->addFlash('error', 'Estado no válido');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+            
+            $newStatus = $validStatuses[$status];
+        } else {
+            // Handle the old route with status in request body
+            $newStatus = $request->request->get('status');
+            
+            if (!in_array($newStatus, [
+                self::STATUS_PENDING,
+                self::STATUS_IN_PROGRESS,
+                self::STATUS_COMPLETED,
+                self::STATUS_REJECTED
+            ])) {
+                $this->addFlash('error', 'Estado no válido');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+        }
+
+        // Set the status
+        $ticket->setStatus($newStatus);
+        
+        // If completing the ticket, set the completedAt timestamp
+        if ($newStatus === self::STATUS_COMPLETED) {
+            $ticket->setCompletedAt(new \DateTimeImmutable());
+        }
+        
+        $this->entityManager->persist($ticket);
+        $this->entityManager->flush();
+
+        $statusMessage = [
+            self::STATUS_PENDING => 'pendiente',
+            self::STATUS_IN_PROGRESS => 'en progreso',
+            self::STATUS_COMPLETED => 'completado',
+            self::STATUS_REJECTED => 'rechazado'
+        ][$newStatus] ?? 'actualizado';
+        
+        $this->addFlash('success', sprintf('El ticket ha sido marcado como %s', $statusMessage));
+        
+        if ($request->isXmlHttpRequest()) {
+            return $this->json(['success' => true]);
+        }
+        
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/edit-description', name: 'ticket_edit_description', methods: ['POST'])]
+    #[IsGranted('edit', 'ticket')]
+    public function editDescription(Ticket $ticket, Request $request): Response
+    {
+        $description = $request->request->get('description');
+        
+        if (empty(trim($description))) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['success' => false, 'error' => 'La descripción no puede estar vacía']);
+            }
+            $this->addFlash('error', 'La descripción no puede estar vacía');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $ticket->setDescription($description);
+        $this->entityManager->persist($ticket);
+        $this->entityManager->flush();
+        
+        if ($request->isXmlHttpRequest()) {
+            return $this->json([
+                'success' => true,
+                'description' => nl2br(htmlspecialchars($description, ENT_QUOTES, 'UTF-8'))
+            ]);
+        }
+        
+        $this->addFlash('success', 'La descripción ha sido actualizada');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
 
     #[Route('/tickets/{id}/take', name: 'ticket_take', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -95,21 +184,6 @@ class TicketController extends AbstractController
         ]);
     }
 
-    #[Route('/tickets/{id}/update-status', name: 'ticket_update_status', methods: ['POST'])]
-    #[IsGranted('ROLE_AUDITOR')]
-    public function updateStatus(Request $request, Ticket $ticket): Response
-    {
-        $newStatus = $request->request->get('status');
-        
-        try {
-            $ticket->setStatus($newStatus);
-            $this->entityManager->flush();
-        } catch (\InvalidArgumentException $e) {
-            $this->addFlash('error', 'Estado no válido.');
-        }
-        
-        return $this->redirectToRoute('ticket_index');
-    }
 
     #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
     #[IsGranted('ROLE_AUDITOR')]
@@ -249,21 +323,47 @@ class TicketController extends AbstractController
     #[Route('/tickets/{id}', name: 'ticket_show', methods: ['GET'])]
     public function show(Ticket $ticket, UserRepository $userRepository): Response
     {
+        // Check if user has permission to view this ticket
+        $this->denyAccessUnlessGranted('view', $ticket);
         // Get all users and filter by role in PHP
         $allUsers = $userRepository->findAll();
-        $users = array_filter($allUsers, function($user) {
+        
+        // Get notes ordered by creation date (newest first)
+        $notes = $ticket->getNotes()->toArray();
+        usort($notes, function($a, $b) {
+            return $b->getCreatedAt() <=> $a->getCreatedAt();
+        });
+        
+        // Filter users by role
+        $filteredUsers = array_filter($allUsers, function($user) {
             $roles = $user->getRoles();
             return in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles);
         });
         
         // Sort users by name
-        usort($users, function($a, $b) {
+        usort($filteredUsers, function($a, $b) {
             return strcmp($a->getNombre(), $b->getNombre());
         });
+        
+        // Check if current user is assigned to this ticket
+        $isAssigned = false;
+        if ($this->getUser()) {
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                if ($assignment->getUser() === $this->getUser()) {
+                    $isAssigned = true;
+                    break;
+                }
+            }
+        }
 
         return $this->render('ticket/show.html.twig', [
             'ticket' => $ticket,
-            'users' => $users,
+            'users' => $filteredUsers,
+            'isAssigned' => $isAssigned,
+            'isAdmin' => $this->isGranted('ROLE_ADMIN'),
+            'isAuditor' => $this->isGranted('ROLE_AUDITOR'),
+            'isCreator' => $ticket->getCreatedBy() === $this->getUser(),
+            'notes' => $notes,
         ]);
     }
 

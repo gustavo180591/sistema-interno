@@ -59,52 +59,14 @@ class TicketSubscriber implements EventSubscriberInterface
         }
 
         $changes = [];
-        $changeDetected = false;
 
-        // Check each field that changed
-        foreach ($args->getEntityChangeSet() as $field => $change) {
-            // Skip these fields as they're handled separately
-            if (in_array($field, ['updatedAt', 'takenAt'])) {
-                continue;
-            }
-
-            $oldValue = $change[0];
-            $newValue = $change[1];
-
-            // Handle special cases for related entities
-            if ($field === 'takenBy') {
-                $changes[] = [
-                    'field' => 'takenBy',
-                    'old' => $oldValue ? $oldValue->getEmail() : null,
-                    'new' => $newValue ? $newValue->getEmail() : null,
-                    'type' => 'user'
-                ];
-                $changeDetected = true;
-                continue;
-            }
-
-            // Handle status changes
-            if ($field === 'status') {
-                $changes[] = [
-                    'field' => 'status',
-                    'old' => $oldValue,
-                    'new' => $newValue,
-                    'type' => 'status'
-                ];
-                $changeDetected = true;
-                continue;
-            }
-
-            // Handle other fields
-            if ($oldValue != $newValue) {
-                $changes[] = [
-                    'field' => $field,
-                    'old' => $oldValue,
-                    'new' => $newValue,
-                    'type' => 'field'
-                ];
-                $changeDetected = true;
-            }
+        // Track status changes
+        if ($args->hasChangedField('status')) {
+            $changes[] = [
+                'field' => 'status',
+                'old' => $args->getOldValue('status'),
+                'new' => $args->getNewValue('status')
+            ];
         }
 
         if ($changeDetected) {

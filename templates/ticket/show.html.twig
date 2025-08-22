@@ -180,17 +180,32 @@
                     {% endif %}
                 {% endif %}
                 
-                {% if is_granted('ROLE_AUDITOR') and not ticket.takenBy %}
-                    <button type="button" 
-                            class="btn btn-primary btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#assignTicketModal" 
-                            data-ticket-id="{{ ticket.id }}"
-                            {% if ticket.status in ['completed', 'rejected'] %} 
-                                title="No se pueden asignar usuarios a un ticket cerrado"
-                            {% endif %}>
-                        <i class="fas fa-user-plus me-1"></i> Asignar
-                    </button>
+                {% if is_granted('ROLE_AUDITOR') %}
+                    {% if not ticket.takenBy %}
+                        <button type="button" 
+                                class="btn btn-primary btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#assignTicketModal" 
+                                data-ticket-id="{{ ticket.id }}"
+                                {% if ticket.status in ['completed', 'rejected'] %} 
+                                    title="No se pueden asignar usuarios a un ticket cerrado"
+                                {% endif %}>
+                            <i class="fas fa-user-plus me-1"></i> Asignar
+                        </button>
+                    {% else %}
+                        <button type="button" 
+                                class="btn btn-warning btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#assignTicketModal" 
+                                data-ticket-id="{{ ticket.id }}"
+                                {% if ticket.status in ['completed', 'rejected'] %} 
+                                    title="No se pueden reasignar usuarios en un ticket cerrado"
+                                {% else %}
+                                    title="Reasignar ticket a otro usuario"
+                                {% endif %}>
+                            <i class="fas fa-user-edit me-1"></i> Reasignar
+                        </button>
+                    {% endif %}
                 {% endif %}
                 
                 {% if is_granted('ROLE_ADMIN') %}
@@ -208,80 +223,179 @@
     <div class="row">
         <div class="col-lg-8">
             <div class="description-card">
-                <h5 class="mb-3">
-                    <i class="fas fa-align-left text-primary me-2"></i>
-                    Descripción
-                </h5>
-                <div class="bg-white p-3 rounded">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-align-left text-primary me-2"></i>
+                        Descripción
+                    </h5>
+                    {% if is_granted('edit', ticket) %}
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="editDescriptionBtn">
+                            <i class="fas fa-edit me-1"></i> Editar
+                        </button>
+                    {% endif %}
+                </div>
+                <div id="descriptionView" class="bg-white p-3 rounded">
                     {{ ticket.description ? ticket.description|nl2br : '<p class="text-muted fst-italic">No hay descripción disponible.</p>'|raw }}
                 </div>
+                {% if is_granted('edit', ticket) %}
+                    <form id="descriptionForm" action="{{ path('ticket_edit_description', {'id': ticket.id}) }}" method="post" class="d-none">
+                        <input type="hidden" name="_token" value="{{ csrf_token('edit_description_' ~ ticket.id) }}">
+                        <div class="mb-3">
+                            <textarea class="form-control" name="description" rows="4" required>{{ ticket.description }}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="cancelEditDescription">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar cambios
+                            </button>
+                        </div>
+                    </form>
+                {% endif %}
             </div>
+            
+            <!-- Ticket Actions -->
+            {% if is_granted('ROLE_USER') and not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
+                <div class="card mb-4">
+                    <div class="card-body py-2">
+                        <div class="d-flex flex-wrap gap-2 justify-content-between">
+                            <h6 class="mb-0 align-self-center">Acciones del ticket:</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                <form action="{{ path('ticket_update_status', {'id': ticket.id, 'status': 'rechazado'}) }}" method="post" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
+                                    <button type="submit" class="btn btn-outline-danger" 
+                                            onclick="return confirm('¿Está seguro de marcar este ticket como rechazado?')">
+                                        <i class="fas fa-times-circle me-1"></i> Rechazar
+                                    </button>
+                                </form>
+                                <form action="{{ path('ticket_update_status', {'id': ticket.id, 'status': 'en_progreso'}) }}" method="post" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
+                                    <button type="submit" class="btn btn-outline-primary"
+                                            {% if ticket.status == 'en_progreso' %}disabled{% endif %}>
+                                        <i class="fas fa-play-circle me-1"></i> Continuar
+                                    </button>
+                                </form>
+                                <form action="{{ path('ticket_update_status', {'id': ticket.id, 'status': 'completado'}) }}" method="post" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
+                                    <button type="submit" class="btn btn-outline-success"
+                                            onclick="return confirm('¿Está seguro de marcar este ticket como completado?')">
+                                        <i class="fas fa-check-circle me-1"></i> Terminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
 
-            <div class="card mb-4">
+            <!-- Notes Buttons -->
+            <div class="mb-4">
+                {% if notes|length > 0 %}
+                    <button type="button" class="btn btn-outline-primary me-2" id="viewNotesBtn">
+                        <i class="fas fa-eye me-1"></i> Ver notas ({{ notes|length }})
+                    </button>
+                {% endif %}
+                {% if is_granted('note', ticket) %}
+                    <button type="button" class="btn btn-primary" id="addNoteBtn">
+                        <i class="fas fa-plus me-1"></i> Agregar nota
+                    </button>
+                {% endif %}
+            </div>
+            
+            <!-- Notes List Section (initially hidden) -->
+            <div class="card mb-4 d-none" id="viewNotesSection">
                 <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-history text-primary me-2"></i>
-                        Historial de actualizaciones
-                    </h5>
-                    <div class="timeline">
-                        {% for update in ticket.updates|reverse %}
-                            <div class="timeline-item">
-                                <div class="timeline-date">
-                                    <i class="far fa-calendar-alt me-1"></i>
-                                    {{ update.createdAt|date('d/m/Y H:i') }}
-                                </div>
-                                <div class="timeline-content">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            {% if update.type == 'create' %}
-                                                <strong>Ticket creado</strong>
-                                                <span class="badge bg-primary ms-2">Nuevo</span>
-                                            {% else %}
-                                                <strong>Ticket actualizado</strong>
-                                                <span class="badge bg-info ms-2">Actualización</span>
-                                            {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-sticky-note text-primary me-2"></i>
+                            Notas del Ticket
+                        </h5>
+                        <button type="button" class="btn-close" id="hideViewNotesBtn" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="notes-container">
+            
+            <!-- Add Note Section (initially hidden) -->
+            <div class="card mb-4 d-none" id="addNoteSection">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-plus-circle text-primary me-2"></i>
+                            Agregar Nota
+                        </h5>
+                        <button type="button" class="btn-close" id="hideAddNoteBtn" aria-label="Cerrar"></button>
+                    </div>
+                    <form action="{{ path('ticket_add_note', {'id': ticket.id}) }}" method="post" class="mb-4">
+                        <input type="hidden" name="_token" value="{{ csrf_token('add_note_' ~ ticket.id) }}">
+                        <div class="mb-3">
+                            <label for="noteContent" class="form-label">Escribe tu nota</label>
+                            <textarea class="form-control" id="noteContent" name="content" rows="4" 
+                                     placeholder="Escribe aquí los detalles de lo que se está haciendo en este ticket..." required></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary" id="cancelAddNoteBtn">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar nota
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Notes List -->
+            <div class="notes-container">
+                        {% if notes|length > 0 %}
+                            {% for note in notes %}
+                                <div class="card mb-3 {% if note.createdBy == app.user %}border-primary{% endif %}" 
+                                     id="note-{{ note.id }}" 
+                                     data-csrf-token="{{ csrf_token('edit_note_' ~ note.id) }}">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-secondary me-2">
+                                                    <i class="fas fa-user me-1"></i>{{ note.createdBy.nombre }} {{ note.createdBy.apellido }}
+                                                </span>
+                                                <small class="text-muted">
+                                                    <i class="far fa-clock me-1"></i>{{ note.createdAt|date('d/m/Y H:i') }}
+                                                    {% if note.updatedAt and note.updatedAt != note.createdAt %}
+                                                        &nbsp;&bull;&nbsp;
+                                                        <i class="fas fa-edit me-1"></i>Modificado: {{ note.updatedAt|date('d/m/Y H:i') }}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                            <div class="btn-group">
+                                                {% if is_granted('edit', note) or note.createdBy == app.user %}
+                                                    <button type="button" class="btn btn-sm btn-outline-primary edit-note" 
+                                                            data-note-id="{{ note.id }}" 
+                                                            data-content="{{ note.content|e('html_attr') }}">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                {% endif %}
+                                                {% if is_granted('ROLE_ADMIN') %}
+                                                    <form action="{{ path('ticket_delete_note', {'id': note.id}) }}" method="post" class="d-inline" 
+                                                          onsubmit="return confirm('¿Está seguro de eliminar esta nota permanentemente?')">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_note_' ~ note.id) }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        <div class="text-muted small">
-                                            Por {{ update.user.email }}
+                                        <div class="note-content">
+                                            <p class="card-text">{{ note.content|nl2br }}</p>
                                         </div>
                                     </div>
-                                    
-                                    {% if update.changes is not empty %}
-                                        <div class="mt-2">
-                                            {% for change in update.changes %}
-                                                {% if change.field == 'status' %}
-                                                    <div class="d-flex align-items-center mb-1">
-                                                        <i class="fas fa-exchange-alt text-muted me-2"></i>
-                                                        <span>Estado cambiado de <strong>{{ change.old|default('N/A')|trans({}, 'messages') }}</strong> a <strong>{{ change.new|trans({}, 'messages') }}</strong></span>
-                                                    </div>
-                                                {% elseif change.field == 'takenBy' %}
-                                                    <div class="d-flex align-items-center mb-1">
-                                                        <i class="fas fa-user-check text-muted me-2"></i>
-                                                        <span>
-                                                            {% if change.new %}
-                                                                Tomado por <strong>{{ change.new }}</strong>
-                                                            {% else %}
-                                                                <strong>Ticket liberado</strong>
-                                                            {% endif %}
-                                                        </span>
-                                                    </div>
-                                                {% else %}
-                                                    <div class="d-flex align-items-center mb-1">
-                                                        <i class="fas fa-edit text-muted me-2"></i>
-                                                        <span>{{ change.field|trans({}, 'messages') }} actualizado</span>
-                                                    </div>
-                                                {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
                                 </div>
-                            </div>
+                            {% endfor %}
                         {% else %}
-                            <div class="text-muted text-center py-3">
-                                <i class="fas fa-info-circle me-1"></i>
-                                No hay historial de actualizaciones disponible.
+                            <div class="text-center py-4 text-muted">
+                                <i class="fas fa-inbox fa-2x mb-2"></i>
+                                <p class="mb-0">No hay notas para mostrar</p>
                             </div>
-                        {% endfor %}
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -330,48 +444,30 @@
                         <div class="info-content">
                             <div class="info-label">Asignado a</div>
                             <div class="info-value">
-                                {% if ticket.assignedTo|length > 0 %}
-                                    {% if is_granted('ROLE_USER') and not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
-                                        {% set userAssignment = null %}
-                                        {% for assignment in ticket.orderedAssignments %}
-                                            {% if assignment.user.id == app.user.id %}
-                                                {% set userAssignment = assignment %}
-                                            {% endif %}
-                                        {% endfor %}
-                                        {% if userAssignment %}
-                                            <div class="alert alert-info p-2 mb-0">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                Se te asignó el ticket el {{ userAssignment.assignedAt|date('d/m/Y') }} a las {{ userAssignment.assignedAt|date('H:i') }}
+                                {% if ticket.takenBy %}
+                                    {% set user = ticket.takenBy %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-check me-2"></i>
+                                        <div class="d-flex flex-column">
+                                            <div class="d-flex align-items-center">
+                                                <span class="fw-medium">{{ user.nombre }} {{ user.apellido }}</span>
+                                                {% if 'ROLE_AUDITOR' in user.roles %}
+                                                    <span class="badge bg-info ms-2">Auditor</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary ms-2">Usuario</span>
+                                                {% endif %}
                                             </div>
-                                        {% else %}
-                                            <span class="text-muted">No asignado a ti</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <ul class="list-unstyled mb-0">
-                                            {% for assignment in ticket.orderedAssignments %}
-                                                {% set user = assignment.user %}
-                                                <li class="d-flex align-items-center mb-3">
-                                                    <i class="fas fa-user-check me-2"></i>
-                                                    <div class="d-flex flex-column w-100">
-                                                        <div class="d-flex align-items-center mb-1">
-                                                            <span class="me-2 fw-bold">{{ user.nombre }} {{ user.apellido }}</span>
-                                                            {% if 'ROLE_AUDITOR' in user.roles %}
-                                                                <span class="badge bg-info me-2">Auditor</span>
-                                                            {% else %}
-                                                                <span class="badge bg-secondary me-2">Usuario</span>
-                                                            {% endif %}
-                                                        </div>
-                                                        <div class="d-flex align-items-center">
-                                                            <span class="badge bg-light text-dark border">
-                                                                <i class="far fa-clock me-1"></i>
-                                                                Asignado el {{ assignment.assignedAt|date('d/m/Y H:i:s') }}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% endif %}
+                                            {% set assignment = ticket.ticketAssignments|last %}
+                                            {% if assignment %}
+                                                <div class="mt-1">
+                                                    <span class="badge bg-light text-dark">
+                                                        <i class="far fa-clock me-1"></i>
+                                                        Asignado el {{ assignment.assignedAt|date('d/m/Y H:i:s') }}
+                                                    </span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 {% else %}
                                     <span class="text-muted">Sin asignar</span>
                                 {% endif %}
@@ -480,12 +576,225 @@
 {% block javascripts %}
     {{ parent() }}
     <script>
-        // Initialize assign ticket modal
+        // Initialize when DOM is fully loaded
         document.addEventListener('DOMContentLoaded', function() {
-            const assignModal = document.getElementById('assignTicketModal');
-            const assignForm = assignModal?.querySelector('form');
+            // Notes section elements
+            const viewNotesBtn = document.getElementById('viewNotesBtn');
+            const addNoteBtn = document.getElementById('addNoteBtn');
+            const viewNotesSection = document.getElementById('viewNotesSection');
+            const addNoteSection = document.getElementById('addNoteSection');
             
+            // Show notes list (for View Notes button)
+            if (viewNotesBtn && viewNotesSection) {
+                viewNotesBtn.addEventListener('click', function() {
+                    viewNotesSection.classList.remove('d-none');
+                    addNoteSection.classList.add('d-none');
+                    if (viewNotesBtn) viewNotesBtn.classList.add('d-none');
+                    if (addNoteBtn) addNoteBtn.classList.remove('d-none');
+                    viewNotesSection.scrollIntoView({ behavior: 'smooth' });
+                });
+            }
+            
+            // Show add note form (for Add Note button)
+            if (addNoteBtn && addNoteSection) {
+                addNoteBtn.addEventListener('click', function() {
+                    addNoteSection.classList.remove('d-none');
+                    viewNotesSection.classList.add('d-none');
+                    if (viewNotesBtn) viewNotesBtn.classList.remove('d-none');
+                    addNoteBtn.classList.add('d-none');
+                    document.getElementById('noteContent').focus();
+                    addNoteSection.scrollIntoView({ behavior: 'smooth' });
+                });
+            }
+            
+            // Hide view notes section
+            const hideViewNotesBtn = document.getElementById('hideViewNotesBtn');
+            if (hideViewNotesBtn && viewNotesSection) {
+                hideViewNotesBtn.addEventListener('click', function() {
+                    viewNotesSection.classList.add('d-none');
+                    if (viewNotesBtn) viewNotesBtn.classList.remove('d-none');
+                });
+            }
+            
+            // Hide add note section
+            const hideAddNoteBtn = document.getElementById('hideAddNoteBtn');
+            const cancelAddNoteBtn = document.getElementById('cancelAddNoteBtn');
+            
+            const hideAddNoteSection = function() {
+                addNoteSection.classList.add('d-none');
+                if (viewNotesBtn) viewNotesBtn.classList.remove('d-none');
+                if (addNoteBtn) addNoteBtn.classList.remove('d-none');
+                document.getElementById('noteContent').value = '';
+            };
+            
+            if (hideAddNoteBtn) hideAddNoteBtn.addEventListener('click', hideAddNoteSection);
+            if (cancelAddNoteBtn) cancelAddNoteBtn.addEventListener('click', hideAddNoteSection);
+            
+            // Handle description editing
+            const editDescriptionBtn = document.getElementById('editDescriptionBtn');
+            const cancelEditDescription = document.getElementById('cancelEditDescription');
+            const descriptionView = document.getElementById('descriptionView');
+            const descriptionForm = document.getElementById('descriptionForm');
+            
+            if (editDescriptionBtn && descriptionView && descriptionForm) {
+                editDescriptionBtn.addEventListener('click', function() {
+                    descriptionView.classList.add('d-none');
+                    descriptionForm.classList.remove('d-none');
+                    editDescriptionBtn.classList.add('d-none');
+                    descriptionForm.querySelector('textarea').focus();
+                });
+                
+                cancelEditDescription.addEventListener('click', function() {
+                    descriptionView.classList.remove('d-none');
+                    descriptionForm.classList.add('d-none');
+                    editDescriptionBtn.classList.remove('d-none');
+                });
+                
+                // Handle form submission
+                descriptionForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    
+                    fetch(this.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            descriptionView.innerHTML = data.description.replace(/\n/g, '<br>');
+                            descriptionView.classList.remove('d-none');
+                            descriptionForm.classList.add('d-none');
+                            editDescriptionBtn.classList.remove('d-none');
+                            
+                            // Show success message
+                            const alert = document.createElement('div');
+                            alert.className = 'alert alert-success alert-dismissible fade show mt-3';
+                            alert.innerHTML = `
+                                <i class="fas fa-check-circle me-2"></i> Descripción actualizada correctamente.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+                            descriptionView.parentNode.insertBefore(alert, descriptionView.nextSibling);
+                            
+                            // Auto-hide alert after 3 seconds
+                            setTimeout(() => {
+                                const bsAlert = new bootstrap.Alert(alert);
+                                bsAlert.close();
+                            }, 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error al actualizar la descripción');
+                    });
+                });
+            }
+            
+            // Handle ticket status updates
+            document.querySelectorAll('form[action*="ticket_update_status"]').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (!confirm('¿Está seguro de realizar esta acción?')) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Show loading state
+                    const button = this.querySelector('button[type="submit"]');
+                    const originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Procesando...';
+                    
+                    return true; // Allow form submission
+                });
+            });
+            
+            // Handle edit note functionality
+            document.addEventListener('click', function(e) {
+                // Edit note button click
+                if (e.target.closest('.edit-note')) {
+                    const button = e.target.closest('.edit-note');
+                    const noteId = button.dataset.noteId;
+                    const noteContent = button.dataset.content;
+                    const noteElement = document.getElementById(`note-${noteId}`);
+                    
+                    // Get CSRF token from the note element
+                    const csrfToken = noteElement.dataset.csrfToken;
+                    
+                    // Create edit form
+                    const editForm = document.createElement('form');
+                    editForm.action = `/tickets/note/${noteId}/edit`;
+                    editForm.method = 'post';
+                    editForm.className = 'mt-3';
+                    editForm.innerHTML = `
+                        <input type="hidden" name="_token" value="${csrfToken}">
+                        <div class="mb-3">
+                            <textarea class="form-control" name="content" rows="3" required>${noteContent}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary cancel-edit">
+                                <i class="fas fa-times me-1"></i> Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="fas fa-save me-1"></i> Guardar cambios
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Replace content with form
+                    const contentDiv = noteElement.querySelector('.note-content');
+                    const originalContent = contentDiv.innerHTML;
+                    contentDiv.innerHTML = '';
+                    contentDiv.appendChild(editForm);
+                    
+                    // Focus on textarea
+                    const textarea = editForm.querySelector('textarea');
+                    textarea.focus();
+                    
+                    // Handle cancel edit
+                    const cancelBtn = editForm.querySelector('.cancel-edit');
+                    cancelBtn.addEventListener('click', function() {
+                        contentDiv.innerHTML = originalContent;
+                    });
+                    
+                    // Handle form submission
+                    editForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        fetch(editForm.action, {
+                            method: 'POST',
+                            body: new FormData(editForm),
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Update note content
+                                contentDiv.innerHTML = `<p class="card-text">${data.content.replace(/\n/g, '<br>')}</p>`;
+                                // Update edit button data
+                                button.dataset.content = data.content;
+                            } else {
+                                alert('Error al actualizar la nota');
+                                contentDiv.innerHTML = originalContent;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Error al actualizar la nota');
+                            contentDiv.innerHTML = originalContent;
+                        });
+                    });
+                }
+            });
+
+            // Initialize assign ticket modal
+            const assignModal = document.getElementById('assignTicketModal');
             if (assignModal) {
+                const assignForm = assignModal.querySelector('form');
                 // When modal is shown
                 assignModal.addEventListener('show.bs.modal', function (event) {
                     const button = event.relatedTarget;

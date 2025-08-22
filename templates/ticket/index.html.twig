@@ -110,10 +110,16 @@
                                                         </a>
                                                     {% endif %}
                                                     
-                                                    <!-- Asignar - Solo para Auditores -->
+                                                    <!-- Asignar/Reasignar - Solo para Auditores -->
                                                     {% if is_granted('ROLE_AUDITOR') %}
-                                                        <button type="button" class="btn btn-sm btn-outline-info" title="Asignar" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="{{ ticket.id }}">
-                                                            <i class="fas fa-user-plus"></i>
+                                                        <button type="button" 
+                                                                class="btn btn-sm {{ ticket.takenBy ? 'btn-warning' : 'btn-outline-info' }}" 
+                                                                title="{{ ticket.takenBy ? 'Reasignar' : 'Asignar' }}" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#assignTicketModal" 
+                                                                data-ticket-id="{{ ticket.id }}"
+                                                                data-current-user-id="{{ ticket.takenBy ? ticket.takenBy.id : '' }}">
+                                                            <i class="fas {{ ticket.takenBy ? 'fa-user-edit' : 'fa-user-plus' }}"></i>
                                                         </button>
                                                     {% endif %}
                                                     
@@ -150,25 +156,45 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
-      <form action="{{ path('ticket_assign') }}" method="post">
+      <form action="{{ path('ticket_assign') }}" method="post" id="assignTicketForm">
+        <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
+        <input type="hidden" name="ticket_id" id="assign_ticket_id">
+        <input type="hidden" name="is_reassignment" id="is_reassignment" value="0">
+        <input type="hidden" name="previous_assignee" id="previous_assignee" value="">
         <div class="modal-body">
-          <input type="hidden" name="ticket_id" id="assign_ticket_id">
-
-          {# CSRF #}
-          <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
-
           <div class="mb-3">
-            <label class="form-label">Asignar a:</label>
-            <select class="form-select" id="assigned_user" name="assigned_user" required>
-              <option value="">Seleccione un usuario</option>
+            <label class="form-label mb-3">Seleccionar usuarios para asignar:</label>
+            <div class="list-group mb-3" style="max-height: 250px; overflow-y: auto;" id="userList">
               {% for user in users|default([]) %}
-                {% if 'ROLE_USER' in user.roles or 'ROLE_AUDITOR' in user.roles %}
-                  <option value="{{ user.id }}">
-                    {{ user.nombre }} {{ user.apellido }} ({{ user.email }}) - {{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}
-                  </option>
-                {% endif %}
+                <label class="list-group-item d-flex align-items-center">
+                  <input class="form-check-input me-2" 
+                         type="checkbox" 
+                         name="assigned_users[]" 
+                         value="{{ user.id }}"
+                         data-ticket-id="{{ ticket.id|default('') }}">
+                  <div>
+                    <div class="fw-bold">{{ user.nombre }} {{ user.apellido }}</div>
+                    <small class="text-muted">{{ user.email }}</small>
+                    <span class="badge bg-{{ 'ROLE_AUDITOR' in user.roles ? 'info' : 'secondary' }} ms-2">
+                      {{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}
+                    </span>
+                  </div>
+                </label>
               {% endfor %}
-            </select>
+            </div>
+            <div id="userSelectionError" class="invalid-feedback d-none">
+              Por favor seleccione al menos un usuario.
+            </div>
+            
+            <!-- Reason for reassignment (initially hidden) -->
+            <div id="reassignmentReasonContainer" class="mt-3 d-none">
+              <label for="reassignment_reason" class="form-label">Motivo de la reasignación:</label>
+              <textarea class="form-control" id="reassignment_reason" name="reassignment_reason" 
+                        rows="3" placeholder="Explique por qué está reasignando este ticket"></textarea>
+              <div id="reassignmentReasonError" class="invalid-feedback">
+                Por favor proporcione un motivo para la reasignación.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -186,15 +212,103 @@
   <script>
     document.addEventListener('DOMContentLoaded', function () {
       var assignModal = document.getElementById('assignTicketModal');
+      var assignForm = document.getElementById('assignTicketForm');
+      var errorDiv = document.getElementById('userSelectionError');
+      var reassignmentReasonContainer = document.getElementById('reassignmentReasonContainer');
+      var reassignmentReason = document.getElementById('reassignment_reason');
+      var reassignmentReasonError = document.getElementById('reassignmentReasonError');
+      var isReassignment = false;
+      var currentUserId = '';
 
-      // When the modal is about to be shown, get the ticket ID from the button that triggered it
+      // When the modal is about to be shown
       assignModal.addEventListener('show.bs.modal', function (event) {
         var button = event.relatedTarget;
         var ticketId = button.getAttribute('data-ticket-id');
+        isReassignment = button.classList.contains('btn-warning');
+        currentUserId = button.getAttribute('data-current-user-id') || '';
+        
+        // Update the modal title and button text
+        var modalTitle = assignModal.querySelector('.modal-title');
+        var submitBtn = assignModal.querySelector('button[type="submit"]');
+        
+        if (isReassignment) {
+          modalTitle.textContent = 'Reasignar Ticket';
+          submitBtn.textContent = 'Reasignar';
+          submitBtn.classList.add('btn-warning');
+          submitBtn.classList.remove('btn-primary');
+          document.getElementById('is_reassignment').value = '1';
+          document.getElementById('previous_assignee').value = currentUserId;
+          reassignmentReasonContainer.classList.remove('d-none');
+        } else {
+          modalTitle.textContent = 'Asignar Ticket';
+          submitBtn.textContent = 'Asignar';
+          submitBtn.classList.add('btn-primary');
+          submitBtn.classList.remove('btn-warning');
+          document.getElementById('is_reassignment').value = '0';
+          document.getElementById('previous_assignee').value = '';
+          reassignmentReasonContainer.classList.add('d-none');
+        }
 
         // Update the modal's hidden input with the ticket ID
         var inputHidden = assignModal.querySelector('#assign_ticket_id');
         inputHidden.value = ticketId;
+        
+        // Update checkboxes with current ticket ID and handle current user state
+        var checkboxes = assignModal.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(function(checkbox) {
+          if (checkbox.name === 'assigned_users[]') {
+            checkbox.setAttribute('data-ticket-id', ticketId);
+            
+            // If this is a reassignment, disable the checkbox for the current user
+            if (currentUserId && checkbox.value === currentUserId) {
+              checkbox.checked = true;
+              checkbox.disabled = true;
+            } else {
+              checkbox.checked = false;
+              checkbox.disabled = false;
+            }
+          }
+        });
+        
+        // Reset form and error state
+        assignForm.reset();
+        errorDiv.classList.add('d-none');
+        reassignmentReasonError.classList.add('d-none');
+        reassignmentReason.classList.remove('is-invalid');
+      });
+      
+      // Handle form submission
+      assignForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Reset error states
+        errorDiv.classList.add('d-none');
+        reassignmentReasonError.classList.add('d-none');
+        reassignmentReason.classList.remove('is-invalid');
+        
+        // Validate at least one user is selected
+        var checkboxes = this.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkboxes.length === 0) {
+          errorDiv.classList.remove('d-none');
+          return false;
+        }
+        
+        // If this is a reassignment, validate the reason
+        if (isReassignment && !reassignmentReason.value.trim()) {
+          reassignmentReasonError.classList.remove('d-none');
+          reassignmentReason.classList.add('is-invalid');
+          reassignmentReason.focus();
+          return false;
+        }
+        
+        // Show confirmation dialog for reassignment
+        if (isReassignment) {
+          if (confirm('¿Está seguro que desea reasignar este ticket? Se notificará al usuario actual sobre este cambio.')) {
+            this.submit();
+          }
+        } else {
+          this.submit();
+        }
       });
     });
   </script>
