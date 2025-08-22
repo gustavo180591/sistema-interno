@@ -42,11 +42,25 @@ class Ticket
     #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketAssignment::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $ticketAssignments;
 
+    /**
+     * @var Collection<int, TicketUpdate>
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketUpdate::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
+    private Collection $updates;
+
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $createdAt = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $updatedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $takenBy = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $takenAt = null;
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $areaOrigen = null;
@@ -61,6 +75,7 @@ class Ticket
     {
         $this->createdAt = new \DateTime();
         $this->ticketAssignments = new ArrayCollection();
+        $this->updates = new ArrayCollection();
     }
 
     // Getters and Setters
@@ -137,6 +152,14 @@ class Ticket
     public function getTicketAssignments(): Collection
     {
         return $this->ticketAssignments;
+    }
+
+    /**
+     * @return Collection|TicketUpdate[]
+     */
+    public function getUpdates(): Collection
+    {
+        return $this->updates;
     }
 
     public function addAssignedTo(User $user): self
@@ -236,9 +259,35 @@ class Ticket
         return $this->dueDate;
     }
 
-    public function setDueDate(\DateTimeInterface $dueDate): self
+    public function setDueDate(?\DateTimeInterface $dueDate): self
     {
         $this->dueDate = $dueDate;
+
+        return $this;
+    }
+
+    public function getTakenBy(): ?User
+    {
+        return $this->takenBy;
+    }
+
+    public function setTakenBy(?User $takenBy): self
+    {
+        $this->takenBy = $takenBy;
+        $this->takenAt = $takenBy ? new \DateTimeImmutable() : null;
+        
+        return $this;
+    }
+
+    public function getTakenAt(): ?\DateTimeInterface
+    {
+        return $this->takenAt;
+    }
+
+    public function setTakenAt(\DateTimeInterface $takenAt): self
+    {
+        $this->takenAt = $takenAt;
+        
         return $this;
     }
 

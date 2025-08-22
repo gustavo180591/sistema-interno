@@ -27,6 +27,28 @@ class TicketController extends AbstractController
     ) {
     }
 
+    #[Route('/tickets/{id}/take', name: 'ticket_take', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function takeTicket(Ticket $ticket, Request $request): Response
+    {
+        $user = $this->getUser();
+        
+        // Check if the ticket is already taken
+        if ($ticket->getTakenBy()) {
+            $this->addFlash('warning', 'Este ticket ya ha sido tomado por otro usuario.');
+            return $this->redirectToRoute('homepage');
+        }
+
+        // Set the current user as the taker
+        $ticket->setTakenBy($user);
+        $ticket->setStatus(self::STATUS_IN_PROGRESS);
+        
+        $this->entityManager->persist($ticket);
+        $this->entityManager->flush();
+        
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
     #[Route('/tickets', name: 'ticket_index')]
     #[IsGranted('ROLE_USER')]
     public function index(EntityManagerInterface $entityManager): Response
@@ -126,7 +148,13 @@ class TicketController extends AbstractController
         $ticket = $tickets->find($ticketId);
         if (!$ticket) {
             $this->addFlash('danger', 'Ticket no encontrado');
-            return $this->redirectToRoute('ticket_index');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+        }
+        
+        // Check if ticket is already taken
+        if ($ticket->getTakenBy()) {
+            $this->addFlash('warning', 'No se puede asignar usuarios a un ticket que ya ha sido tomado.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
         }
 
         // Check if ticket is closed
