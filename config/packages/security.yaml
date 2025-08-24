@@ -53,6 +53,8 @@ security:
     access_control:
         - { path: ^/admin, roles: [ROLE_AUDITOR, ROLE_ADMIN] }
         - { path: ^/auditor, roles: ROLE_AUDITOR }
+        - { path: ^/tickets/\d+/approve-proposal, roles: ROLE_USER }
+        - { path: ^/tickets/\d+/reject-proposal, roles: ROLE_USER }
         - { path: ^/profile, roles: ROLE_USER }
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/register, roles: PUBLIC_ACCESS }

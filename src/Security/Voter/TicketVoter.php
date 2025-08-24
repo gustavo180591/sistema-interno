@@ -14,6 +14,7 @@ class TicketVoter extends Voter
     public const EDIT = 'edit';
     public const DELETE = 'delete';
     public const NOTE = 'note';
+    public const PROPOSE_STATUS = 'propose_status';
 
     private $security;
 
@@ -25,7 +26,7 @@ class TicketVoter extends Voter
     protected function supports(string $attribute, $subject): bool
     {
         // if the attribute isn't one we support, return false
-        if (!in_array($attribute, [self::VIEW, self::EDIT, self::DELETE, self::NOTE])) {
+        if (!in_array($attribute, [self::VIEW, self::EDIT, self::DELETE, self::NOTE, self::PROPOSE_STATUS])) {
             return false;
         }
 
@@ -58,6 +59,8 @@ class TicketVoter extends Voter
                 return $this->canDelete($ticket, $user);
             case self::NOTE:
                 return $this->canAddNote($ticket, $user);
+            case self::PROPOSE_STATUS:
+                return $this->canProposeStatus($ticket, $user);
         }
 
         throw new \LogicException('This code should not be reached!');
@@ -117,6 +120,12 @@ class TicketVoter extends Voter
     private function canAddNote(Ticket $ticket, User $user): bool
     {
         // Any authenticated user can add a note to a ticket they can view
+        return $this->canView($ticket, $user);
+    }
+    
+    private function canProposeStatus(Ticket $ticket, User $user): bool
+    {
+        // Any authenticated user can propose a status change to a ticket they can view
         return $this->canView($ticket, $user);
     }
 }

@@ -5,18 +5,48 @@ namespace App\Form;
 use App\Entity\Ticket;
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Form\DataTransformer\UserToIdTransformer;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvents;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class TicketType extends AbstractType
 {
+    private $userRepository;
+    private $transformer;
+
+    public function __construct(UserRepository $userRepository, UserToIdTransformer $transformer)
+    {
+        $this->userRepository = $userRepository;
+        $this->transformer = $transformer;
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        // Get users for the choices
+        $users = $this->userRepository->createQueryBuilder('u')
+            ->where('u.roles LIKE :role1 OR u.roles LIKE :role2')
+            ->setParameter('role1', '%ROLE_USER%')
+            ->setParameter('role2', '%ROLE_AUDITOR%')
+            ->orderBy('u.nombre', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Create choices array with user IDs as keys and formatted names as values
+        $userChoices = [];
+        foreach ($users as $user) {
+            $userChoices[$user->getNombre() . ' ' . $user->getApellido()] = (string)$user->getId();
+        }
+        
         $builder
             ->add('title', TextareaType::class, [
                 'label' => 'Ticket',
@@ -60,22 +90,22 @@ class TicketType extends AbstractType
                     'class' => 'mb-3'
                 ]
             ])
-            ->add('assignedTo', EntityType::class, [
-                'label' => 'Asignar a',
+            ->add('assignedUsers', EntityType::class, [
                 'class' => User::class,
-                'choice_label' => function(User $user) {
-                    return $user->getNombre() . ' ' . $user->getApellido() . ' (' . $user->getEmail() . ')';
-                },
-                'multiple' => true,
-                'expanded' => false,
-                'required' => false,
-                'query_builder' => function (UserRepository $userRepository) {
-                    return $userRepository->createQueryBuilder('u')
+                'label' => 'Asignar a',
+                'query_builder' => function (UserRepository $er) {
+                    return $er->createQueryBuilder('u')
                         ->where('u.roles LIKE :role1 OR u.roles LIKE :role2')
                         ->setParameter('role1', '%ROLE_USER%')
                         ->setParameter('role2', '%ROLE_AUDITOR%')
                         ->orderBy('u.nombre', 'ASC');
                 },
+                'choice_label' => function(User $user) {
+                    return $user->getNombre() . ' ' . $user->getApellido();
+                },
+                'multiple' => true,
+                'expanded' => false,
+                'required' => false,
                 'attr' => [
                     'class' => 'form-select',
                     'data-placeholder' => 'Seleccionar usuarios',
@@ -183,31 +213,27 @@ class TicketType extends AbstractType
             ])
             ;
 
-        // Only show assignee field to admins
-        if ($options['is_admin']) {
-            $builder->add('assignedTo', EntityType::class, [
-                'class' => User::class,
-                'label' => 'Asignar a',
-                'placeholder' => 'Seleccione un usuario',
-                'required' => false,
-                'attr' => [
-                    'class' => 'form-select',
-                ],
-                'row_attr' => [
-                    'class' => 'mb-3'
-                ],
-                'choice_label' => function (User $user) {
-                    return $user->getFullName() . ' (' . $user->getEmail() . ')';
-                },
-            ]);
-        }
+        // Add data transformer for assignedUsers field
+        $builder->get('assignedUsers')->addModelTransformer(new \Symfony\Component\Form\CallbackTransformer(
+            // Transform from entity to form (when editing)
+            function ($assignedUsers) {
+                if ($assignedUsers instanceof \Doctrine\Common\Collections\Collection) {
+                    return $assignedUsers->toArray();
+                }
+                return $assignedUsers;
+            },
+            // Transform from form to entity (when submitting)
+            function ($assignedUsers) {
+                return $assignedUsers;
+            }
+        ));
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class' => Ticket::class,
             'is_admin' => false,
+            'data_class' => Ticket::class,
         ]);
     }
 }

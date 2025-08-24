@@ -2,7 +2,10 @@
 
 namespace App\Controller;
 
+use App\Entity\Note;
+use Doctrine\Common\Collections\ArrayCollection;
 use App\Entity\Ticket;
+use App\Entity\TicketAssignment;
 use App\Entity\User;
 use App\Form\TicketType;
 use App\Repository\TicketRepository;
@@ -20,6 +23,16 @@ class TicketController extends AbstractController
     private const STATUS_IN_PROGRESS = 'in_progress';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_REJECTED = 'rejected';
+    
+    private function getStatusLabel(string $status): string
+    {
+        return [
+            self::STATUS_PENDING => 'pendiente',
+            self::STATUS_IN_PROGRESS => 'en progreso',
+            self::STATUS_COMPLETED => 'completado',
+            self::STATUS_REJECTED => 'rechazado'
+        ][$status] ?? 'desconocido';
+    }
     public function __construct(
         private EntityManagerInterface $entityManager,
         private TicketRepository $ticketRepository,
@@ -27,62 +40,262 @@ class TicketController extends AbstractController
     ) {
     }
     
-    #[Route('/tickets/{id}/update-status/{status?}', name: 'ticket_update_status', methods: ['POST'], priority: 10)]
-    #[IsGranted('edit', 'ticket')]
-    public function updateStatus(Request $request, Ticket $ticket, ?string $status = null): Response
+    #[Route('/tickets/{id}/propose-status/{status}', name: 'ticket_propose_status', methods: ['POST'])]
+    #[IsGranted('propose_status', 'ticket')]
+    public function proposeStatus(Request $request, Ticket $ticket, string $status): Response
     {
-        // Handle the new route with status in URL
-        if ($status !== null) {
-            $validStatuses = [
-                'rechazado' => self::STATUS_REJECTED,
-                'en_progreso' => self::STATUS_IN_PROGRESS,
-                'completado' => self::STATUS_COMPLETED
-            ];
-            
+        $validStatuses = [
+            'rechazado' => self::STATUS_REJECTED,
+            'en_progreso' => self::STATUS_IN_PROGRESS,
+            'completado' => self::STATUS_COMPLETED,
+            'status' => null // For the dropdown in index page
+        ];
+        
+        // Handle dropdown form submission from index page
+        if ($status === 'status') {
+            $status = $request->request->get('status');
+            if (!array_key_exists($status, $validStatuses)) {
+                $this->addFlash('error', 'Estado no válido');
+                return $this->redirectToRoute('ticket_index');
+            }
+            $newStatus = $validStatuses[$status];
+            $noteContent = 'Cambio de estado a ' . $status;
+        } else {
             if (!array_key_exists($status, $validStatuses)) {
                 $this->addFlash('error', 'Estado no válido');
                 return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
             }
-            
             $newStatus = $validStatuses[$status];
-        } else {
-            // Handle the old route with status in request body
-            $newStatus = $request->request->get('status');
+            $noteContent = $request->request->get('note', '');
             
-            if (!in_array($newStatus, [
-                self::STATUS_PENDING,
-                self::STATUS_IN_PROGRESS,
-                self::STATUS_COMPLETED,
-                self::STATUS_REJECTED
-            ])) {
-                $this->addFlash('error', 'Estado no válido');
+            if (empty(trim($noteContent))) {
+                $this->addFlash('error', 'Debe proporcionar una razón para el cambio de estado');
                 return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
             }
         }
+        
+        // If user is not an auditor or admin, create a proposal
+        if (!$this->isGranted('ROLE_AUDITOR') && !$this->isGranted('ROLE_ADMIN')) {
+            $ticket->setProposedStatus($newStatus);
+            $ticket->setProposalNote($noteContent);
+            $ticket->setProposedBy($this->getUser());
+            
+            $this->entityManager->persist($ticket);
+            $this->entityManager->flush();
+            
+            $this->addFlash('warning', 'Se ha enviado la propuesta de cambio de estado a los auditores para su revisión.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // If user is auditor or admin, apply the status change directly
+        return $this->updateStatus($ticket, $newStatus, $noteContent);
+    }
+    
+    #[Route('/tickets/{id}/approve-proposal', name: 'ticket_approve_proposal', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function approveProposal(Request $request, Ticket $ticket): Response
+    {
+        if (!$ticket->getProposedStatus()) {
+            $this->addFlash('error', 'No hay una propuesta de cambio de estado pendiente para este ticket');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $note = new Note();
+        $note->setContent(sprintf(
+            "Propuesta aprobada por %s\n\n%s",
+            $this->getUser()->getUserIdentifier(),
+            $ticket->getProposalNote()
+        ));
+        $note->setTicket($ticket);
+        $note->setCreatedBy($this->getUser());
+        
+        $this->entityManager->persist($note);
+        
+        // Update the status
+        $ticket->setStatus($ticket->getProposedStatus());
+        $ticket->setProposedStatus(null);
+        $ticket->setProposalNote(null);
+        $ticket->setProposedBy(null);
+        
+        $this->entityManager->persist($ticket);
+        $this->entityManager->flush();
+        
+        $this->addFlash('success', 'La propuesta ha sido aprobada y el estado del ticket ha sido actualizado.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/suggest-rejection', name: 'ticket_suggest_rejection', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function suggestRejection(Request $request, Ticket $ticket): Response
+    {
+        return $this->suggestStatus($request, $ticket, self::STATUS_REJECTED, 'rechazo');
+    }
+    
+    #[Route('/tickets/{id}/suggest-status/{statusType}', name: 'ticket_suggest_status', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function suggestStatus(Request $request, Ticket $ticket, string $statusType): Response
+    {
+        $suggestion = $request->request->get('suggestion', '');
+        
+        if (empty(trim($suggestion))) {
+            $this->addFlash('error', 'Debe proporcionar una explicación para esta sugerencia');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $statusMap = [
+            'en_progreso' => 'En Progreso',
+            'completado' => 'Completado',
+            'rechazado' => 'Rechazado'
+        ];
+        
+        if (!array_key_exists($statusType, $statusMap)) {
+            throw $this->createNotFoundException('Tipo de estado no válido');
+        }
+        
+        $statusLabel = $statusMap[$statusType];
+        
+        $note = new Note();
+        $note->setContent(sprintf(
+            "Sugerencia de %s\nUsuario: %s %s\nFecha: %s\n\n%s",
+            $statusLabel,
+            $this->getUser()->getNombre(),
+            $this->getUser()->getApellido(),
+            (new \DateTime())->format('d/m/Y H:i'),
+            $suggestion
+        ));
+        $note->setTicket($ticket);
+        $note->setCreatedBy($this->getUser());
+        
+        $this->entityManager->persist($note);
+        $this->entityManager->flush();
+        
+        $this->addFlash('success', sprintf('Su sugerencia de %s ha sido guardada en las notas del ticket', strtolower($statusLabel)));
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/auditor-action', name: 'ticket_auditor_action', methods: ['POST'])]
+    #[IsGranted('ROLE_AUDITOR')]
+    public function auditorAction(Request $request, Ticket $ticket): Response
+    {
+        $action = $request->request->get('action');
+        $description = $request->request->get('description', '');
+        $assignToId = $request->request->get('assign_to');
+        
+        if (empty(trim($description))) {
+            $this->addFlash('error', 'Debe proporcionar una descripción para esta acción');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // Create a note for the action
+        $note = new Note();
+        $note->setContent($description);
+        $note->setCreatedBy($this->getUser());
+        $ticket->addNote($note);
+        
+        // Handle user assignment if provided
+        if ($assignToId && $assignToId !== '') {
+            $user = $this->userRepository->find($assignToId);
+            if ($user) {
+                $previousUser = $ticket->getTakenBy();
+                $ticket->setTakenBy($user);
+                
+                // Create a new assignment record
+                $assignment = new TicketAssignment();
+                $assignment->setTicket($ticket);
+                $assignment->setUser($user);
+                $assignment->setAssignedBy($this->getUser());
+                $assignment->setAssignedAt(new \DateTimeImmutable());
+                $this->entityManager->persist($assignment);
+                
+                // Update note content with assignment details
+                $assignmentNote = "\n\nTicket reasignado a: " . $user->getFullName();
+                if ($previousUser) {
+                    $assignmentNote = "\n\nTicket reasignado de " . $previousUser->getFullName() . " a " . $user->getFullName();
+                }
+                $note->setContent($note->getContent() . $assignmentNote);
+            }
+        }
+        
+        // Update ticket description for reject/finalize actions
+        if (in_array($action, ['rechazar', 'finalizar'])) {
+            $currentDate = (new \DateTime())->format('d/m/Y H:i');
+            $actionLabel = $action === 'rechazar' ? 'Rechazado' : 'Finalizado';
+            $ticket->setDescription(
+                $ticket->getDescription() . 
+                "\n\n---\n" .
+                "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() . 
+                "\n" . 
+                $description
+            );
+        }
+        
+        // Update status based on action
+        $statusUpdated = false;
+        $statusMessage = '';
+        
+        switch ($action) {
+            case 'rechazar':
+                $ticket->setStatus(self::STATUS_REJECTED);
+                $statusUpdated = true;
+                $statusMessage = 'El ticket ha sido rechazado';
+                break;
+            case 'finalizar':
+                $ticket->setStatus(self::STATUS_COMPLETED);
+                $statusUpdated = true;
+                $statusMessage = 'El ticket ha sido finalizado';
+                break;
+            case 'continuar':
+            case 'reasignar':
+                $ticket->setStatus(self::STATUS_IN_PROGRESS);
+                $statusUpdated = true;
+                $statusMessage = $action === 'reasignar' 
+                    ? 'El ticket ha sido reasignado' 
+                    : 'El ticket ha sido marcado como en progreso';
+                break;
+        }
+        
+        if ($statusUpdated) {
+            $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+        }
+        
+        $this->entityManager->persist($ticket);
+        $this->entityManager->persist($note);
+        $this->entityManager->flush();
+        
+        $this->addFlash('success', $statusMessage ?: 'La acción ha sido registrada');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    private function updateStatus(Ticket $ticket, string $status, ?string $noteContent = null): Response
+    {
+        // Create a note if content is provided
+        if (!empty(trim($noteContent))) {
+            $note = new Note();
+            $note->setContent(sprintf(
+                "Acción: %s\n\n%s",
+                $this->getStatusLabel($status),
+                $noteContent
+            ));
+            $note->setTicket($ticket);
+            $note->setCreatedBy($this->getUser());
+            
+            $this->entityManager->persist($note);
+            $ticket->addNote($note);
+        }
 
         // Set the status
-        $ticket->setStatus($newStatus);
+        $ticket->setStatus($status);
         
         // If completing the ticket, set the completedAt timestamp
-        if ($newStatus === self::STATUS_COMPLETED) {
+        if ($status === self::STATUS_COMPLETED) {
             $ticket->setCompletedAt(new \DateTimeImmutable());
         }
         
         $this->entityManager->persist($ticket);
         $this->entityManager->flush();
 
-        $statusMessage = [
-            self::STATUS_PENDING => 'pendiente',
-            self::STATUS_IN_PROGRESS => 'en progreso',
-            self::STATUS_COMPLETED => 'completado',
-            self::STATUS_REJECTED => 'rechazado'
-        ][$newStatus] ?? 'actualizado';
-        
+        $statusMessage = $this->getStatusLabel($status);
         $this->addFlash('success', sprintf('El ticket ha sido marcado como %s', $statusMessage));
-        
-        if ($request->isXmlHttpRequest()) {
-            return $this->json(['success' => true]);
-        }
         
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
@@ -371,21 +584,80 @@ class TicketController extends AbstractController
     #[IsGranted('ROLE_AUDITOR')]
     public function edit(Request $request, Ticket $ticket): Response
     {
+        // Create form with the ticket entity directly
         $form = $this->createForm(TicketType::class, $ticket, [
             'is_admin' => $this->isGranted('ROLE_ADMIN'),
         ]);
+        
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Get the assigned users from the form
+            $assignedUsers = $form->get('assignedUsers')->getData();
+            
+            // Clear existing assignments
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                $ticket->removeTicketAssignment($assignment);
+                $this->entityManager->remove($assignment);
+            }
+            
+            // Add new assignments
+            if ($assignedUsers) {
+                foreach ($assignedUsers as $user) {
+                    $assignment = new TicketAssignment();
+                    $assignment->setUser($user);
+                    $assignment->setTicket($ticket);
+                    $assignment->setAssignedAt(new \DateTime());
+                    $this->entityManager->persist($assignment);
+                    $ticket->addTicketAssignment($assignment);
+                }
+            }
+            
+            $this->entityManager->persist($ticket);
             $this->entityManager->flush();
+            
             $this->addFlash('success', 'Ticket actualizado correctamente.');
-            return $this->redirectToRoute('ticket_index');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
 
         return $this->render('ticket/edit.html.twig', [
             'ticket' => $ticket,
             'form' => $form->createView(),
         ]);
+    }
+
+    #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function rejectProposal(Request $request, Ticket $ticket): Response
+    {
+        if (!$ticket->getProposedStatus()) {
+            $this->addFlash('error', 'No hay ninguna propuesta para rechazar.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+
+        $reason = $request->request->get('reason', '');
+        
+        // Create a note about the rejection
+        $note = new Note();
+        $note->setContent(sprintf(
+            'Propuesta de cambio a "%s" rechazada. Razón: %s',
+            $this->getStatusLabel($ticket->getProposedStatus()),
+            $reason ?: 'No se proporcionó una razón.'
+        ));
+        $note->setUser($this->getUser());
+        $ticket->addNote($note);
+
+        // Clear the proposal
+        $ticket->setProposedStatus(null);
+        $ticket->setProposedBy(null);
+        $ticket->setProposedAt(null);
+        $ticket->setProposalNote(null);
+
+        $this->entityManager->persist($note);
+        $this->entityManager->flush();
+
+        $this->addFlash('success', 'La propuesta ha sido rechazada correctamente.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
     #[Route('/tickets/{id}', name: 'ticket_delete', methods: ['POST'])]

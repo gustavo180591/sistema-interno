@@ -149,12 +149,12 @@
                             </div>
                             
                             <div class="mb-4">
-                                {{ form_label(form.assignedTo, 'Asignado a', {'label_attr': {'class': 'form-label'}}) }}
+                                {{ form_label(form.assignedUsers, 'Asignado a', {'label_attr': {'class': 'form-label'}}) }}
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
-                                    {{ form_widget(form.assignedTo, {'attr': {'class': 'form-select'}}) }}
+                                    {{ form_widget(form.assignedUsers, {'attr': {'class': 'form-select'}}) }}
                                 </div>
-                                {{ form_errors(form.assignedTo) }}
+                                {{ form_errors(form.assignedUsers) }}
                             </div>
                             
                             <div class="mb-4">

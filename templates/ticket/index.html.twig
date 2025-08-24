@@ -67,14 +67,14 @@
                                             <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
                                             <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
                                             <td>
-                                                {% if is_granted('ROLE_AUDITOR') %}
-                                                    <form action="{{ path('ticket_update_status', {'id': ticket.id}) }}" method="post" class="d-inline" onchange="this.submit()">
+                                                {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                                                    <form action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}" method="post" class="d-inline" onchange="this.submit()">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
                                                         <select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block; height: auto; padding: 0.25rem 0.5rem;">
-                                                            <option value="in_progress" {{ ticket.status == 'in_progress' ? 'selected' : '' }} class="text-warning">En progreso</option>
+                                                            <option value="in_progreso" {{ ticket.status == 'in_progress' ? 'selected' : '' }} class="text-warning">En progreso</option>
                                                             <option value="pending" {{ ticket.status == 'pending' ? 'selected' : '' }} class="text-info">Pendiente</option>
-                                                            <option value="rejected" {{ ticket.status == 'rejected' ? 'selected' : '' }} class="text-danger">Rechazado</option>
-                                                            <option value="completed" {{ ticket.status == 'completed' ? 'selected' : '' }} class="text-success">Terminado</option>
-                                                            <option value="delayed" {{ ticket.status == 'delayed' ? 'selected' : '' }} class="text-warning">Demorado</option>
+                                                            <option value="rechazado" {{ ticket.status == 'rejected' ? 'selected' : '' }} class="text-danger">Rechazado</option>
+                                                            <option value="completado" {{ ticket.status == 'completed' ? 'selected' : '' }} class="text-success">Terminado</option>
                                                         </select>
                                                     </form>
                                                 {% else %}

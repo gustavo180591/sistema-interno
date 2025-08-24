@@ -78,12 +78,74 @@ class Ticket
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $dueDate = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $proposedStatus = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $proposalNote = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private ?User $proposedBy = null;
+
+    /**
+     * @var Collection|User[]
+     */
+    private Collection $formAssignedUsers;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->ticketAssignments = new ArrayCollection();
         $this->updates = new ArrayCollection();
         $this->notes = new ArrayCollection();
+        $this->formAssignedUsers = new ArrayCollection();
+    }
+
+    /**
+     * @return Collection|User[]
+     */
+    public function getFormAssignedUsers(): Collection
+    {
+        if ($this->formAssignedUsers === null) {
+            $this->formAssignedUsers = new ArrayCollection();
+        }
+        return $this->formAssignedUsers;
+    }
+
+    /**
+     * @param User[]|Collection|User|null $assignedUsers
+     */
+    public function setFormAssignedUsers($assignedUsers): self
+    {
+        if ($assignedUsers === null) {
+            $assignedUsers = [];
+        } elseif ($assignedUsers instanceof Collection) {
+            $assignedUsers = $assignedUsers->toArray();
+        } elseif (!is_array($assignedUsers)) {
+            $assignedUsers = [$assignedUsers];
+        }
+        
+        // Ensure we only have User objects
+        $assignedUsers = array_filter($assignedUsers, function($user) {
+            return $user instanceof User;
+        });
+        
+        $this->formAssignedUsers = new ArrayCollection($assignedUsers);
+        return $this;
+    }
+
+    public function addFormAssignedUser(User $user): self
+    {
+        if (!$this->getFormAssignedUsers()->contains($user)) {
+            $this->getFormAssignedUsers()->add($user);
+        }
+        return $this;
+    }
+
+    public function removeFormAssignedUser(User $user): self
+    {
+        $this->getFormAssignedUsers()->removeElement($user);
+        return $this;
     }
 
     // Getters and Setters
@@ -149,7 +211,7 @@ class Ticket
     /**
      * @return Collection|User[]
      */
-    public function getAssignedTo(): Collection
+    public function getAssignedUsers(): Collection
     {
         return $this->ticketAssignments->map(fn(TicketAssignment $assignment) => $assignment->getUser());
     }
@@ -217,6 +279,26 @@ class Ticket
             if ($assignment->getUser()->getId() === $user->getId()) {
                 $this->ticketAssignments->removeElement($assignment);
                 break;
+            }
+        }
+        return $this;
+    }
+
+    public function addTicketAssignment(TicketAssignment $assignment): self
+    {
+        if (!$this->ticketAssignments->contains($assignment)) {
+            $this->ticketAssignments[] = $assignment;
+            $assignment->setTicket($this);
+        }
+        return $this;
+    }
+
+    public function removeTicketAssignment(TicketAssignment $assignment): self
+    {
+        if ($this->ticketAssignments->removeElement($assignment)) {
+            // set the owning side to null (unless already changed)
+            if ($assignment->getTicket() === $this) {
+                $assignment->setTicket(null);
             }
         }
         return $this;
@@ -295,6 +377,39 @@ class Ticket
     public function getDueDate(): ?\DateTimeInterface
     {
         return $this->dueDate;
+    }
+
+    public function getProposedStatus(): ?string
+    {
+        return $this->proposedStatus;
+    }
+
+    public function setProposedStatus(?string $proposedStatus): self
+    {
+        $this->proposedStatus = $proposedStatus;
+        return $this;
+    }
+
+    public function getProposalNote(): ?string
+    {
+        return $this->proposalNote;
+    }
+
+    public function setProposalNote(?string $proposalNote): self
+    {
+        $this->proposalNote = $proposalNote;
+        return $this;
+    }
+
+    public function getProposedBy(): ?User
+    {
+        return $this->proposedBy;
+    }
+
+    public function setProposedBy(?User $proposedBy): self
+    {
+        $this->proposedBy = $proposedBy;
+        return $this;
     }
 
     public function setDueDate(?\DateTimeInterface $dueDate): self
