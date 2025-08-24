@@ -15,7 +15,6 @@ class Ticket
     const STATUS_IN_PROGRESS = 'in_progress';
     const STATUS_PENDING = 'pending';
     const STATUS_REJECTED = 'rejected';
-    const STATUS_COMPLETED = 'completed';
     const STATUS_DELAYED = 'delayed';
 
     #[ORM\Id]

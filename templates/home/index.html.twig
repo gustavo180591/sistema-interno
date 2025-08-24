@@ -2,25 +2,100 @@
 
 {% block title %}Inicio - Sistema Interno{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.min.css">
+{% endblock %}
+
 {% block body %}
-<div class="container">
+<div class="container-fluid px-4">
     {% if is_granted('ROLE_USER') %}
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow-sm mt-4">
-                    <div class="card-body text-center py-4">
-                        <h1 class="display-5 mb-3">Bienvenido/a, {{ app.user.nombre ? app.user.nombre : app.user.email }}</h1>
-                        <p class="lead text-muted mb-0">Aquí puedes ver los tickets que tienes asignados</p>
+        <!-- Welcome Header -->
+        <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+            <div>
+                <h1 class="h3 mb-1">Hola, {{ app.user.nombre ? app.user.nombre : app.user.email|split('@')|first }}</h1>
+                <p class="text-muted mb-0">Bienvenido al panel de control</p>
+            </div>
+            {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                <a href="{{ path('ticket_new') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Nuevo Ticket
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-xl-3 col-md-6">
+                <div class="card bg-primary bg-opacity-10 border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-primary mb-2">Tickets Totales</h6>
+                                <h2 class="mb-0">{{ tickets|length }}</h2>
+                            </div>
+                            <div class="bg-primary bg-opacity-25 p-3 rounded-3">
+                                <i class="fas fa-ticket-alt fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card bg-warning bg-opacity-10 border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-warning mb-2">En Progreso</h6>
+                                <h2 class="mb-0">{{ tickets|filter(t => t.status == 'en_progreso')|length }}</h2>
+                            </div>
+                            <div class="bg-warning bg-opacity-25 p-3 rounded-3">
+                                <i class="fas fa-spinner fa-spin fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card bg-success bg-opacity-10 border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-success mb-2">Completados</h6>
+                                <h2 class="mb-0">{{ tickets|filter(t => t.status == 'completado')|length }}</h2>
+                            </div>
+                            <div class="bg-success bg-opacity-25 p-3 rounded-3">
+                                <i class="fas fa-check-circle fa-2x text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card bg-danger bg-opacity-10 border-0 h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-danger mb-2">Vencidos</h6>
+                                <h2 class="mb-0">
+                                    {{ tickets|filter(t => t.dueDate and t.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') and t.status != 'completado')|length }}
+                                </h2>
+                            </div>
+                            <div class="bg-danger bg-opacity-25 p-3 rounded-3">
+                                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
-            <div class="col-12">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-white">
-                        <h2 class="h5 mb-0"><i class="fas fa-ticket-alt me-2"></i>Tus Tickets Asignados</h2>
+            <!-- Tickets Recientes -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                        <h5 class="mb-0"><i class="fas fa-ticket-alt me-2 text-primary"></i>Tus Tickets Recientes</h5>
+                        <a href="{{ path('ticket_index') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
                     </div>
                     <div class="card-body p-0">
                         {% if tickets|length > 0 %}
@@ -30,43 +105,48 @@
                                         <tr>
                                             <th class="ps-4">Título</th>
                                             <th class="text-center">Estado</th>
-                                            <th class="text-nowrap">Fecha de creación</th>
+                                            <th class="text-nowrap">Fecha</th>
                                             <th class="text-end pe-4">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="border-top-0">
-                                        {% for ticket in tickets %}
+                                    <tbody>
+                                        {% for ticket in tickets|slice(0, 5) %}
                                             <tr class="border-bottom">
                                                 <td class="ps-4">
-                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none fw-medium text-dark" title="{{ ticket.title }}">
-                                                        <i class="fas fa-ticket-alt me-2 text-primary"></i>
-                                                        {{ ticket.title|length > 40 ? ticket.title|slice(0, 40) ~ '...' : ticket.title }}
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="text-decoration-none fw-medium text-dark d-flex align-items-center" title="{{ ticket.title }}">
+                                                        <div class="me-3">
+                                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                                <i class="fas fa-ticket-alt text-{{ 
+                                                                    ticket.status == 'nuevo' ? 'primary' : 
+                                                                    (ticket.status == 'en_progreso' ? 'warning' : 
+                                                                    (ticket.status == 'completado' ? 'success' : 'secondary')) 
+                                                                }}"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <div class="fw-medium">{{ ticket.title|length > 30 ? ticket.title|slice(0, 30) ~ '...' : ticket.title }}</div>
+                                                            <small class="text-muted">#{{ ticket.id }}</small>
+                                                        </div>
                                                     </a>
-                                                    {% if ticket.dueDate and ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
-                                                        <span class="badge bg-danger ms-2">Vencido</span>
-                                                    {% endif %}
                                                 </td>
                                                 <td class="text-center">
-                                                    <span class="badge rounded-pill px-3 py-2 bg-{{ 
+                                                    <span class="badge rounded-pill px-3 py-1 bg-{{ 
                                                         ticket.status == 'nuevo' ? 'primary' : 
                                                         (ticket.status == 'en_progreso' ? 'warning' : 
                                                         (ticket.status == 'completado' ? 'success' : 'secondary')) 
                                                     }}">
-                                                        <i class="fas {{ 
-                                                            ticket.status == 'nuevo' ? 'fa-plus-circle' : 
-                                                            (ticket.status == 'en_progreso' ? 'fa-spinner fa-spin' : 
-                                                            (ticket.status == 'completado' ? 'fa-check-circle' : 'fa-question-circle')) 
-                                                        }} me-1"></i>
                                                         {{ ticket.status|replace({'_': ' '})|title }}
                                                     </span>
+                                                    {% if ticket.dueDate and ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') and ticket.status != 'completado' %}
+                                                        <span class="badge bg-danger ms-1">Vencido</span>
+                                                    {% endif %}
                                                 </td>
                                                 <td class="text-nowrap">
-                                                    <i class="far fa-calendar-alt text-muted me-1"></i>
-                                                    {{ ticket.createdAt|date('d/m/Y H:i') }}
+                                                    <small class="text-muted">{{ ticket.createdAt|date('d/m/Y') }}</small>
                                                 </td>
                                                 <td class="text-end pe-4">
-                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-eye me-1"></i> Ver detalles
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                        <i class="fas fa-arrow-right"></i>
                                                     </a>
                                                 </td>
                                             </tr>
@@ -75,29 +155,60 @@
                                 </table>
                             </div>
                         {% else %}
-                            <div class="p-5 text-center">
+                            <div class="text-center p-5">
                                 <div class="mb-4">
                                     <i class="fas fa-inbox fa-4x text-muted mb-4"></i>
                                     <h3 class="h4 text-muted mb-3">No tienes tickets asignados</h3>
                                     <p class="text-muted mb-4">Cuando te asignen un ticket, aparecerá aquí para que puedas verlo y gestionarlo.</p>
-                                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
-                                        <a href="{{ path('ticket_new') }}" class="btn btn-primary">
-                                            <i class="fas fa-plus me-2"></i>Crear nuevo ticket
-                                        </a>
-                                    {% endif %}
                                 </div>
                             </div>
                         {% endif %}
                     </div>
                 </div>
             </div>
+
+            <!-- Actividad Reciente -->
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0"><i class="fas fa-history me-2 text-primary"></i>Actividad Reciente</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            {% for i in 1..5 %}
+                                <div class="list-group-item border-0 py-3">
+                                    <div class="d-flex align-items-start">
+                                        <div class="me-3">
+                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-ticket-alt text-primary"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <h6 class="mb-0">Ticket #{{ 1000 + i }}</h6>
+                                                <small class="text-muted">Hace {{ i }}h</small>
+                                            </div>
+                                            <p class="mb-0 text-muted small">Actualización de estado a "En progreso"</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     {% else %}
-        <div class="row justify-content-center">
-            <div class="col-md-8 text-center">
-                <div class="card shadow-sm my-5">
+        <!-- Login/Register View -->
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-lg-6">
+                <div class="text-center mb-5">
+                    <h1 class="display-4 fw-bold text-primary mb-3">Sistema Interno</h1>
+                    <p class="lead text-muted">Gestión de tickets y tareas internas</p>
+                </div>
+                <div class="card shadow-sm border-0">
                     <div class="card-body p-5">
-                        <h1 class="display-4 mb-4">{{ welcome_message }}</h1>
+                        <h2 class="h4 text-center mb-4">{{ welcome_message }}</h2>
                         <p class="lead">
                             Bienvenido al sistema de gestión interna. Seleccione una opción del menú para comenzar.
                         </p>

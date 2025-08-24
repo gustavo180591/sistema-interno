@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Ticket #{{ '%04d'|format(ticket.id) }} - {{ ticket.title }}{% endblock %}
+{% block title %}Ticket #{{ ticket.idSistemaInterno }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -178,11 +178,13 @@
         }
         
         .status-badge {
-            width: 40px;
+            min-width: 40px;
             height: 40px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            padding: 0 12px;
+            white-space: nowrap;
         }
         
         .timeline-item {
@@ -234,16 +236,11 @@
     <div class="ticket-header">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
             <div class="mb-3 mb-md-0">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-2">
-                        <li class="breadcrumb-item"><a href="{{ path('app_home') }}">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="{{ path('ticket_index') }}">Tickets</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">#{{ '%04d'|format(ticket.id) }}</li>
-                    </ol>
-                </nav>
-                <h1 class="h3 mb-0">
-                    <i class="fas fa-ticket-alt text-primary me-2"></i>
-                    {{ ticket.title }}
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                    <h1 class="h3 mb-0 me-3">
+                        <i class="fas fa-ticket-alt text-primary me-2"></i>
+                        #{{ ticket.idSistemaInterno }}
+                    </h1>
                     {% set status_config = {
                         'in_progress': { class: 'warning', label: 'En Progreso' },
                         'pending': { class: 'info', label: 'Pendiente' },
@@ -251,22 +248,20 @@
                         'completed': { class: 'success', label: 'Completado' },
                         'delayed': { class: 'warning', label: 'Atrasado' }
                     } %}
-                    <span class="ms-2 status-badge badge bg-{{ status_config[ticket.status].class|default('secondary') }}">
+                    {% if status_config[ticket.status] is defined %}
+                    <span class="status-badge badge bg-{{ status_config[ticket.status].class|default('secondary') }} align-middle">
                         {{ status_config[ticket.status].label }}
                     </span>
-                </h1>
-                <div class="d-flex align-items-center mt-2">
-                    <span class="me-3">
-                        <i class="fas fa-hashtag text-muted me-1"></i>
-                        <span class="text-muted">#{{ '%04d'|format(ticket.id) }}</span>
-                    </span>
-                    {% if ticket.dueDate %}
-                        <span class="text-{{ ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') ? 'danger' : 'muted' }}">
-                            <i class="far fa-calendar-alt me-1"></i>
-                            {{ ticket.dueDate|date('d/m/Y') }}
-                        </span>
                     {% endif %}
                 </div>
+                {% if ticket.dueDate %}
+                <div class="d-flex align-items-center flex-wrap gap-3 mt-2">
+                    <span class="text-{{ ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') ? 'danger' : 'muted' }}">
+                        <i class="far fa-calendar-alt me-1"></i>
+                        {{ ticket.dueDate|date('d/m/Y H:i') }}
+                    </span>
+                </div>
+                {% endif %}
             </div>
             <div class="action-buttons">
                 {% if is_granted('ROLE_USER') and not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
@@ -288,29 +283,23 @@
                     {% endif %}
                 {% endif %}
                 
-                {% if is_granted('ROLE_AUDITOR') %}
+                {% if is_granted('ROLE_AUDITOR') and ticket.status not in ['completed', 'rejected'] %}
                     {% if not ticket.takenBy %}
                         <button type="button" 
-                                class="btn btn-primary btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
+                                class="btn btn-primary btn-sm" 
                                 data-bs-toggle="modal" 
                                 data-bs-target="#assignTicketModal" 
                                 data-ticket-id="{{ ticket.id }}"
-                                {% if ticket.status in ['completed', 'rejected'] %} 
-                                    title="No se pueden asignar usuarios a un ticket cerrado"
-                                {% endif %}>
+                                title="Asignar ticket a un usuario">
                             <i class="fas fa-user-plus me-1"></i> Asignar
                         </button>
                     {% else %}
                         <button type="button" 
-                                class="btn btn-warning btn-sm {{ ticket.status in ['completed', 'rejected'] ? 'disabled' : '' }}" 
+                                class="btn btn-warning btn-sm" 
                                 data-bs-toggle="modal" 
                                 data-bs-target="#assignTicketModal" 
                                 data-ticket-id="{{ ticket.id }}"
-                                {% if ticket.status in ['completed', 'rejected'] %} 
-                                    title="No se pueden reasignar usuarios en un ticket cerrado"
-                                {% else %}
-                                    title="Reasignar ticket a otro usuario"
-                                {% endif %}>
+                                title="Reasignar ticket a otro usuario">
                             <i class="fas fa-user-edit me-1"></i> Reasignar
                         </button>
                     {% endif %}
@@ -344,30 +333,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center">
-                        {% set statusText = {
-                            'pending': 'Pendiente',
-                            'in_progress': 'En Progreso',
-                            'completed': 'Completado',
-                            'rejected': 'Rechazado',
-                            'delayed': 'Retrasado'
-                        }[ticket.status] ?? ticket.status %}
-                        
-                        <span class="badge rounded-pill bg-{{ 
-                            ticket.status == 'pending' ? 'primary' : 
-                            (ticket.status == 'in_progress' ? 'info' : 
-                            (ticket.status == 'completed' ? 'success' : 
-                            (ticket.status == 'rejected' ? 'danger' : 'warning'))) 
-                        }} px-3 py-2 fw-normal">
-                            <i class="fas {{ 
-                                ticket.status == 'pending' ? 'fa-clock' : 
-                                (ticket.status == 'in_progress' ? 'fa-spinner fa-spin' : 
-                                (ticket.status == 'completed' ? 'fa-check-circle' : 
-                                (ticket.status == 'rejected' ? 'fa-times-circle' : 'fa-exclamation-circle')))
-                            }} me-1"></i>
-                            {{ statusText }}
-                        </span>
-                    </div>
+                    {# Status badge removed from this section as requested #}
                 </div>
                 <div class="card-body pt-3">
                     {{ ticket.description|nl2br }}
@@ -428,22 +394,20 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        {% else %}
+                        {% elseif ticket.status != 'completed' and ticket.status != 'rejected' %}
                             <div class="d-flex flex-wrap gap-2 justify-content-between">
                                 <h6 class="mb-0 align-self-center">Acciones del ticket:</h6>
                                 <div class="d-flex flex-wrap gap-2">
                                     {% if not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
-                                        {% if ticket.status != 'completed' and ticket.status != 'rejected' %}
-                                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#suggestInProgressModal">
-                                                <i class="fas fa-play me-1"></i> Sugerir En Progreso
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#suggestCompleteModal">
-                                                <i class="fas fa-check me-1"></i> Sugerir Completado
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#suggestRejectModal">
-                                                <i class="fas fa-times me-1"></i> Sugerir Rechazo
-                                            </button>
-                                        {% endif %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#suggestInProgressModal">
+                                            <i class="fas fa-play me-1"></i> Sugerir En Progreso
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#suggestCompleteModal">
+                                            <i class="fas fa-check me-1"></i> Sugerir Completado
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#suggestRejectModal">
+                                            <i class="fas fa-times me-1"></i> Sugerir Rechazo
+                                        </button>
                                     {% else %}
                                         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#auditorRejectModal">
                                             <i class="fas fa-ban me-1"></i> Rechazar

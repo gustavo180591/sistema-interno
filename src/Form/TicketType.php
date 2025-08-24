@@ -41,10 +41,14 @@ class TicketType extends AbstractType
             ->getQuery()
             ->getResult();
 
-        // Create choices array with user IDs as keys and formatted names as values
-        $userChoices = [];
-        foreach ($users as $user) {
-            $userChoices[$user->getNombre() . ' ' . $user->getApellido()] = (string)$user->getId();
+        // Get the ticket entity if we're editing
+        $ticket = $builder->getData();
+        $assignedUserIds = [];
+        
+        if ($ticket && $ticket->getId()) {
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                $assignedUserIds[] = $assignment->getUser()->getId();
+            }
         }
         
         $builder
@@ -77,7 +81,6 @@ class TicketType extends AbstractType
                     'En Progreso' => Ticket::STATUS_IN_PROGRESS,
                     'Pendiente' => Ticket::STATUS_PENDING,
                     'Rechazado' => Ticket::STATUS_REJECTED,
-                    'Completado' => Ticket::STATUS_COMPLETED,
                     'Atrasado' => Ticket::STATUS_DELAYED,
                 ],
                 'attr' => [
@@ -90,7 +93,7 @@ class TicketType extends AbstractType
                     'class' => 'mb-3'
                 ]
             ])
-            ->add('assignedUsers', EntityType::class, [
+            ->add('ticketAssignments', EntityType::class, [
                 'class' => User::class,
                 'label' => 'Asignar a',
                 'query_builder' => function (UserRepository $er) {
@@ -106,6 +109,8 @@ class TicketType extends AbstractType
                 'multiple' => true,
                 'expanded' => false,
                 'required' => false,
+                'mapped' => false,
+                'data' => $assignedUserIds ? $this->userRepository->findBy(['id' => $assignedUserIds]) : [],
                 'attr' => [
                     'class' => 'form-select',
                     'data-placeholder' => 'Seleccionar usuarios',
@@ -213,18 +218,18 @@ class TicketType extends AbstractType
             ])
             ;
 
-        // Add data transformer for assignedUsers field
-        $builder->get('assignedUsers')->addModelTransformer(new \Symfony\Component\Form\CallbackTransformer(
+        // Add data transformer for ticketAssignments field
+        $builder->get('ticketAssignments')->addModelTransformer(new \Symfony\Component\Form\CallbackTransformer(
             // Transform from entity to form (when editing)
-            function ($assignedUsers) {
-                if ($assignedUsers instanceof \Doctrine\Common\Collections\Collection) {
-                    return $assignedUsers->toArray();
+            function ($ticketAssignments) {
+                if ($ticketAssignments instanceof \Doctrine\Common\Collections\Collection) {
+                    return $ticketAssignments->toArray();
                 }
-                return $assignedUsers;
+                return $ticketAssignments;
             },
             // Transform from form to entity (when submitting)
-            function ($assignedUsers) {
-                return $assignedUsers;
+            function ($ticketAssignments) {
+                return $ticketAssignments;
             }
         ));
     }

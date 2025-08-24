@@ -79,17 +79,7 @@
                         </li>
                         {% endif %}
 
-                        {% if is_granted('ROLE_ADMIN') %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-cog me-1"></i> Administración
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                                <li><a class="dropdown-item" href="{{ path('admin_user_index') }}"><i class="fas fa-users me-1"></i> Usuarios</a></li>
-                                <!-- Add more admin links here -->
-                            </ul>
-                        </li>
-                        {% endif %}
+                        {# Admin links removed as requested #}
                     </ul>
                     <ul class="navbar-nav">
                         {% if app.user %}

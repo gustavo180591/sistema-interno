@@ -353,16 +353,126 @@ class TicketController extends AbstractController
 
     #[Route('/tickets', name: 'ticket_index')]
     #[IsGranted('ROLE_USER')]
-    public function index(EntityManagerInterface $entityManager): Response
+    public function index(Request $request, EntityManagerInterface $entityManager): Response
     {
-        $tickets = $this->isGranted('ROLE_ADMIN') 
-            ? $entityManager->getRepository(Ticket::class)->findAll()
-            : $entityManager->getRepository(Ticket::class)->findBy(['createdBy' => $this->getUser()]);
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = 20; // Tickets por página
+        $offset = ($page - 1) * $limit;
+        
+        // Filtros
+        $status = $request->query->get('status');
+        $search = $request->query->get('search');
+        $sortBy = $request->query->get('sort', 'createdAt');
+        $sortOrder = $request->query->get('order', 'DESC');
+        $area = $request->query->get('area');
+        
+        // Construir query base
+        $qb = $entityManager->createQueryBuilder();
+        $qb->select('t')
+           ->from(Ticket::class, 't')
+           ->leftJoin('t.createdBy', 'u')
+           ->leftJoin('t.ticketAssignments', 'ta')
+           ->leftJoin('ta.user', 'assignedUser');
+        
+        // Aplicar filtros
+        if ($status && $status !== 'all') {
+            $qb->andWhere('t.status = :status')
+               ->setParameter('status', $status);
+        }
+        
+        if ($search) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->like('t.title', ':search'),
+                    $qb->expr()->like('t.description', ':search'),
+                    $qb->expr()->like('t.idSistemaInterno', ':search'),
+                    $qb->expr()->like('u.nombre', ':search'),
+                    $qb->expr()->like('u.apellido', ':search')
+                )
+            )
+            ->setParameter('search', '%' . $search . '%');
+        }
+        
+        if ($area && $area !== 'all') {
+            $qb->andWhere('t.areaOrigen = :area')
+               ->setParameter('area', $area);
+        }
+        
+        // Aplicar ordenamiento
+        $validSortFields = ['createdAt', 'title', 'status', 'areaOrigen'];
+        $sortBy = in_array($sortBy, $validSortFields) ? $sortBy : 'createdAt';
+        $sortOrder = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
+        
+        $qb->orderBy('t.' . $sortBy, $sortOrder);
+        
+        // Si no es admin, filtrar por usuario creador o asignado
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('t.createdBy', ':currentUser'),
+                    $qb->expr()->eq('assignedUser', ':currentUser')
+                )
+            )
+            ->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Contar total de tickets
+        $countQb = clone $qb;
+        $totalTickets = $countQb->select('COUNT(t.id)')->getQuery()->getSingleScalarResult();
+        
+        // Aplicar paginación
+        $qb->setFirstResult($offset)
+           ->setMaxResults($limit);
+        
+        $tickets = $qb->getQuery()->getResult();
+        
+        // Obtener usuarios para asignación
         $users = $entityManager->getRepository(User::class)->findAll();
+        
+        // Obtener áreas únicas para filtros
+        $areas = $entityManager->createQueryBuilder()
+            ->select('DISTINCT t.areaOrigen')
+            ->from(Ticket::class, 't')
+            ->where('t.areaOrigen IS NOT NULL')
+            ->andWhere('t.areaOrigen != :empty')
+            ->setParameter('empty', '')
+            ->orderBy('t.areaOrigen', 'ASC')
+            ->getQuery()
+            ->getResult();
+        
+        $areas = array_column($areas, 'areaOrigen');
+        
+        // Calcular estadísticas
+        $stats = [
+            'total' => $totalTickets,
+            'pending' => $entityManager->getRepository(Ticket::class)->count(['status' => 'pending']),
+            'in_progress' => $entityManager->getRepository(Ticket::class)->count(['status' => 'in_progress']),
+            'completed' => $entityManager->getRepository(Ticket::class)->count(['status' => 'completed']),
+            'rejected' => $entityManager->getRepository(Ticket::class)->count(['status' => 'rejected']),
+            'delayed' => $entityManager->getRepository(Ticket::class)->count(['status' => 'delayed']),
+        ];
+        
+        // Calcular páginas
+        $totalPages = ceil($totalTickets / $limit);
         
         return $this->render('ticket/index.html.twig', [
             'tickets' => $tickets,
             'users' => $users,
+            'areas' => $areas,
+            'stats' => $stats,
+            'pagination' => [
+                'current' => $page,
+                'total' => $totalPages,
+                'limit' => $limit,
+                'total_items' => $totalTickets,
+            ],
+            'filters' => [
+                'status' => $status,
+                'search' => $search,
+                'area' => $area,
+                'sort' => $sortBy,
+                'order' => $sortOrder,
+            ],
         ]);
     }
 
@@ -593,7 +703,7 @@ class TicketController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             // Get the assigned users from the form
-            $assignedUsers = $form->get('assignedUsers')->getData();
+            $assignedUsers = $form->get('ticketAssignments')->getData();
             
             // Clear existing assignments
             foreach ($ticket->getTicketAssignments() as $assignment) {
