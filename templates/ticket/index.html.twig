@@ -95,7 +95,7 @@
                                                     </span>
                                                 {% endif %}
                                             </td>
-                                            <td>{{ ticket.description|length > 50 ? ticket.description|slice(0, 50) ~ '...' : (ticket.description ?? 'N/A') }}</td>
+                                            <td>{{ ticket.observation ? (ticket.observation|length > 50 ? ticket.observation|slice(0, 50) ~ '...' : ticket.observation) : 'N/A' }}</td>
                                             <td>
                                                 <div class="btn-group">
                                                     <!-- Ver -->

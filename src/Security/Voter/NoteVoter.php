@@ -56,8 +56,8 @@ class NoteVoter extends Voter
                        $this->security->isGranted('ROLE_ADMIN') || 
                        $this->security->isGranted('ROLE_AUDITOR');
             case self::DELETE:
-                // Only admins can delete notes
-                return $this->security->isGranted('ROLE_ADMIN');
+                // Users can delete their own notes, and admins can delete any note
+                return ($user === $note->getCreatedBy()) || $this->security->isGranted('ROLE_ADMIN');
         }
 
         throw new \LogicException('This code should not be reached!');

@@ -11,6 +11,7 @@ use App\Form\TicketType;
 use App\Repository\TicketRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,13 +34,53 @@ class TicketController extends AbstractController
             self::STATUS_REJECTED => 'rechazado'
         ][$status] ?? 'desconocido';
     }
-    public function __construct(
-        private EntityManagerInterface $entityManager,
-        private TicketRepository $ticketRepository,
-        private UserRepository $userRepository
-    ) {
+    private LoggerInterface $logger;
+    private EntityManagerInterface $em;
+    private TicketRepository $ticketRepository;
+    private UserRepository $userRepository;
+
+    /**
+     * @Route("/tickets/{id}/update-observation", name="ticket_update_observation", methods={"POST"})
+     * @IsGranted("ROLE_AUDITOR")
+     */
+    public function updateObservation(Request $request, Ticket $ticket): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_AUDITOR');
+        
+        if ($ticket->getStatus() !== self::STATUS_COMPLETED && $ticket->getStatus() !== self::STATUS_REJECTED) {
+            $this->addFlash('error', 'Solo se pueden editar observaciones en tickets completados o rechazados.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $observation = $request->request->get('observation');
+        
+        if (empty(trim($observation))) {
+            $this->addFlash('error', 'La observación no puede estar vacía.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $ticket->setObservation($observation);
+        $ticket->setUpdatedAt(new \DateTimeImmutable());
+        
+        $this->em->persist($ticket);
+        $this->em->flush();
+        
+        $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
     
+    public function __construct(
+        LoggerInterface $logger,
+        EntityManagerInterface $entityManager,
+        TicketRepository $ticketRepository,
+        UserRepository $userRepository
+    ) {
+        $this->logger = $logger;
+        $this->em = $entityManager; // Using $em as the property name for consistency
+        $this->ticketRepository = $ticketRepository;
+        $this->userRepository = $userRepository;
+    }
+
     #[Route('/tickets/{id}/propose-status/{status}', name: 'ticket_propose_status', methods: ['POST'])]
     #[IsGranted('propose_status', 'ticket')]
     public function proposeStatus(Request $request, Ticket $ticket, string $status): Response
@@ -80,8 +121,8 @@ class TicketController extends AbstractController
             $ticket->setProposalNote($noteContent);
             $ticket->setProposedBy($this->getUser());
             
-            $this->entityManager->persist($ticket);
-            $this->entityManager->flush();
+            $this->em->persist($ticket);
+            $this->em->flush();
             
             $this->addFlash('warning', 'Se ha enviado la propuesta de cambio de estado a los auditores para su revisión.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -92,7 +133,7 @@ class TicketController extends AbstractController
     }
     
     #[Route('/tickets/{id}/approve-proposal', name: 'ticket_approve_proposal', methods: ['POST'])]
-    #[IsGranted('ROLE_USER')]
+    #[IsGranted('ROLE_ADMIN')]
     public function approveProposal(Request $request, Ticket $ticket): Response
     {
         if (!$ticket->getProposedStatus()) {
@@ -109,7 +150,7 @@ class TicketController extends AbstractController
         $note->setTicket($ticket);
         $note->setCreatedBy($this->getUser());
         
-        $this->entityManager->persist($note);
+        $this->em->persist($note);
         
         // Update the status
         $ticket->setStatus($ticket->getProposedStatus());
@@ -117,8 +158,8 @@ class TicketController extends AbstractController
         $ticket->setProposalNote(null);
         $ticket->setProposedBy(null);
         
-        $this->entityManager->persist($ticket);
-        $this->entityManager->flush();
+        $this->em->persist($ticket);
+        $this->em->flush();
         
         $this->addFlash('success', 'La propuesta ha sido aprobada y el estado del ticket ha sido actualizado.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -166,8 +207,8 @@ class TicketController extends AbstractController
         $note->setTicket($ticket);
         $note->setCreatedBy($this->getUser());
         
-        $this->entityManager->persist($note);
-        $this->entityManager->flush();
+        $this->em->persist($note);
+        $this->em->flush();
         
         $this->addFlash('success', sprintf('Su sugerencia de %s ha sido guardada en las notas del ticket', strtolower($statusLabel)));
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -178,19 +219,39 @@ class TicketController extends AbstractController
     public function auditorAction(Request $request, Ticket $ticket): Response
     {
         $action = $request->request->get('action');
-        $description = $request->request->get('description', '');
+        $description = $request->request->get('description', $request->request->get('observation', ''));
         $assignToId = $request->request->get('assign_to');
         
+        // Handle observation update
+        if ($action === 'update_observation') {
+            if (empty(trim($description))) {
+                $this->addFlash('error', 'La observación no puede estar vacía');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+            
+            $ticket->setObservation($description);
+            $ticket->setUpdatedAt(new \DateTimeImmutable());
+            
+            $this->em->persist($ticket);
+            $this->em->flush();
+            
+            $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // For other actions, require a description
         if (empty(trim($description))) {
             $this->addFlash('error', 'Debe proporcionar una descripción para esta acción');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
         
-        // Create a note for the action
-        $note = new Note();
-        $note->setContent($description);
-        $note->setCreatedBy($this->getUser());
-        $ticket->addNote($note);
+        // Only create a regular note if not finalizing the ticket
+        if ($action !== 'finalizar') {
+            $note = new Note();
+            $note->setContent($description);
+            $note->setCreatedBy($this->getUser());
+            $ticket->addNote($note);
+        }
         
         // Handle user assignment if provided
         if ($assignToId && $assignToId !== '') {
@@ -205,7 +266,7 @@ class TicketController extends AbstractController
                 $assignment->setUser($user);
                 $assignment->setAssignedBy($this->getUser());
                 $assignment->setAssignedAt(new \DateTimeImmutable());
-                $this->entityManager->persist($assignment);
+                $this->em->persist($assignment);
                 
                 // Update note content with assignment details
                 $assignmentNote = "\n\nTicket reasignado a: " . $user->getFullName();
@@ -220,13 +281,22 @@ class TicketController extends AbstractController
         if (in_array($action, ['rechazar', 'finalizar'])) {
             $currentDate = (new \DateTime())->format('d/m/Y H:i');
             $actionLabel = $action === 'rechazar' ? 'Rechazado' : 'Finalizado';
-            $ticket->setDescription(
-                $ticket->getDescription() . 
-                "\n\n---\n" .
-                "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() . 
-                "\n" . 
-                $description
-            );
+            
+            // For finalizing, set the observation and completedBy
+            if ($action === 'finalizar') {
+                $ticket->setObservation($description);
+                $ticket->setCompletedBy($this->getUser());
+                $ticket->setUpdatedAt(new \DateTimeImmutable());
+            } else {
+                // For reject, keep the old behavior
+                $ticket->setDescription(
+                    $ticket->getDescription() . 
+                    "\n\n---\n" .
+                    "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() . 
+                    "\n" . 
+                    $description
+                );
+            }
         }
         
         // Update status based on action
@@ -258,9 +328,9 @@ class TicketController extends AbstractController
             $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
         }
         
-        $this->entityManager->persist($ticket);
-        $this->entityManager->persist($note);
-        $this->entityManager->flush();
+        $this->em->persist($ticket);
+        $this->em->persist($note);
+        $this->em->flush();
         
         $this->addFlash('success', $statusMessage ?: 'La acción ha sido registrada');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -279,7 +349,7 @@ class TicketController extends AbstractController
             $note->setTicket($ticket);
             $note->setCreatedBy($this->getUser());
             
-            $this->entityManager->persist($note);
+            $this->em->persist($note);
             $ticket->addNote($note);
         }
 
@@ -291,8 +361,8 @@ class TicketController extends AbstractController
             $ticket->setCompletedAt(new \DateTimeImmutable());
         }
         
-        $this->entityManager->persist($ticket);
-        $this->entityManager->flush();
+        $this->em->persist($ticket);
+        $this->em->flush();
 
         $statusMessage = $this->getStatusLabel($status);
         $this->addFlash('success', sprintf('El ticket ha sido marcado como %s', $statusMessage));
@@ -315,8 +385,8 @@ class TicketController extends AbstractController
         }
         
         $ticket->setDescription($description);
-        $this->entityManager->persist($ticket);
-        $this->entityManager->flush();
+        $this->em->persist($ticket);
+        $this->em->flush();
         
         if ($request->isXmlHttpRequest()) {
             return $this->json([
@@ -345,15 +415,15 @@ class TicketController extends AbstractController
         $ticket->setTakenBy($user);
         $ticket->setStatus(self::STATUS_IN_PROGRESS);
         
-        $this->entityManager->persist($ticket);
-        $this->entityManager->flush();
+        $this->em->persist($ticket);
+        $this->em->flush();
         
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
     #[Route('/tickets', name: 'ticket_index')]
     #[IsGranted('ROLE_USER')]
-    public function index(Request $request, EntityManagerInterface $entityManager): Response
+    public function index(Request $request): Response
     {
         $page = max(1, $request->query->getInt('page', 1));
         $limit = 20; // Tickets por página
@@ -367,7 +437,7 @@ class TicketController extends AbstractController
         $area = $request->query->get('area');
         
         // Construir query base
-        $qb = $entityManager->createQueryBuilder();
+        $qb = $this->em->createQueryBuilder();
         $qb->select('t')
            ->from(Ticket::class, 't')
            ->leftJoin('t.createdBy', 'u')
@@ -427,10 +497,10 @@ class TicketController extends AbstractController
         $tickets = $qb->getQuery()->getResult();
         
         // Obtener usuarios para asignación
-        $users = $entityManager->getRepository(User::class)->findAll();
+        $users = $this->em->getRepository(User::class)->findAll();
         
         // Obtener áreas únicas para filtros
-        $areas = $entityManager->createQueryBuilder()
+        $areas = $this->em->createQueryBuilder()
             ->select('DISTINCT t.areaOrigen')
             ->from(Ticket::class, 't')
             ->where('t.areaOrigen IS NOT NULL')
@@ -445,11 +515,11 @@ class TicketController extends AbstractController
         // Calcular estadísticas
         $stats = [
             'total' => $totalTickets,
-            'pending' => $entityManager->getRepository(Ticket::class)->count(['status' => 'pending']),
-            'in_progress' => $entityManager->getRepository(Ticket::class)->count(['status' => 'in_progress']),
-            'completed' => $entityManager->getRepository(Ticket::class)->count(['status' => 'completed']),
-            'rejected' => $entityManager->getRepository(Ticket::class)->count(['status' => 'rejected']),
-            'delayed' => $entityManager->getRepository(Ticket::class)->count(['status' => 'delayed']),
+            'pending' => $this->em->getRepository(Ticket::class)->count(['status' => 'pending']),
+            'in_progress' => $this->em->getRepository(Ticket::class)->count(['status' => 'in_progress']),
+            'completed' => $this->em->getRepository(Ticket::class)->count(['status' => 'completed']),
+            'rejected' => $this->em->getRepository(Ticket::class)->count(['status' => 'rejected']),
+            'delayed' => $this->em->getRepository(Ticket::class)->count(['status' => 'delayed']),
         ];
         
         // Calcular páginas
@@ -495,8 +565,8 @@ class TicketController extends AbstractController
         $form->handleRequest($request);
         
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->entityManager->persist($ticket);
-            $this->entityManager->flush();
+            $this->em->persist($ticket);
+            $this->em->flush();
             
             $this->addFlash('success', 'Ticket creado exitosamente.');
             return $this->redirectToRoute('ticket_index');
@@ -507,140 +577,91 @@ class TicketController extends AbstractController
         ]);
     }
 
-
     #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
     #[IsGranted('ROLE_AUDITOR')]
-    public function assign(Request $request, EntityManagerInterface $em, TicketRepository $tickets, UserRepository $users): Response
+    public function assign(Request $request): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_AUDITOR');
-        $this->isCsrfTokenValid('assign_ticket', $request->request->get('_token')) || throw $this->createAccessDeniedException();
-
-        $ticketId = $request->request->get('ticket_id');
-        $userIds = $request->request->all('assigned_users');
+        $this->logger->info('=== TICKET ASSIGNMENT START ===');
         
-        // Debug: Log the raw request data
-        error_log('Raw request data: ' . print_r($request->request->all(), true));
-        
-        // Handle different formats of user IDs
-        if (is_string($userIds)) {
-            $userIds = [$userIds];
-        } elseif (!is_array($userIds)) {
-            $userIds = [];
-        }
-        
-        // Filter out any empty values and convert to integers
-        $userIds = array_filter(array_map('intval', $userIds), function($value) {
-            return $value > 0;
-        });
-        
-        // Debug: Log processed data
-        error_log('Processed ticket_id: ' . $ticketId);
-        error_log('Processed user IDs: ' . print_r($userIds, true));
-        
-        if (empty($userIds)) {
-            $this->addFlash('danger', 'Debe seleccionar al menos un usuario para asignar el ticket.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
-        }
-
-        $ticket = $tickets->find($ticketId);
-        if (!$ticket) {
-            $this->addFlash('danger', 'Ticket no encontrado');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
-        }
-        
-        // Check if ticket is already taken
-        if ($ticket->getTakenBy()) {
-            $this->addFlash('warning', 'No se puede asignar usuarios a un ticket que ya ha sido tomado.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
-        }
-
-        // Check if ticket is closed
-        if ($ticket->getStatus() === self::STATUS_COMPLETED || $ticket->getStatus() === self::STATUS_REJECTED) {
-            $this->addFlash('warning', 'No se pueden asignar usuarios a un ticket cerrado.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
-        }
-
         try {
-            // Debug: Log the raw user IDs from the request
-            error_log('Raw user IDs from request: ' . print_r($userIds, true));
+            // Log request details
+            $this->logger->info('Request method: ' . $request->getMethod());
+            $this->logger->info('Content-Type: ' . $request->headers->get('Content-Type'));
+            $this->logger->info('Request data: ' . print_r($request->request->all(), true));
             
-            // Convert string IDs to integers and filter out any invalid values
-            $userIds = array_filter(array_map('intval', $userIds), function($id) {
-                return $id > 0;
-            });
+            // Verify CSRF token
+            $token = $request->request->get('_token');
+            if (!$this->isCsrfTokenValid('assign_ticket', $token)) {
+                $this->logger->error('Invalid CSRF token');
+                throw $this->createAccessDeniedException('Token de seguridad inválido');
+            }
             
+            // Get ticket ID and validate
+            $ticketId = $request->request->get('ticket_id');
+            if (!$ticketId) {
+                $this->logger->error('No ticket_id provided in request');
+                throw new \InvalidArgumentException('ID de ticket no proporcionado');
+            }
+            
+            // Get the ticket
+            $ticket = $this->ticketRepository->find($ticketId);
+            if (!$ticket) {
+                $this->logger->error('Ticket not found with ID: ' . $ticketId);
+                throw $this->createNotFoundException('Ticket no encontrado');
+            }
+            
+            // Get user IDs
+            $userIds = $request->request->all('assigned_users');
             if (empty($userIds)) {
-                throw new \Exception('No se proporcionaron IDs de usuario válidos.');
+                $this->logger->warning('No user IDs provided in request');
+                $this->addFlash('warning', 'Debe seleccionar al menos un usuario');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
             
-            error_log('Processed user IDs: ' . print_r($userIds, true));
+            $this->logger->info('Processing assignment for ticket: ' . $ticketId);
+            $this->logger->info('Selected users: ' . print_r($userIds, true));
             
-            // Get all users with the given IDs first
-            $allUsers = $users->createQueryBuilder('u')
-                ->where('u.id IN (:ids)')
-                ->setParameter('ids', $userIds)
-                ->getQuery()
-                ->getResult();
-                
-            error_log('Found ' . count($allUsers) . ' users with the given IDs');
-            
-            // Filter users by role in PHP to ensure we see what's happening
-            $validUsers = [];
-            foreach ($allUsers as $user) {
-                $roles = $user->getRoles();
-                error_log(sprintf(
-                    'User ID: %d, Roles: %s', 
-                    $user->getId(), 
-                    json_encode($roles)
-                ));
-                
-                if (in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles)) {
-                    $validUsers[] = $user;
+            // Process user assignments
+            $assignedUsers = [];
+            foreach ($userIds as $userId) {
+                $user = $this->userRepository->find($userId);
+                if ($user) {
+                    $assignedUsers[] = $user;
+                    
+                    // Create new assignment if it doesn't exist
+                    $assignment = new TicketAssignment();
+                    $assignment->setTicket($ticket);
+                    $assignment->setUser($user);
+                    $assignment->setAssignedAt(new \DateTimeImmutable());
+                    
+                    $this->em->persist($assignment);
                 }
             }
             
-            error_log('Found ' . count($validUsers) . ' valid users after role filtering');
-
-            if (empty($validUsers)) {
-                throw new \Exception('No se encontraron usuarios válidos para asignar. Los usuarios deben tener el rol ROLE_USER o ROLE_AUDITOR.');
-            }
-
-            // Get current assignments to preserve timestamps
-            $currentAssignments = $ticket->getTicketAssignments();
-            $currentUserIds = [];
-            foreach ($currentAssignments as $assignment) {
-                $currentUserIds[] = $assignment->getUser()->getId();
-            }
-
-            // Remove assignments for users that are no longer assigned
-            foreach ($currentAssignments as $assignment) {
-                $userId = $assignment->getUser()->getId();
-                if (!in_array($userId, $userIds)) {
-                    $ticket->removeAssignedTo($assignment->getUser());
-                }
-            }
-
-            // Add new assignments only for users that don't have existing assignments
-            foreach ($validUsers as $user) {
-                if (!in_array($user->getId(), $currentUserIds)) {
-                    $ticket->addAssignedTo($user);
-                }
+            // Update ticket status if needed
+            if (count($assignedUsers) > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
+                $ticket->setStatus(self::STATUS_IN_PROGRESS);
+                $this->em->persist($ticket);
             }
             
-            // Update status if it's pending
-            if ($ticket->getStatus() === 'pending') {
-                $ticket->setStatus('in_progress');
-            }
+            $this->em->flush();
             
-            $em->persist($ticket);
-            $em->flush();
-            
+            $this->logger->info('Successfully assigned users to ticket: ' . $ticketId);
             $this->addFlash('success', 'Usuarios asignados correctamente al ticket.');
+            
         } catch (\Exception $e) {
+            $this->logger->error('Error assigning users to ticket: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
         }
-
-        return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+        
+        // Redirect back to the ticket
+        return $this->redirectToRoute('ticket_show', [
+            'id' => $ticketId ?? 0
+        ]);
     }
 
     #[Route('/tickets/{id}', name: 'ticket_show', methods: ['GET'])]
@@ -682,11 +703,11 @@ class TicketController extends AbstractController
         return $this->render('ticket/show.html.twig', [
             'ticket' => $ticket,
             'users' => $filteredUsers,
+            'notes' => $notes,
             'isAssigned' => $isAssigned,
             'isAdmin' => $this->isGranted('ROLE_ADMIN'),
             'isAuditor' => $this->isGranted('ROLE_AUDITOR'),
             'isCreator' => $ticket->getCreatedBy() === $this->getUser(),
-            'notes' => $notes,
         ]);
     }
 
@@ -708,23 +729,27 @@ class TicketController extends AbstractController
             // Clear existing assignments
             foreach ($ticket->getTicketAssignments() as $assignment) {
                 $ticket->removeTicketAssignment($assignment);
-                $this->entityManager->remove($assignment);
+                $this->em->remove($assignment);
             }
             
             // Add new assignments
-            if ($assignedUsers) {
-                foreach ($assignedUsers as $user) {
-                    $assignment = new TicketAssignment();
-                    $assignment->setUser($user);
-                    $assignment->setTicket($ticket);
-                    $assignment->setAssignedAt(new \DateTime());
-                    $this->entityManager->persist($assignment);
-                    $ticket->addTicketAssignment($assignment);
+            $assignedUserIds = $request->request->all('assignedUsers');
+            if (!empty($assignedUserIds)) {
+                foreach ($assignedUserIds as $userId) {
+                    $user = $this->userRepository->find($userId);
+                    if ($user) {
+                        $assignment = new TicketAssignment();
+                        $assignment->setUser($user);
+                        $assignment->setTicket($ticket);
+                        $assignment->setAssignedAt(new \DateTime());
+                        $this->em->persist($assignment);
+                        $ticket->addTicketAssignment($assignment);
+                    }
                 }
             }
             
-            $this->entityManager->persist($ticket);
-            $this->entityManager->flush();
+            $this->em->persist($ticket);
+            $this->em->flush();
             
             $this->addFlash('success', 'Ticket actualizado correctamente.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -763,8 +788,8 @@ class TicketController extends AbstractController
         $ticket->setProposedAt(null);
         $ticket->setProposalNote(null);
 
-        $this->entityManager->persist($note);
-        $this->entityManager->flush();
+        $this->em->persist($note);
+        $this->em->flush();
 
         $this->addFlash('success', 'La propuesta ha sido rechazada correctamente.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
@@ -775,8 +800,8 @@ class TicketController extends AbstractController
     public function delete(Request $request, Ticket $ticket): Response
     {
         if ($this->isCsrfTokenValid('delete'.$ticket->getId(), $request->request->get('_token'))) {
-            $this->entityManager->remove($ticket);
-            $this->entityManager->flush();
+            $this->em->remove($ticket);
+            $this->em->flush();
             $this->addFlash('success', 'Ticket eliminado correctamente.');
         }
 

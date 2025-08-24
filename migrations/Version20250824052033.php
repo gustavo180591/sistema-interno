@@ -8,24 +8,24 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
 /**
- * Remove priority column from ticket table
+ * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20250824021000 extends AbstractMigration
+final class Version20250824052033 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Remove priority column from ticket table';
+        return '';
     }
 
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE ticket DROP priority');
+        $this->addSql('ALTER TABLE ticket ADD observation LONGTEXT DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE ticket ADD priority VARCHAR(20) NOT NULL');
+        $this->addSql('ALTER TABLE ticket DROP observation');
     }
 }

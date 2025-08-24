@@ -16,6 +16,7 @@ class Ticket
     const STATUS_PENDING = 'pending';
     const STATUS_REJECTED = 'rejected';
     const STATUS_DELAYED = 'delayed';
+    const STATUS_COMPLETED = 'completed';
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
@@ -27,6 +28,13 @@ class Ticket
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $observation = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'completed_by_id', referencedColumnName: 'id', nullable: true)]
+    private ?User $completedBy = null;
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_PENDING;
@@ -172,6 +180,28 @@ class Ticket
     public function setDescription(?string $description): self
     {
         $this->description = $description;
+        return $this;
+    }
+
+    public function getObservation(): ?string
+    {
+        return $this->observation;
+    }
+
+    public function setObservation(?string $observation): self
+    {
+        $this->observation = $observation;
+        return $this;
+    }
+
+    public function getCompletedBy(): ?User
+    {
+        return $this->completedBy;
+    }
+
+    public function setCompletedBy(?User $completedBy): self
+    {
+        $this->completedBy = $completedBy;
         return $this;
     }
 
