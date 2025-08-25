@@ -1,0 +1,6 @@
+# Admin routes
+app_admin_user:
+    resource: '../../src/Controller/Admin/UserController.php'
+    type: attribute
+    prefix: /admin
+    name_prefix: admin_

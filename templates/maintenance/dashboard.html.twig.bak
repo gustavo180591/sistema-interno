@@ -1,0 +1,645 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('assets/vendor/chart.js/Chart.min.css') }}">
+{% endblock %}
+
+{% block page_title %}Mantenimiento Preventivo{% endblock %}
+
+{% block page_actions %}
+    <div class="btn-group me-2">
+        <a href="{{ path('maintenance_task_new') }}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus me-1"></i> Programar Mantenimiento
+        </a>
+        <a href="{{ path('maintenance_equipment') }}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-server me-1"></i> Equipos
+        </a>
+        <a href="{{ path('maintenance_categories') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-tags me-1"></i> Categorías
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <!-- Quick Navigation Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">
+                        <i class="fas fa-tools me-2"></i>Acciones Rápidas
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_task_new') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-plus-circle text-primary fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Programar Mantenimiento</h6>
+                                        <small class="text-muted">Crear nuevo mantenimiento preventivo</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_tasks') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-info bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-calendar-check text-info fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Calendario</h6>
+                                        <small class="text-muted">Ver mantenimientos programados</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_equipment') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-success bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-server text-success fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Inventario</h6>
+                                        <small class="text-muted">Gestionar equipos y activos</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_reports') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-warning bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-chart-pie text-warning fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Reportes</h6>
+                                        <small class="text-muted">Métricas y análisis</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Programados</h6>
+                            <h2 class="mb-0">{{ stats.scheduled_maintenance|default(0) }}</h2>
+                            <small class="opacity-75">Mantenimientos preventivos</small>
+                        </div>
+                        <i class="fas fa-calendar-check fa-3x opacity-25"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_tasks', {status: 'scheduled'}) }}" class="text-white">Ver programados <i class="fas fa-arrow-right ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Pendientes</h6>
+                            <h2 class="mb-0">{{ stats.pending_maintenance|default(0) }}</h2>
+                            <small class="opacity-75">Tareas por completar</small>
+                        </div>
+                        <i class="fas fa-clock fa-3x opacity-25"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_tasks', {status: 'pending'}) }}" class="text-white">Ver pendientes <i class="fas fa-arrow-right ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Cumplimiento</h6>
+                            <h2 class="mb-0">{{ stats.compliance_rate|default(0) }}%</h2>
+                            <small class="opacity-75">Tasa de cumplimiento</small>
+                        </div>
+                        <i class="fas fa-chart-line fa-3x opacity-25"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_reports') }}" class="text-white">Ver reportes <i class="fas fa-arrow-right ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card text-white bg-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Equipos</h6>
+                            <h2 class="mb-0">{{ stats.total_equipment|default(0) }}</h2>
+                            <small class="opacity-75">En inventario</small>
+                        </div>
+                        <i class="fas fa-server fa-3x opacity-25"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_equipment') }}" class="text-white">Ver inventario <i class="fas fa-arrow-right ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Próximos Mantenimientos</h5>
+                    <a href="{{ path('maintenance_tasks') }}" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_tasks|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Equipo</th>
+                                        <th>Frecuencia</th>
+                                        <th>Próxima Fecha</th>
+                                        <th>Estado</th>
+                                        <th class="text-end">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for task in recent_tasks|slice(0, 5) %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="flex-shrink-0">
+                                                        <i class="fas fa-{{ task.equipment.icon|default('hdd') }} text-muted"></i>
+                                                    </div>
+                                                    <div class="ms-2">
+                                                        <div class="fw-semibold">{{ task.equipment.name|default('Sin equipo') }}</div>
+                                                        <small class="text-muted">{{ task.title|default('Mantenimiento preventivo') }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if task.frequency %}
+                                                    <span class="badge bg-{{ task.frequency == 'monthly' ? 'info' : (task.frequency == 'quarterly' ? 'primary' : 'secondary') }}">
+                                                        {{ task.frequency == 'monthly' ? 'Mensual' :
+                                                           (task.frequency == 'quarterly' ? 'Trimestral' :
+                                                           (task.frequency == 'semiannual' ? 'Semestral' : 'Anual')) }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Personalizado</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-semibold">{{ task.scheduledFor|date('d M Y') }}</span>
+                                                    <small class="text-muted">{{ task.scheduledFor|date('H:i') }}</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% if task.status == 'completed' %}
+                                                    <span class="badge bg-success">Completado</span>
+                                                {% elseif task.status == 'in_progress' %}
+                                                    <span class="badge bg-primary">En Progreso</span>
+                                                {% elseif task.status == 'pending' and date() > date(task.scheduledFor) %}
+                                                    <span class="badge bg-danger">Atrasado</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">Pendiente</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="btn-group">
+                                                    <a href="{{ path('maintenance_task_show', {id: task.id}) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{{ path('maintenance_task_edit', {id: task.id}) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <i class="fas fa-calendar-plus fa-3x mb-3"></i>
+                            <p class="mb-0">No hay mantenimientos preventivos programados</p>
+                            <a href="{{ path('maintenance_task_new') }}" class="btn btn-primary mt-3">
+                                <i class="fas fa-plus me-1"></i> Programar Mantenimiento
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment Status -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Estado de Equipos</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="equipmentFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-filter me-1"></i>Filtrar
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="equipmentFilter">
+                            <li><a class="dropdown-item active" href="#">Todos los equipos</a></li>
+                            <li><a class="dropdown-item" href="#">Por categoría</a></li>
+                            <li><a class="dropdown-item" href="#">Por ubicación</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-6">
+                            <div class="text-center mb-4">
+                                <div class="chart-container" style="position: relative; height: 200px;">
+                                    <canvas id="equipmentStatusChart"
+                                            data-operational="{{ stats.equipment_status.operational|default(0) }}"
+                                            data-maintenance="{{ stats.equipment_status.maintenance|default(0) }}"
+                                            data-out-of-service="{{ stats.equipment_status.out_of_service|default(0) }}">
+                                    </canvas>
+                                </div>
+                                <div class="position-absolute top-50 start-50 translate-middle text-center">
+                                    <h4 class="mb-0">{{ stats.equipment_status.operational|default(0) }}</h4>
+                                    <small class="text-muted">de {{ stats.total_equipment|default(0) }} operativos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-success me-2" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                                    <span class="text-muted">Operativos</span>
+                                    <span class="ms-auto fw-bold">
+                                        {{ stats.equipment_status.operational|default(0) }}
+                                        <small class="text-muted">({{ stats.equipment_status.operational_percent|default(0) }}%)</small>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-warning me-2" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                                    <span class="text-muted">En Mantenimiento</span>
+                                    <span class="ms-auto fw-bold">
+                                        {{ stats.equipment_status.maintenance|default(0) }}
+                                        <small class="text-muted">({{ stats.equipment_status.maintenance_percent|default(0) }}%)</small>
+                                    </span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-danger me-2" style="width: 12px; height: 12px; border-radius: 50%;"></span>
+                                    <span class="text-muted">Fuera de Servicio</span>
+                                    <span class="ms-auto fw-bold">
+                                        {{ stats.equipment_status.out_of_service|default(0) }}
+                                        <small class="text-muted">({{ stats.equipment_status.out_of_service_percent|default(0) }}%)</small>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small class="text-muted">Disponibilidad</small>
+                                    <small class="fw-bold">{{ stats.availability_rate|default(0) }}%</small>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ stats.availability_rate|default(0) }}%"
+                                         aria-valuenow="{{ stats.availability_rate|default(0) }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ path('maintenance_equipment') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-server me-1"></i> Ver equipos
+                        </a>
+                        <a href="{{ path('maintenance_reports') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-chart-bar me-1"></i> Ver reportes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Maintenance Metrics -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>KPIs de Mantenimiento</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="metricsFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="far fa-calendar-alt me-1"></i>Últimos 30 días
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="metricsFilter">
+                            <li><a class="dropdown-item active" href="#">Últimos 7 días</a></li>
+                            <li><a class="dropdown-item" href="#">Últimos 30 días</a></li>
+                            <li><a class="dropdown-item" href="#">Últimos 90 días</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#">Personalizado</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4">
+                            <div class="p-3 border rounded text-center">
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-tools me-1"></i>MTTR
+                                    <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Tiempo promedio para reparar"></i>
+                                </div>
+                                <h4 class="mb-0 text-primary">{{ stats.mttr|default('N/A') }}</h4>
+                                <small class="text-muted">Horas</small>
+                                <div class="mt-2 small {{ stats.mttr_trend > 0 ? 'text-danger' : 'text-success' }}">
+                                    <i class="fas fa-arrow-{{ stats.mttr_trend > 0 ? 'up' : 'down' }} me-1"></i>
+                                    {{ stats.mttr_trend|abs }}% vs período anterior
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-3 border rounded text-center">
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-chart-line me-1"></i>MTBF
+                                    <i class="fas fa-info-circle ms-1" data-bs-toggle="tooltip" title="Tiempo promedio entre fallas"></i>
+                                </div>
+                                <h4 class="mb-0 text-success">{{ stats.mtbf|default('N/A') }}</h4>
+                                <small class="text-muted">Días</small>
+                                <div class="mt-2 small {{ stats.mtbf_trend < 0 ? 'text-danger' : 'text-success' }}">
+                                    <i class="fas fa-arrow-{{ stats.mtbf_trend < 0 ? 'down' : 'up' }} me-1"></i>
+                                    {{ stats.mtbf_trend|abs }}% vs período anterior
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-3 border rounded text-center">
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-check-circle me-1"></i>Cumplimiento
+                                </div>
+                                <h4 class="mb-0 {{ stats.compliance_rate >= 90 ? 'text-success' : (stats.compliance_rate >= 80 ? 'text-warning' : 'text-danger') }}">
+                                    {{ stats.compliance_rate|default(0) }}%
+                                </h4>
+                                <small class="text-muted">Tasa de cumplimiento</small>
+                                <div class="mt-2 small {{ stats.compliance_trend < 0 ? 'text-danger' : 'text-success' }}">
+                                    <i class="fas fa-arrow-{{ stats.compliance_trend < 0 ? 'down' : 'up' }} me-1"></i>
+                                    {{ stats.compliance_trend|abs }}% vs período anterior
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-6">
+                            <div class="p-3 border rounded text-center">
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-tasks me-1"></i>Órdenes abiertas
+                                </div>
+                                <h4 class="mb-0">{{ stats.open_work_orders|default(0) }}</h4>
+                                <small class="text-muted">Pendientes</small>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ (stats.open_work_orders / (stats.open_work_orders + stats.completed_work_orders) * 100)|default(0) }}%"
+                                         aria-valuenow="{{ stats.open_work_orders|default(0) }}"
+                                         aria-valuemin="0"
+                                         aria-valuemax="{{ (stats.open_work_orders + stats.completed_work_orders)|default(1) }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <div class="p-3 border rounded text-center">
+                                <div class="text-muted mb-1">
+                                    <i class="fas fa-money-bill-wave me-1"></i>Costo promedio
+                                </div>
+                                <h4 class="mb-0">${{ stats.avg_repair_cost|number_format(0, ',', '.') }}</h4>
+                                <small class="text-muted">Por intervención</small>
+                                <div class="mt-2 small {{ stats.cost_trend > 0 ? 'text-danger' : 'text-success' }}">
+                                    <i class="fas fa-arrow-{{ stats.cost_trend > 0 ? 'up' : 'down' }} me-1"></i>
+                                    {{ stats.cost_trend|abs }}% vs período anterior
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Actividad Reciente</h5>
+                    <div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary active" data-bs-toggle="tooltip" title="Ver todas las actividades">
+                                <i class="fas fa-list"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Filtrar por tipo">
+                                <i class="fas fa-filter"></i>
+                            </button>
+                        </div>
+                        <a href="{{ path('maintenance_logs') }}" class="btn btn-sm btn-outline-primary ms-2">
+                            Ver todo
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_activity|length > 0 %}
+                        <div class="list-group list-group-flush">
+                            {% for log in recent_activity %}
+                                <div class="list-group-item list-group-item-action border-0 py-3 px-4">
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-shrink-0 me-3">
+                                            <div class="avatar-sm flex-shrink-0">
+                                                <span class="avatar-title rounded-circle bg-{{ log.type_bg|default('primary') }}-subtle text-{{ log.type_bg|default('primary') }}">
+                                                    <i class="{{ log.icon|default('fas fa-info-circle') }} fs-4"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 overflow-hidden">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <h6 class="mb-0 text-truncate">{{ log.title }}</h6>
+                                                <small class="text-muted ms-2">{{ log.date|date('d M H:i') }}</small>
+                                            </div>
+                                            <p class="mb-1 text-muted text-truncate-2">{{ log.description }}</p>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-xs me-2">
+                                                    <span class="avatar-title rounded-circle bg-light text-dark">
+                                                        {{ log.user|first|upper }}
+                                                    </span>
+                                                </div>
+                                                <small class="text-muted">{{ log.user }}</small>
+                                                {% if log.equipment %}
+                                                    <span class="badge bg-light text-dark ms-2">
+                                                        <i class="fas fa-tag me-1"></i>{{ log.equipment }}
+                                                    </span>
+                                                {% endif %}
+                                                {% if log.priority %}
+                                                    <span class="badge bg-{{ log.priority == 'high' ? 'danger' : (log.priority == 'medium' ? 'warning' : 'secondary') }} ms-auto">
+                                                        {{ log.priority|capitalize }}
+                                                    </span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% if not loop.last %}
+                                    <hr class="my-0">
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center p-5 text-muted">
+                            <i class="fas fa-history fa-3x mb-3 opacity-25"></i>
+                            <h5 class="mb-2">No hay actividad reciente</h5>
+                            <p class="mb-0">Todas las actividades de mantenimiento aparecerán aquí</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Footer -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between">
+                        <div>
+                            <h6 class="mb-0">Acciones Rápidas</h6>
+                            <p class="text-muted small mb-0">Accede rápidamente a las funciones más utilizadas</p>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                            <div class="dropdown">
+                                <button class="btn btn-primary dropdown-toggle" type="button" id="newTaskDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-plus me-1"></i> Nueva Tarea
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="newTaskDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_task_new') }}?type=preventive">
+                                            <i class="fas fa-shield-alt text-primary me-2"></i> Mantenimiento Preventivo
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_task_new') }}?type=corrective">
+                                            <i class="fas fa-tools text-warning me-2"></i> Mantenimiento Correctivo
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_task_new') }}?type=inspection">
+                                            <i class="fas fa-search text-info me-2"></i> Inspección
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="reportsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-file-export me-1"></i> Reportes
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reportsDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_reports_export') }}?type=preventive">
+                                            <i class="fas fa-download me-2"></i> Exportar Mantenimientos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_reports') }}?view=performance">
+                                            <i class="fas fa-chart-line me-2"></i> Rendimiento
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_reports') }}?view=compliance">
+                                            <i class="fas fa-clipboard-check me-2"></i> Cumplimiento
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('maintenance_reports_analytics') }}">
+                                            <i class="fas fa-chart-pie me-2"></i> Analíticas Avanzadas
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                            <a href="{{ path('maintenance_calendar') }}" class="btn btn-outline-primary">
+                                <i class="far fa-calendar-alt me-1"></i> Calendario
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <a href="{{ path('maintenance_equipment') }}" class="text-decoration-none text-dark">
+                                    <div class="p-3 border rounded text-center hover-shadow">
+                                        <div class="avatar-sm mx-auto mb-2">
+                                            <div class="avatar-title bg-soft-primary text-primary rounded-circle">
+                                                <i class="fas fa-server fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <h6 class="mb-0">Equipos</h6>
+                                        <small class="text-muted">Gestionar inventario</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ path('maintenance_checklists') }}" class="text-decoration-none text-dark">
+                                    <div class="p-3 border rounded text-center hover-shadow">
+                                        <div class="avatar-sm mx-auto mb-2">
+                                            <div class="avatar-title bg-soft-success text-success rounded-circle">
+                                                <i class="fas fa-tasks fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <h6 class="mb-0">Checklists</h6>
+                                        <small class="text-muted">Plantillas de mantenimiento</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ path('maintenance_categories') }}" class="text-decoration-none text-dark">
+                                    <div class="p-3 border rounded text-center hover-shadow">
+                                        <div class="avatar-sm mx-auto mb-2">
+                                            <div class="avatar-title bg-soft-warning text-warning rounded-circle">
+                                                <i class="fas fa-tags fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <h6 class="mb-0">Categorías</h6>
+                                        <small class="text-muted">Organizar por tipo</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ path('maintenance_settings') }}" class="text-decoration-none text-dark">
+                                    <div class="p-3 border rounded text-center hover-shadow">
+                                        <div class="avatar-sm mx-auto mb-2">
+                                            <div class="avatar-title bg-soft-info text-info rounded-circle">
+                                                <i class="fas fa-cog fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <h6 class="mb-0">Configuración</h6>
+                                        <small class="text-muted">Ajustes del sistema</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('assets/vendor/chart.js/Chart.min.css') }}">
+{% endblock %}
+
+{% block page_title %}Mantenimiento Preventivo{% endblock %}
+
+{% block page_actions %}
+    <div class="btn-group me-2">
+        <a href="{{ path('maintenance_task_new') }}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus me-1"></i> Programar Mantenimiento
+        </a>
+        <a href="{{ path('maintenance_equipment') }}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-server me-1"></i> Equipos
+        </a>
+        <a href="{{ path('maintenance_categories') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-tags me-1"></i> Categorías
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <!-- Existing content remains the same until the end of the file -->
+
+    <!-- JavaScript block will be added at the end -->
+    {% block javascripts %}
+        {{ parent() }}
+        <script src="{{ asset('assets/vendor/chart.js/Chart.bundle.min.js') }}"></script>
+        <script src="{{ asset('assets/js/maintenance/dashboard.js') }}"></script>
+    {% endblock %}
+{% endblock %}

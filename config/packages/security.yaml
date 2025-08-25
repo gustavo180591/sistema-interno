@@ -51,13 +51,28 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
-        - { path: ^/admin, roles: [ROLE_AUDITOR, ROLE_ADMIN] }
+        # Public access for testing and API endpoints
+        - { path: ^/test, roles: PUBLIC_ACCESS }
+        - { path: ^/admin/maintenance/api/calendar/events, roles: PUBLIC_ACCESS, methods: [GET] }
+        
+        # Login and registration
+        - { path: ^/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: ^/resetting, roles: PUBLIC_ACCESS }
+        
+        # Public assets
+        - { path: ^/_wdt, roles: PUBLIC_ACCESS }
+        - { path: ^/_profiler, roles: PUBLIC_ACCESS }
+        
+        # Protected routes
+        - { path: ^/admin/maintenance/calendar, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/tasks, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/categories, roles: ROLE_USER }
+        - { path: ^/admin, roles: ROLE_USER }
         - { path: ^/auditor, roles: ROLE_AUDITOR }
         - { path: ^/tickets/\d+/approve-proposal, roles: ROLE_USER }
         - { path: ^/tickets/\d+/reject-proposal, roles: ROLE_USER }
         - { path: ^/profile, roles: ROLE_USER }
-        - { path: ^/login, roles: PUBLIC_ACCESS }
-        - { path: ^/register, roles: PUBLIC_ACCESS }
 
 when@test:
     security:

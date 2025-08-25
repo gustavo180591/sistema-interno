@@ -424,15 +424,21 @@
 
             <!-- Notes Section -->
             <div class="ticket-content mt-4">
-                <h5 class="mb-3">
-                    <i class="fas fa-sticky-note text-primary me-2"></i>
-                    Notas
-                </h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sticky-note text-primary me-2"></i>
+                        Notas
+                    </h5>
+                    <span id="onlineUsers" class="badge bg-success d-none">
+                        <i class="fas fa-circle small me-1"></i>
+                        <span id="onlineUsersCount">0</span> usuarios en línea
+                    </span>
+                </div>
                 
-                {% if notes|length > 0 %}
-                    <div class="notes-container">
+                <div id="notesContainer" class="mb-4">
+                    {% if notes|length > 0 %}
                         {% for note in notes %}
-                            <div class="card mb-3">
+                            <div class="note-item card mb-3" data-note-id="{{ note.id }}">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div class="d-flex align-items-center">
@@ -441,12 +447,9 @@
                                             <span class="text-muted ms-2 small">{{ note.createdAt|date('d/m/Y H:i') }}</span>
                                         </div>
                                         {% if is_granted('ROLE_ADMIN') or note.createdBy == app.user %}
-                                            <form action="{{ path('note_delete', {'id': note.id}) }}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta nota?')">
-                                                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ note.id) }}">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
+                                            <button type="button" class="btn btn-sm btn-outline-danger delete-note" data-note-id="{{ note.id }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         {% endif %}
                                     </div>
                                     <div class="note-content">
@@ -455,25 +458,29 @@
                                 </div>
                             </div>
                         {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        No hay notas para mostrar.
-                    </div>
-                {% endif %}
+                    {% else %}
+                        <div id="noNotesMessage" class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay notas para mostrar.
+                        </div>
+                    {% endif %}
+                </div>
 
                 {% if is_granted('ROLE_USER') %}
-                    <div class="add-note mt-4">
-                        <form action="{{ path('note_add', {'ticketId': ticket.id}) }}" method="post">
-                            <div class="mb-3">
-                                <label for="note_content" class="form-label">Agregar una nota</label>
-                                <textarea class="form-control" id="note_content" name="content" rows="3" required></textarea>
-                            </div>
-                            <div class="d-flex justify-content-end">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-paper-plane me-1"></i> Enviar
+                    <div class="add-note">
+                        <form id="noteForm" class="mb-0">
+                            <input type="hidden" name="ticketId" value="{{ ticket.id }}">
+                            <div class="input-group">
+                                <input type="text" id="noteContent" name="content" class="form-control" 
+                                       placeholder="Escribe una nota..." required
+                                       autocomplete="off">
+                                <button class="btn btn-primary" type="submit" id="submitNoteBtn">
+                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                    <span class="btn-text">Enviar</span>
                                 </button>
+                            </div>
+                            <div class="form-text text-muted small mt-1">
+                                Presiona Enter para enviar o Shift+Enter para un salto de línea
                             </div>
                         </form>
                     </div>
@@ -723,6 +730,218 @@
             }
         });
 
+        // Handle note submission
+        const noteForm = document.getElementById('noteForm');
+        const notesContainer = document.getElementById('notesContainer');
+        const noNotesMessage = document.getElementById('noNotesMessage');
+        const submitBtn = document.getElementById('submitNoteBtn');
+        const onlineUsersBadge = document.getElementById('onlineUsers');
+        const onlineUsersCount = document.getElementById('onlineUsersCount');
+        
+        // Initialize Socket.IO for this ticket
+        const ticketId = '{{ ticket.id }}';
+        const currentUser = {
+            id: '{{ app.user.id }}',
+            name: '{{ app.user.nombre }} {{ app.user.apellido }}',
+            isAdmin: {{ is_granted('ROLE_ADMIN') ? 'true' : 'false' }}
+        };
+        
+        // Join the ticket room
+        socket.emit('joinTicket', { 
+            ticketId: ticketId,
+            user: currentUser
+        });
+        
+        // Update online users count
+        socket.on('updateUsers', (data) => {
+            if (data.ticketId === ticketId) {
+                const count = data.count || 0;
+                onlineUsersCount.textContent = count;
+                onlineUsersBadge.classList.toggle('d-none', count <= 1);
+            }
+        });
+        
+        // Handle new note from server
+        socket.on('newNote', (data) => {
+            if (data.ticketId !== ticketId) return;
+            
+            // Hide no notes message if it exists
+            if (noNotesMessage) {
+                noNotesMessage.classList.add('d-none');
+            }
+            
+            // Create note element
+            const noteHtml = `
+                <div class="note-item card mb-3" data-note-id="${data.noteId}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-user-circle me-2"></i>
+                                <strong>${data.userName}</strong>
+                                <span class="text-muted ms-2 small">${new Date().toLocaleString('es-ES')}</span>
+                            </div>
+                            ${data.isOwner || data.isAdmin ? `
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-note" data-note-id="${data.noteId}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div class="note-content">
+                            ${data.content.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add note to the top of the container
+            if (notesContainer.firstChild) {
+                notesContainer.insertAdjacentHTML('afterbegin', noteHtml);
+            } else {
+                notesContainer.innerHTML = noteHtml;
+            }
+            
+            // Scroll to the new note
+            const newNote = notesContainer.querySelector('.note-item:first-child');
+            if (newNote) {
+                newNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                newNote.classList.add('highlight');
+                setTimeout(() => newNote.classList.remove('highlight'), 2000);
+            }
+            
+            // Show notification if note is from another user
+            if (data.userId !== currentUser.id) {
+                showNotification('Nueva nota', `Tienes una nueva nota de ${data.userName}`, 'info');
+            }
+        });
+        
+        // Handle note deletion
+        socket.on('noteDeleted', (data) => {
+            if (data.ticketId !== ticketId) return;
+            
+            const noteElement = document.querySelector(`.note-item[data-note-id="${data.noteId}"]`);
+            if (noteElement) {
+                noteElement.style.opacity = '0';
+                setTimeout(() => noteElement.remove(), 300);
+                
+                // Show no notes message if no notes left
+                if (notesContainer.children.length === 0) {
+                    notesContainer.innerHTML = `
+                        <div id="noNotesMessage" class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay notas para mostrar.
+                        </div>
+                    `;
+                }
+            }
+        });
+        
+        // Handle note form submission
+        if (noteForm) {
+            const noteContent = document.getElementById('noteContent');
+            
+            // Handle Enter key (submit) and Shift+Enter (new line)
+            noteContent.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    noteForm.dispatchEvent(new Event('submit'));
+                }
+            });
+            
+            noteForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const content = noteContent.value.trim();
+                if (!content) return;
+                
+                // Disable form while submitting
+                noteContent.disabled = true;
+                submitBtn.disabled = true;
+                submitBtn.querySelector('.spinner-border').classList.remove('d-none');
+                submitBtn.querySelector('.btn-text').textContent = 'Enviando...';
+                
+                try {
+                    const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            // Clear the input
+                            noteContent.value = '';
+                            
+                            // Emit socket event
+                            socket.emit('newNote', {
+                                ticketId: ticketId,
+                                noteId: data.noteId,
+                                content: content,
+                                userId: currentUser.id,
+                                userName: currentUser.name,
+                                isAdmin: currentUser.isAdmin,
+                                isOwner: true
+                            });
+                        }
+                    } else {
+                        throw new Error('Error al guardar la nota');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('Error', 'No se pudo enviar la nota. Inténtalo de nuevo.', 'danger');
+                } finally {
+                    // Re-enable form
+                    noteContent.disabled = false;
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('.spinner-border').classList.add('d-none');
+                    submitBtn.querySelector('.btn-text').textContent = 'Enviar';
+                    noteContent.focus();
+                }
+            });
+        }
+        
+        // Handle note deletion
+        document.addEventListener('click', async function(e) {
+            if (e.target.closest('.delete-note')) {
+                const button = e.target.closest('.delete-note');
+                const noteId = button.dataset.noteId;
+                
+                if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/notes/delete/${noteId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `_token={{ csrf_token('delete_note') }}`
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            // Emit socket event
+                            socket.emit('deleteNote', {
+                                ticketId: ticketId,
+                                noteId: noteId
+                            });
+                        }
+                    } else {
+                        throw new Error('Error al eliminar la nota');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showNotification('Error', 'No se pudo eliminar la nota. Inténtalo de nuevo.', 'danger');
+                }
+            }
+        });
+        
         // Handle observation form toggling
         (function() {
             const editBtn = document.getElementById('editObservationBtn');
@@ -742,12 +961,6 @@
                 if (cancelBtn) {
                     cancelBtn.addEventListener('click', function() {
                         if (contentEl) contentEl.classList.remove('d-none');
-                        formEl.classList.add('d-none');
-                        editBtn.classList.remove('d-none');
-                    });
-                }
-            }
-        })();
     </script>
 {% endblock %}
 

@@ -1,0 +1,25 @@
+{# Flash Messages Partial #}
+{% if app.flashes is not empty %}
+    <div class="flash-messages mb-4">
+        {% for type, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert alert-{{ type }} alert-dismissible fade show" role="alert">
+                    <div class="d-flex align-items-center">
+                        {% set icon = {
+                            'success': 'fas fa-check-circle',
+                            'error': 'fas fa-exclamation-circle',
+                            'warning': 'fas fa-exclamation-triangle',
+                            'info': 'fas fa-info-circle',
+                            'danger': 'fas fa-times-circle'
+                        } %}
+                        <i class="{{ icon[type]|default('fas fa-info-circle') }} me-2"></i>
+                        <div class="flex-grow-1">
+                            {{ message|raw }}
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+{% endif %} 

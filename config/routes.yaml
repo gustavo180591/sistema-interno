@@ -1,5 +1,45 @@
-controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
+# Import HomeController for the root route
+home_controller:
+    resource: '../src/Controller/HomeController.php'
     type: attribute
+
+# Import the SecurityController (no prefix)
+security_controller:
+    resource: '../src/Controller/SecurityController.php'
+    type: attribute
+
+# Import Admin UserController
+app_admin_user:
+    resource: '../src/Controller/Admin/UserController.php'
+    type: attribute
+    prefix: /admin/user
+    name_prefix: admin_
+
+# Import NoteController (no prefix)
+note_controller:
+    resource: '../src/Controller/NoteController.php'
+    type: attribute
+
+# Import TicketController (no prefix)
+ticket_controller:
+    resource: '../src/Controller/TicketController.php'
+    type: attribute
+
+# Import ProfileController (no prefix)
+profile_controller:
+    resource: '../src/Controller/ProfileController.php'
+    type: attribute
+
+# Explicitly define the calendar API route with public access
+maintenance_calendar_api:
+    path: /admin/maintenance/api/calendar/events
+    controller: App\Controller\MaintenanceController::getCalendarEvents
+    methods: [GET]
+    defaults:
+        _public_access: true
+
+# Import the MaintenanceController with proper prefixing
+maintenance_controller:
+    resource: '../src/Controller/MaintenanceController.php'
+    type: attribute
+    name_prefix: maintenance_

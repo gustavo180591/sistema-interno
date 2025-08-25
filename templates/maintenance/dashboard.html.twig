@@ -1,0 +1,219 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+{% endblock %}
+
+{% block page_title %}Mantenimiento Preventivo{% endblock %}
+
+{% block page_actions %}
+    <div class="btn-group me-2">
+        <a href="{{ path('maintenance_maintenance_task_new') }}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus me-1"></i> Crear Mantenimiento Preventivo
+        </a>
+        <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-tasks me-1"></i> Ver Tareas
+        </a>
+        <a href="{{ path('maintenance_maintenance_categories') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-tags me-1"></i> Gestionar Categorías
+        </a>
+        <a href="{{ path('maintenance_maintenance_calendar') }}" class="btn btn-sm btn-outline-info">
+            <i class="far fa-calendar-alt me-1"></i> Calendario
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <!-- Estadísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Tareas Pendientes</h6>
+                            <h2 class="mb-0">{{ stats.pending_tasks|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_maintenance_tasks', {status: 'pending'}) }}" class="text-white text-decoration-none">
+                        Ver tareas <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Tareas Atrasadas</h6>
+                            <h2 class="mb-0">{{ stats.overdue_tasks|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_maintenance_tasks', {status: 'overdue'}) }}" class="text-white text-decoration-none">
+                        Ver tareas <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Tareas Completadas</h6>
+                            <h2 class="mb-0">{{ stats.completed_tasks|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_maintenance_tasks', {status: 'completed'}) }}" class="text-white text-decoration-none">
+                        Ver tareas <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-0">Total Tareas</h6>
+                            <h2 class="mb-0">{{ stats.total_tasks|default(0) }}</h2>
+                        </div>
+                        <i class="fas fa-clipboard-list fa-2x opacity-75"></i>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0 py-2">
+                    <a href="{{ path('maintenance_maintenance_tasks') }}" class="text-white text-decoration-none">
+                        Ver todas <i class="fas fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones Rápidas -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted mb-3">
+                        <i class="fas fa-bolt me-2"></i>Acciones Rápidas
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_maintenance_task_new') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-plus text-primary fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Crear Mantenimiento</h6>
+                                        <small class="text-muted">Programar nueva tarea</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_maintenance_calendar') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-info bg-opacity-10 p-2 rounded me-3">
+                                        <i class="far fa-calendar-alt text-info fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Ver Calendario</h6>
+                                        <small class="text-muted">Vista de programación</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_maintenance_categories') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-success bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-tags text-success fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Gestionar Categorías</h6>
+                                        <small class="text-muted">Organizar tareas</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ path('maintenance_maintenance_tasks') }}" class="text-decoration-none">
+                                <div class="d-flex align-items-center p-3 bg-white rounded shadow-sm h-100">
+                                    <div class="bg-warning bg-opacity-10 p-2 rounded me-3">
+                                        <i class="fas fa-tasks text-warning fa-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1 text-dark">Ver Tareas</h6>
+                                        <small class="text-muted">Lista completa</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información del Sistema -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2 text-primary"></i>
+                        ¿Qué es el Mantenimiento Preventivo?
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        El mantenimiento preventivo es una estrategia que consiste en realizar revisiones y reparaciones 
+                        programadas de equipos y sistemas para prevenir fallas y mantener un rendimiento óptimo.
+                    </p>
+                    <ul class="text-muted small">
+                        <li>Reduce tiempos de inactividad</li>
+                        <li>Extiende la vida útil del equipo</li>
+                        <li>Mejora la seguridad operativa</li>
+                        <li>Optimiza costos de mantenimiento</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>
+                        Consejos para un Mantenimiento Efectivo
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="text-muted small">
+                        <li>Programe tareas con anticipación</li>
+                        <li>Documente todas las actividades realizadas</li>
+                        <li>Asigne responsabilidades claras</li>
+                        <li>Revise y actualice categorías regularmente</li>
+                        <li>Utilice el calendario para visualizar la programación</li>
+                        <li>Mantenga un historial de mantenimientos</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

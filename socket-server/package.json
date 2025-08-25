@@ -1,0 +1,16 @@
+{
+  "name": "ticket-notes-socket-server",
+  "version": "1.0.0",
+  "description": "Socket.IO server for real-time ticket notes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "socket.io": "^4.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}

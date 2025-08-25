@@ -1,0 +1,191 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}Categorías de Mantenimiento{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ path('maintenance_category_new') }}" class="btn btn-sm btn-primary">
+        <i class="fas fa-plus me-1"></i> Nueva Categoría
+    </a>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Lista de Categorías</h5>
+            <span class="badge bg-primary">{{ categories|length }} categorías</span>
+        </div>
+        <div class="card-body p-0">
+            {% if categories|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Frecuencia</th>
+                                <th>Tareas</th>
+                                <th>Última Tarea</th>
+                                <th>Próxima Tarea</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for category in categories %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-2">
+                                                <i class="fas {{ category.icon|default('fa-tag') }} fa-lg" style="color: {{ category.color|default('#6c757d') }}"></i>
+                                            </div>
+                                            <div>
+                                                <strong>{{ category.name }}</strong>
+                                                {% if category.description %}
+                                                    <p class="small text-muted mb-0">{% if category.description|length > 50 %}{{ category.description|slice(0, 50) ~ '...' }}{% else %}{{ category.description }}{% endif %}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">
+                                            {{ category.frequency|trans }}
+                                            {% if category.frequency == 'custom' and category.frequencyValue %}
+                                                ({{ category.frequencyValue }} días)
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ category.tasks|length }}</span>
+                                    </td>
+                                    <td>
+                                        {% if category.tasks|length > 0 %}
+                                            {% set lastTask = category.tasks|last %}
+                                            {{ lastTask.completedAt ? lastTask.completedAt|date('d/m/Y') : 'Nunca' }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if category.tasks|length > 0 %}
+                                            {% set nextTask = category.tasks|filter(t => t.scheduledDate > date() and t.status != 'completed')|sort((a, b) => a.scheduledDate <=> b.scheduledDate)|first %}
+                                            {% if nextTask %}
+                                                {{ nextTask.scheduledDate|date('d/m/Y') }}
+                                            {% else %}
+                                                Sin programar
+                                            {% endif %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ path('maintenance_category_edit', {id: category.id}) }}" 
+                                               class="btn btn-outline-primary"
+                                               data-bs-toggle="tooltip" 
+                                               title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{{ path('maintenance_tasks', {category: category.id}) }}" 
+                                               class="btn btn-outline-secondary"
+                                               data-bs-toggle="tooltip" 
+                                               title="Ver tareas">
+                                                <i class="fas fa-tasks"></i>
+                                            </a>
+                                            <button type="button" 
+                                                    class="btn btn-outline-danger"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteCategory{{ category.id }}"
+                                                    data-bs-tooltip="tooltip"
+                                                    title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Delete Confirmation Modal -->
+                                        <div class="modal fade" id="deleteCategory{{ category.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Confirmar eliminación</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <p>¿Está seguro de que desea eliminar la categoría <strong>{{ category.name }}</strong>?</p>
+                                                        {% if category.tasks|length > 0 %}
+                                                            <div class="alert alert-warning">
+                                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                                Esta categoría tiene {{ category.tasks|length }} tareas asociadas. 
+                                                                Al eliminar la categoría, estas tareas no se eliminarán, 
+                                                                pero ya no estarán asociadas a ninguna categoría.
+                                                            </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                        <form action="{{ path('maintenance_category_delete', {id: category.id}) }}" method="post" class="d-inline">
+                                                            <input type="hidden" name="_method" value="DELETE">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ category.id) }}">
+                                                            <button type="submit" class="btn btn-danger">
+                                                                <i class="fas fa-trash me-1"></i> Eliminar
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center p-5 text-muted">
+                    <i class="fas fa-tags fa-4x mb-3"></i>
+                    <h5>No hay categorías de mantenimiento</h5>
+                    <p class="mb-0">Comienza creando tu primera categoría de mantenimiento.</p>
+                    <a href="{{ path('maintenance_category_new') }}" class="btn btn-primary mt-3">
+                        <i class="fas fa-plus me-1"></i> Crear Categoría
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        {% if categories|length > 0 %}
+            <div class="card-footer bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        Mostrando {{ categories|length }} de {{ categories|length }} categorías
+                    </div>
+                    <nav aria-label="Paginación">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">Siguiente</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Initialize modals
+            var deleteModals = document.querySelectorAll('.modal');
+            deleteModals.forEach(function(modalEl) {
+                new bootstrap.Modal(modalEl);
+            });
+        });
+    </script>
+{% endblock %}

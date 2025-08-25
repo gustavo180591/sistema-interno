@@ -245,8 +245,11 @@ class TicketController extends AbstractController
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
         
-        // Only create a regular note if not finalizing the ticket
-        if ($action !== 'finalizar') {
+        // Initialize note variable
+        $note = null;
+        
+        // Handle description/note
+        if (!empty($description)) {
             $note = new Note();
             $note->setContent($description);
             $note->setCreatedBy($this->getUser());
@@ -325,11 +328,20 @@ class TicketController extends AbstractController
         }
         
         if ($statusUpdated) {
-            $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+            if ($note) {
+                $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+            } else {
+                $note = new Note();
+                $note->setContent("Estado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+                $note->setCreatedBy($this->getUser());
+                $ticket->addNote($note);
+            }
         }
         
         $this->em->persist($ticket);
-        $this->em->persist($note);
+        if ($note) {
+            $this->em->persist($note);
+        }
         $this->em->flush();
         
         $this->addFlash('success', $statusMessage ?: 'La acción ha sido registrada');

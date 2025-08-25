@@ -20,13 +20,108 @@
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
             crossorigin="anonymous"></script>
     
-    {# Initialize tooltips #}
+    {# Socket.IO Client #}
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    {# Global WebSocket Connection #}
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io('http://localhost:3000', {
+            withCredentials: true,
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
+            transports: ['websocket', 'polling']
+        });
+
+        // Global socket event listeners
+        socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected from WebSocket server:', reason);
+        });
+
+        // Global notification handler
+        socket.on('notification', (data) => {
+            showNotification(data.title, data.message, data.type || 'info');
+        });
+
+        // Show notification function
+        function showNotification(title, message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+            notification.role = 'alert';
+            notification.setAttribute('aria-live', 'assertive');
+            notification.setAttribute('aria-atomic', 'true');
+            notification.style.zIndex = '1100';
+            
+            notification.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            const toast = new bootstrap.Toast(notification, { autohide: true, delay: 5000 });
+            toast.show();
+            
+            // Remove the toast after it's hidden
+            notification.addEventListener('hidden.bs.toast', function() {
+                notification.remove();
+            });
+        }
+    </script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
+            
+            // Initialize dropdowns
+            var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+            var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                return new bootstrap.Dropdown(dropdownToggleEl);
+            });
+            
+            // Enable dropdowns on hover for desktop
+            if (window.innerWidth > 992) { // lg breakpoint
+                document.querySelectorAll('.nav-item.dropdown').forEach(function(dropdown) {
+                    dropdown.addEventListener('mouseenter', function() {
+                        var dropdownMenu = this.querySelector('.dropdown-menu');
+                        if (dropdownMenu) {
+                            var dropdownInstance = bootstrap.Dropdown.getInstance(this.querySelector('.dropdown-toggle'));
+                            if (!dropdownInstance) {
+                                dropdownInstance = new bootstrap.Dropdown(this.querySelector('.dropdown-toggle'));
+                            }
+                            dropdownInstance.show();
+                        }
+                    });
+                    
+                    dropdown.addEventListener('mouseleave', function() {
+                        var dropdownMenu = this.querySelector('.dropdown-menu');
+                        if (dropdownMenu) {
+                            var dropdownInstance = bootstrap.Dropdown.getInstance(this.querySelector('.dropdown-toggle'));
+                            if (dropdownInstance) {
+                                dropdownInstance.hide();
+                            }
+                        }
+                    });
+                });
+            }
         });
     </script>
 {% endblock %}
@@ -49,20 +144,24 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
                 <a class="navbar-brand" href="{{ path('app_home') }}">Sistema Interno</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMainContent" aria-controls="navbarMainContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="collapse navbar-collapse" id="navbarMainContent">
                     <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ path('app_home') }}">Inicio</a>
-                        </li>
                         {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('ticket_index') }}">
                                 <i class="fas fa-ticket-alt me-1"></i> Tickets
                             </a>
                         </li>
+                        {% if is_granted('ROLE_ADMIN') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
+                                <i class="far fa-calendar-alt me-1"></i> Calendario
+                            </a>
+                        </li>
+                        {% endif %}
                         {% elseif is_granted('ROLE_USER') %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('ticket_index') }}">
@@ -78,8 +177,19 @@
                             </a>
                         </li>
                         {% endif %}
-
-                        {# Admin links removed as requested #}
+                        
+                        {% if is_granted('ROLE_USER') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('maintenance_maintenance_dashboard') }}">
+                                <i class="fas fa-tools me-1"></i> Mantenimiento
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
+                                <i class="far fa-calendar-alt me-1"></i> Calendario
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                     <ul class="navbar-nav">
                         {% if app.user %}

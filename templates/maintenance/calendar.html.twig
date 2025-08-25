@@ -1,0 +1,818 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}Calendario{% endblock %}
+
+{% block page_actions %}
+    <div class="btn-group">
+        <button class="btn btn-sm btn-outline-secondary" id="calendarPrevBtn" title="Mes anterior">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="calendarTodayBtn">Hoy</button>
+        <button class="btn btn-sm btn-outline-secondary" id="calendarNextBtn" title="Siguiente mes">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+        <div class="btn-group ms-2">
+            <button class="btn btn-sm btn-outline-primary" id="calendarViewBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-calendar-alt me-1"></i>
+                <span id="currentView">Mes</span>
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item view-option" href="#" data-view="dayGridDay">Día</a></li>
+                <li><a class="dropdown-item view-option" href="#" data-view="timeGridWeek">Semana</a></li>
+                <li><a class="dropdown-item view-option active" href="#" data-view="dayGridMonth">Mes</a></li>
+                <li><a class="dropdown-item view-option" href="#" data-view="listMonth">Lista</a></li>
+            </ul>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary ms-2" data-bs-toggle="modal" data-bs-target="#newTaskFromTicketModal">
+            <i class="fas fa-calendar-plus me-1"></i> Agendar
+        </button>
+    </div>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        #calendar {
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1rem;
+        }
+
+        .fc-toolbar-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .fc-button {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            color: #495057;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .fc-button:hover, .fc-button:focus {
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+            color: #0d6efd;
+        }
+
+        .fc-button-primary:not(:disabled).fc-button-active,
+        .fc-button-primary:not(:disabled):active {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
+        }
+
+        .fc-event {
+            border-radius: 0.25rem;
+            border: none;
+            font-size: 0.8rem;
+            padding: 0.1rem 0.3rem;
+            margin-bottom: 0.1rem;
+            cursor: pointer;
+        }
+
+        .fc-daygrid-event-dot {
+            margin-right: 0.3rem;
+        }
+
+        .fc-day-today {
+            background-color: rgba(13, 110, 253, 0.1) !important;
+        }
+
+        .fc-daygrid-day-number {
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .fc-day-past .fc-daygrid-day-number {
+            opacity: 0.7;
+        }
+
+        .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+            color: #0d6efd;
+            font-weight: bold;
+        }
+
+        .fc-daygrid-day.fc-day-past:not(.fc-day-today) {
+            background-color: #f8f9fa;
+        }
+
+        .fc-daygrid-day.fc-day-other .fc-daygrid-day-top {
+            opacity: 0.5;
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            color: #2c3e50;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .fc .fc-col-header-cell {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        .fc .fc-daygrid-day.fc-day-today {
+            background-color: rgba(13, 110, 253, 0.05);
+        }
+
+        .fc-event-time {
+            font-weight: 500;
+        }
+
+        .fc-event-title {
+
+        .fc-event.completed {
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+
+        .fc-event.overdue {
+            border-left: 3px solid #dc3545;
+        }
+
+        .fc-toolbar-chunk:last-child {
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .fc-toolbar {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .fc-toolbar-chunk {
+                margin-bottom: 0.5rem;
+            }
+
+            .fc-header-toolbar .fc-toolbar-chunk:first-child {
+                order: 1;
+            }
+
+            .fc-header-toolbar .fc-toolbar-chunk:nth-child(2) {
+                order: 3;
+                margin-top: 0.5rem;
+            }
+
+            .fc-header-toolbar .fc-toolbar-chunk:last-child {
+                order: 2;
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <!-- Success Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <strong class="me-auto">Éxito</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                Operación completada con éxito
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-danger text-white">
+                <strong class="me-auto">Error</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="errorToastMessage">
+                Ha ocurrido un error
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="far fa-calendar-alt me-2"></i>Calendario
+                </h5>
+                <div class="d-flex align-items-center">
+                    <div class="form-check form-switch me-3">
+                        <input class="form-check-input" type="checkbox" id="showCompleted" checked>
+                        <label class="form-check-label" for="showCompleted">Mostrar completadas</label>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-filter me-1"></i> Filtros
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 250px;" aria-labelledby="filterDropdown">
+                            <h6 class="dropdown-header">Filtrar por categoría</h6>
+                            <div class="mb-2">
+                                <select class="form-select form-select-sm" id="categoryFilter">
+                                    <option value="">Todas las categorías</option>
+                                    {% for category in categories %}
+                                        <option value="{{ category.id }}">{{ category.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-sm btn-outline-secondary" id="resetFilters">
+                                    <i class="fas fa-undo me-1"></i> Restablecer
+                                </button>
+                                <button class="btn btn-sm btn-primary" id="applyFilters">
+                                    <i class="fas fa-check me-1"></i> Aplicar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div id="calendar"></div>
+        </div>
+    </div>
+
+    <!-- Task Details Modal -->
+    <div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="taskModalLabel">Detalles de la Tarea</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="taskModalBody">
+                    <!-- Content will be loaded via AJAX -->
+                    <div class="text-center my-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando detalles de la tarea...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cerrar
+                    </button>
+                    <a href="#" class="btn btn-primary" id="editTaskBtn">
+                        <i class="fas fa-edit me-1"></i> Editar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Task from External Ticket Modal -->
+    <div class="modal fade" id="newTaskFromTicketModal" tabindex="-1" aria-labelledby="newTaskFromTicketModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newTaskFromTicketModalLabel">Agendar desde Ticket Externo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="newTaskFromTicketForm" action="{{ path('maintenance_maintenance_task_new_from_ticket') }}" method="POST">
+                    <input type="hidden" name="_token" value="{{ csrf_token('submit') }}">
+                    <div class="modal-body">
+                        <input type="hidden" name="scheduled_date" id="scheduledDate">
+                        <input type="hidden" name="scheduled_time" id="scheduledTime" value="09:00">
+
+                        <!-- Fecha y Hora -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Fecha</label>
+                                <input type="date" class="form-control" id="taskDate" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Hora</label>
+                                <input type="time" class="form-control" id="taskTime" value="09:00" required>
+                            </div>
+                        </div>
+
+                        <!-- Área de Origen -->
+                        <div class="mb-3">
+                            <label for="area" class="form-label fw-bold">Área de Origen</label>
+                            <select class="form-select" id="area" name="area" required>
+                                <option value="">Seleccione un área...</option>
+                                <!-- Concejales -->
+                                <optgroup label="Concejales">
+                                    <option value="Concejal Almiron Samira">Concejal Almiron Samira</option>
+                                    <option value="Concejal Argañaraz Pablo">Concejal Argañaraz Pablo</option>
+                                    <option value="Concejal Cardozo Hector">Concejal Cardozo Hector</option>
+                                    <option value="Concejal Dardo Romero">Concejal Dardo Romero</option>
+                                    <option value="Concejal Dib Jair">Concejal Dib Jair</option>
+                                    <option value="Concejal Gomez Valeria">Concejal Gomez Valeria</option>
+                                    <option value="Concejal Jimenez Eva">Concejal Jimenez Eva</option>
+                                    <option value="Concejal Koch Santiago">Concejal Koch Santiago</option>
+                                    <option value="Concejal Martinez Horacio">Concejal Martinez Horacio</option>
+                                    <option value="Concejal Mazal Malena">Concejal Mazal Malena</option>
+                                    <option value="Concejal Salom Judith">Concejal Salom Judith</option>
+                                    <option value="Concejal Scromeda Luciana">Concejal Scromeda Luciana</option>
+                                    <option value="Concejal Traid Laura">Concejal Traid Laura</option>
+                                    <option value="Concejal Velazquez Pablo">Concejal Velazquez Pablo</option>
+                                </optgroup>
+
+                                <!-- Direcciones -->
+                                <optgroup label="Direcciones">
+                                    <option value="Dirección de Abastecimiento">Dirección de Abastecimiento</option>
+                                    <option value="Dirección de Asuntos Jurídicos">Dirección de Asuntos Jurídicos</option>
+                                    <option value="Dirección de Contabilidad y Presupuesto">Dirección de Contabilidad y Presupuesto</option>
+                                    <option value="Dirección de Desarrollo Humano">Dirección de Desarrollo Humano</option>
+                                    <option value="Dirección de Digesto Jurídico">Dirección de Digesto Jurídico</option>
+                                    <option value="Dirección de Discapacidad">Dirección de Discapacidad</option>
+                                    <option value="Dirección de Gestión y TIC">Dirección de Gestión y TIC</option>
+                                    <option value="Dirección de Liquidación de Sueldos">Dirección de Liquidación de Sueldos</option>
+                                    <option value="Dirección de Obras e Infraestructura">Dirección de Obras e Infraestructura</option>
+                                    <option value="Dirección de Personal">Dirección de Personal</option>
+                                    <option value="Dirección de Prensa">Dirección de Prensa</option>
+                                    <option value="Dirección de RR.HH">Dirección de RR.HH</option>
+                                    <option value="Dirección de RR.PP y Ceremonial">Dirección de RR.PP y Ceremonial</option>
+                                    <option value="Dirección de Salud Mental">Dirección de Salud Mental</option>
+                                </optgroup>
+
+                                <!-- Direcciones Generales -->
+                                <optgroup label="Direcciones Generales">
+                                    <option value="Dirección General de Administración y Contabilidad">Dirección General de Administración y Contabilidad</option>
+                                    <option value="Dirección General de Asuntos Legislativos y Comisiones">Dirección General de Asuntos Legislativos y Comisiones</option>
+                                    <option value="Dirección General de Gestión Financiera y Administrativa">Dirección General de Gestión Financiera y Administrativa</option>
+                                </optgroup>
+
+                                <!-- Departamentos -->
+                                <optgroup label="Departamentos">
+                                    <option value="Departamento de Archivos">Departamento de Archivos</option>
+                                    <option value="Departamento de Asuntos Legislativos">Departamento de Asuntos Legislativos</option>
+                                    <option value="Departamento de Bienes Patrimoniales">Departamento de Bienes Patrimoniales</option>
+                                    <option value="Departamento de Comisiones">Departamento de Comisiones</option>
+                                    <option value="Departamento de Compras y Licitaciones">Departamento de Compras y Licitaciones</option>
+                                    <option value="Departamento de Cómputos">Departamento de Cómputos</option>
+                                    <option value="Departamento de Mesa de Entradas y Salidas">Departamento de Mesa de Entradas y Salidas</option>
+                                    <option value="Departamento de Reconocimiento Médico">Departamento de Reconocimiento Médico</option>
+                                    <option value="Departamento de Sumario">Departamento de Sumario</option>
+                                </optgroup>
+
+                                <!-- Secciones -->
+                                <optgroup label="Secciones">
+                                    <option value="Sección Biblioteca">Sección Biblioteca</option>
+                                    <option value="Sección Computos">Sección Computos</option>
+                                    <option value="Sección Cuerpo Taquígrafos">Sección Cuerpo Taquígrafos</option>
+                                    <option value="Sección Legajo y Archivo">Sección Legajo y Archivo</option>
+                                    <option value="Sección Liquidación de Sueldos y Jornales">Sección Liquidación de Sueldos y Jornales</option>
+                                    <option value="Sección Mantenimiento">Sección Mantenimiento</option>
+                                    <option value="Sección Previsional">Sección Previsional</option>
+                                    <option value="Sección Seguridad">Sección Seguridad</option>
+                                    <option value="Sección Servicios Generales">Sección Servicios Generales</option>
+                                    <option value="Sección Sumario">Sección Sumario</option>
+                                    <option value="Sección Suministro">Sección Suministro</option>
+                                </optgroup>
+
+                                <!-- Otras áreas -->
+                                <optgroup label="Otras áreas">
+                                    <option value="Agenda HCD">Agenda HCD</option>
+                                    <option value="Coordinación de Jurídico y Administración">Coordinación de Jurídico y Administración</option>
+                                    <option value="Defensora del Pueblo">Defensora del Pueblo</option>
+                                    <option value="División Cuota Alimentaria y EMB. JUD.">División Cuota Alimentaria y EMB. JUD.</option>
+                                    <option value="División Presupuesto y Rendición de Cuentas">División Presupuesto y Rendición de Cuentas</option>
+                                    <option value="Municipalidad de Posadas">Municipalidad de Posadas</option>
+                                    <option value="Presidencia">Presidencia</option>
+                                    <option value="Prosecretaria Administrativa">Prosecretaria Administrativa</option>
+                                    <option value="Prosecretaria Legislativa">Prosecretaria Legislativa</option>
+                                    <option value="Secretaría">Secretaría</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- ID del Ticket Externo -->
+                        <div class="mb-3">
+                            <label for="externalTicketId" class="form-label fw-bold">ID del Ticket Externo</label>
+                            <input type="text" class="form-control" id="externalTicketId" name="external_ticket_id" required>
+                        </div>
+                        
+<!-- Descripción del Trabajo -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-bold">Descripción del Trabajo</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required placeholder="Describa el trabajo a realizar..."></textarea>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Agendar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js'></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize modals
+            const taskModal = new bootstrap.Modal(document.getElementById('taskModal'));
+
+            // Calendar initialization
+            let calendarEl = document.getElementById('calendar');
+            let calendar;
+
+            // Filter variables
+            let showCompleted = true;
+            let categoryFilter = '';
+
+            // Initialize the calendar
+            function initCalendar() {
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    dateClick: function(info) {
+                        // Get the selected date and time
+                        const clickedDate = new Date(info.date);
+                        const formattedDate = clickedDate.toISOString().split('T')[0];
+                        const formattedTime = clickedDate.toTimeString().substring(0, 5);
+
+                        // Set the date and time in the form
+                        document.getElementById('taskDate').value = formattedDate;
+                        document.getElementById('taskTime').value = formattedTime;
+
+                        // Update hidden fields
+                        updateScheduledDateTime();
+
+                        // Set the modal title with the selected date
+                        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                        const formattedDateText = clickedDate.toLocaleDateString('es-ES', options);
+                        document.getElementById('newTaskFromTicketModalLabel').textContent = `Agendar para ${formattedDateText}`;
+
+                        // Reset and show the modal
+                        document.getElementById('newTaskFromTicketForm').reset();
+                        const modal = new bootstrap.Modal(document.getElementById('newTaskFromTicketModal'));
+                        modal.show();
+                    },
+                    locale: 'es',
+                    firstDay: 1, // Monday
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+                    },
+                    initialView: 'dayGridMonth',
+                    height: 'auto',
+                    navLinks: true,
+                    dayMaxEvents: 3,
+                    eventDisplay: 'block',
+                    eventTimeFormat: {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    },
+                    events: function(fetchInfo, successCallback, failureCallback) {
+                        // Get events via AJAX
+                        fetch('{{ path('maintenance_maintenance_calendar_events') }}' +
+                              '?start=' + fetchInfo.start.toISOString() +
+                              '&end=' + fetchInfo.end.toISOString() +
+                              '&showCompleted=' + showCompleted +
+                              '&category=' + categoryFilter)
+                            .then(response => response.json())
+                            .then(data => {
+                                successCallback(data);
+                            })
+                            .catch(error => {
+                                console.error('Error fetching events:', error);
+                                failureCallback(error);
+                            });
+                    },
+                    eventDidMount: function(info) {
+                        // Add tooltip to events
+                        if (info.event.extendedProps.description) {
+                            new bootstrap.Tooltip(info.el, {
+                                title: info.event.extendedProps.description,
+                                placement: 'top',
+                                trigger: 'hover',
+                                container: 'body'
+                            });
+                        }
+
+                        // Add class for completed tasks
+                        if (info.event.extendedProps.status === 'completed') {
+                            info.el.classList.add('completed');
+                        }
+
+                        // Add class for overdue tasks
+                        if (info.event.extendedProps.isOverdue) {
+                            info.el.classList.add('overdue');
+                        }
+
+                    },
+                    eventClick: function(info) {
+                        // Show task details in modal
+                        const taskId = info.event.id;
+                        const modal = document.getElementById('taskModal');
+                        const modalBody = document.getElementById('taskModalBody');
+                        const editBtn = document.getElementById('editTaskBtn');
+
+                        // Set edit button href
+                        editBtn.href = `{{ path('maintenance_maintenance_task_edit', {id: 'PLACEHOLDER_ID'}) }}`.replace('PLACEHOLDER_ID', taskId);
+
+                        // Show loading state
+                        modalBody.innerHTML = `
+                            <div class="text-center my-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando detalles de la tarea...</p>
+                            </div>
+                        `;
+
+                        // Fetch task details
+                        fetch(`{{ path('maintenance_maintenance_task_details', {id: 'PLACEHOLDER_ID'}) }}`.replace('PLACEHOLDER_ID', taskId))
+                            .then(response => response.text())
+                            .then(html => {
+                                modalBody.innerHTML = html;
+                                // Reinitialize tooltips in modal
+                                var tooltipTriggerList = [].slice.call(modalBody.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                                });
+                            })
+                            .catch(error => {
+                                console.error('Error loading task details:', error);
+                                modalBody.innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Error al cargar los detalles de la tarea. Por favor, intente nuevamente.
+                                    </div>
+                                `;
+                            });
+
+                        // Show modal
+                        taskModal.show();
+
+                        // Prevent default behavior
+                        info.jsEvent.preventDefault();
+                    },
+                    dateClick: function(info) {
+                        // Handle date click (e.g., create new task)
+                        window.location.href = `{{ path('maintenance_maintenance_task_new') }}?date=${info.dateStr}`;
+                    },
+                    viewDidMount: function(view) {
+                        // Update current view text
+                        const viewName = view.view.type;
+                        const viewMap = {
+                            'dayGridMonth': 'Mes',
+                            'timeGridWeek': 'Semana',
+                            'timeGridDay': 'Día',
+                            'listMonth': 'Lista'
+                        };
+                        document.getElementById('currentView').textContent = viewMap[viewName] || 'Vista';
+                    }
+                });
+
+                calendar.render();
+
+                // Set today button text
+                const todayBtn = document.querySelector('.fc-today-button');
+                if (todayBtn) {
+                    todayBtn.textContent = 'Hoy';
+                }
+
+                // Set view buttons text
+                const viewButtons = document.querySelectorAll('.fc-button');
+                viewButtons.forEach(btn => {
+                    const view = btn.getAttribute('data-value');
+                    if (view) {
+                        const textMap = {
+                            'dayGridMonth': 'Mes',
+                            'timeGridWeek': 'Semana',
+                            'timeGridDay': 'Día',
+                            'listMonth': 'Lista'
+                        };
+                        if (textMap[view]) {
+                            btn.textContent = textMap[view];
+                        }
+                    }
+                });
+            }
+
+            // Function to update the hidden datetime field
+            function updateScheduledDateTime() {
+                const date = document.getElementById('taskDate').value;
+                const time = document.getElementById('taskTime').value;
+                if (date && time) {
+                    const dateTimeString = `${date}T${time}`;
+                    document.getElementById('scheduledDate').value = dateTimeString;
+                }
+            }
+
+            // Add event listeners for date and time changes
+            document.getElementById('taskDate').addEventListener('change', updateScheduledDateTime);
+            document.getElementById('taskTime').addEventListener('change', updateScheduledDateTime);
+
+            // Handle form submission
+            document.getElementById('newTaskFromTicketForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const form = e.target;
+                
+                // Update hidden fields with current date/time values
+                updateScheduledDateTime();
+                
+                // Get all form data including CSRF token
+                const formData = new FormData(form);
+                
+                // Log form data for debugging
+                const formDataObj = {};
+                formData.forEach((value, key) => {
+                    formDataObj[key] = value;
+                    console.log(key + ': ' + value);
+                });
+                
+                // Ensure CSRF token is included
+                if (!formData.has('_token')) {
+                    const csrfToken = document.querySelector('input[name="_token"]').value;
+                    formData.append('_token', csrfToken);
+                    console.log('Added CSRF token:', csrfToken);
+                }
+                
+                fetch(form.action, {
+                    method: 'POST',
+                    body: new URLSearchParams(formData).toString(),
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(async response => {
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return response.json();
+                    } else {
+                        // If the response is not JSON, try to get the text and log it
+                        const text = await response.text();
+                        console.error('Unexpected response (not JSON):', text);
+                        throw new Error('El servidor devolvió una respuesta inesperada. Por favor, inténtalo de nuevo.');
+                    }
+                })
+                .then(data => {
+                    if (data && data.success) {
+                        // Add the new event to the calendar
+                        calendar.addEvent({
+                            id: data.task.id,
+                            title: data.task.title,
+                            start: data.task.scheduledDate,
+                            allDay: false,
+                            extendedProps: {
+                                status: data.task.status,
+                                description: data.task.description
+                            }
+                        });
+                        
+                        // Close the modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('newTaskFromTicketModal'));
+                        modal.hide();
+                        
+                        // Show success message
+                        const toast = new bootstrap.Toast(document.getElementById('successToast'));
+                        document.getElementById('toastMessage').textContent = 'Tarea agendada exitosamente';
+                        toast.show();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+                    document.getElementById('errorToastMessage').textContent = 'Error al agendar la tarea';
+                    toast.show();
+                });
+            });
+
+            // Initialize the calendar
+            initCalendar();
+
+            // Set today's date as default in the date picker
+            document.addEventListener('DOMContentLoaded', function() {
+                const today = new Date();
+                const formattedDate = today.toISOString().split('T')[0];
+                document.getElementById('taskDate').value = formattedDate;
+                updateScheduledDateTime();
+
+                // Set the modal to open with today's date when clicking the Agendar button
+                document.querySelector('[data-bs-target="#newTaskFromTicketModal"]').addEventListener('click', function() {
+                    const today = new Date();
+                    const formattedDate = today.toISOString().split('T')[0];
+                    const formattedTime = today.toTimeString().substring(0, 5);
+
+                    document.getElementById('taskDate').value = formattedDate;
+                    document.getElementById('taskTime').value = formattedTime;
+                    updateScheduledDateTime();
+
+                    // Update modal title
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    const formattedDateText = today.toLocaleDateString('es-ES', options);
+                    document.getElementById('newTaskFromTicketModalLabel').textContent = `Agendar para ${formattedDateText}`;
+                });
+            });
+
+            // Navigation buttons
+            document.getElementById('calendarPrevBtn').addEventListener('click', function() {
+                calendar.prev();
+            });
+
+            document.getElementById('calendarNextBtn').addEventListener('click', function() {
+                calendar.next();
+            });
+
+            document.getElementById('calendarTodayBtn').addEventListener('click', function() {
+                calendar.today();
+            });
+
+            // View options
+            document.querySelectorAll('.view-option').forEach(option => {
+                option.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const view = this.getAttribute('data-view');
+                    calendar.changeView(view);
+                    document.getElementById('currentView').textContent = this.textContent;
+
+                    // Update active state
+                    document.querySelectorAll('.view-option').forEach(opt => {
+                        opt.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                });
+            });
+
+            // Toggle completed tasks
+            document.getElementById('showCompleted').addEventListener('change', function() {
+                showCompleted = this.checked;
+                calendar.refetchEvents();
+            });
+
+
+            // Category filter
+            document.getElementById('categoryFilter').addEventListener('change', function() {
+                categoryFilter = this.value;
+            });
+
+            // Apply filters
+            document.getElementById('applyFilters').addEventListener('click', function() {
+                calendar.refetchEvents();
+                const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('filterDropdown'));
+                dropdown.hide();
+            });
+
+            // Reset filters
+            document.getElementById('resetFilters').addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Reset checkboxes
+                document.getElementById('showCompleted').checked = true;
+                document.getElementById('categoryFilter').value = '';
+
+                // Reset variables
+                showCompleted = true;
+                categoryFilter = '';
+
+                // Update UI
+                document.getElementById('showCompleted').checked = true;
+
+                // Refresh calendar
+                calendar.refetchEvents();
+
+                // Close dropdown
+                const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('filterDropdown'));
+                dropdown.hide();
+            });
+
+            // Handle window resize
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    calendar.updateSize();
+                }, 250);
+            });
+        });
+    </script>
+{% endblock %}

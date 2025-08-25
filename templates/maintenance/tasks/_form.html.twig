@@ -1,0 +1,228 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}{{ form.vars.value.id ? 'Editar' : 'Nueva' }} Tarea de Mantenimiento{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ path('maintenance_tasks') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver al listado
+    </a>
+{% endblock %}
+
+{% block content %}
+    <div class="card">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas {{ form.vars.value.id ? 'fa-edit' : 'fa-plus-circle' }} me-1"></i>
+                {{ form.vars.value.id ? 'Editar Tarea' : 'Nueva Tarea' }}
+            </h5>
+        </div>
+        <div class="card-body">
+            {{ form_start(form) }}
+                <div class="row">
+                    <div class="col-md-8">
+                        {{ form_row(form.title, {
+                            'label': 'Título',
+                            'attr': {
+                                'placeholder': 'Ej: Revisión mensual del servidor',
+                                'class': 'form-control-lg'
+                            }
+                        }) }}
+                        
+                        {{ form_row(form.description, {
+                            'label': 'Descripción',
+                            'attr': {
+                                'rows': 4,
+                                'placeholder': 'Describa los detalles de la tarea de mantenimiento...'
+                            }
+                        }) }}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form_row(form.category, {
+                                    'label': 'Categoría',
+                                    'placeholder': 'Seleccione una categoría'
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.assignedTo, {
+                                    'label': 'Asignar a',
+                                    'placeholder': 'Seleccione un usuario',
+                                    'required': false
+                                }) }}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form_row(form.status, {
+                                    'label': 'Estado',
+                                    'placeholder': 'Seleccione un estado'
+                                }) }}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form_row(form.scheduledDate, {
+                                    'label': 'Fecha Programada',
+                                    'attr': {
+                                        'class': 'js-datetime-picker',
+                                        'data-enable-time': 'true',
+                                        'data-date-format': 'Y-m-d H:i',
+                                        'data-alt-input': 'true',
+                                        'data-alt-format': 'd/m/Y H:i',
+                                        'data-time_24hr': 'true',
+                                        'data-min-date': 'today'
+                                    }
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.estimatedDuration, {
+                                    'label': 'Duración Estimada (minutos)',
+                                    'attr': {
+                                        'min': 1,
+                                        'placeholder': 'Ej: 30',
+                                        'data-toggle': 'tooltip',
+                                        'title': 'Tiempo estimado para completar la tarea en minutos'
+                                    }
+                                }) }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card border-0 bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-info-circle me-1"></i> Información Adicional
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Creada por</label>
+                                    <div class="form-control bg-white">
+                                        {{ app.user.username }}
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ 'now'|date('d/m/Y H:i') }}
+                                    </small>
+                                </div>
+                                
+                                {% if form.vars.value.id %}
+                                    <div class="mb-3">
+                                        <label class="form-label">Última actualización</label>
+                                        <div class="form-control bg-white">
+                                            {{ form.vars.value.updatedAt ? form.vars.value.updatedAt|date('d/m/Y H:i') : 'Nunca' }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Creada el</label>
+                                        <div class="form-control bg-white">
+                                            {{ form.vars.value.createdAt ? form.vars.value.createdAt|date('d/m/Y H:i') : 'N/A' }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="form-check form-switch mb-3">
+                                    {{ form_widget(form.notifyAssignee, {
+                                        'attr': {
+                                            'class': 'form-check-input',
+                                            'role': 'switch'
+                                        }
+                                    }) }}
+                                    {{ form_label(form.notifyAssignee, 'Notificar al asignado', {
+                                        'label_attr': {'class': 'form-check-label'}
+                                    }) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12">
+                        {{ form_row(form.notes, {
+                            'label': 'Notas Adicionales',
+                            'required': false,
+                            'attr': {
+                                'rows': 3,
+                                'placeholder': 'Cualquier información adicional relevante...'
+                            }
+                        }) }}
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> {{ button_label|default('Guardar') }}
+                        </button>
+                        <a href="{{ path('maintenance_tasks') }}" class="btn btn-outline-secondary ms-2">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </a>
+                    </div>
+                    
+                    {% if form.vars.value.id %}
+                        <button type="button" 
+                                class="btn btn-outline-danger"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal">
+                            <i class="fas fa-trash me-1"></i> Eliminar
+                        </button>
+                    {% endif %}
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+    
+    {% if form.vars.value.id %}
+        <!-- Delete Confirmation Modal -->
+        <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel">Confirmar eliminación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar esta tarea de mantenimiento?</p>
+                        <p class="mb-0"><strong>Esta acción no se puede deshacer.</strong> Todos los registros asociados también se eliminarán.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ path('maintenance_task_delete', {'id': form.vars.value.id}) }}" method="post" class="d-inline">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ form.vars.value.id) }}">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Initialize datetime picker
+            if (typeof flatpickr !== 'undefined') {
+                flatpickr('.js-datetime-picker', {
+                    enableTime: true,
+                    dateFormat: 'Y-m-d H:i',
+                    time_24hr: true,
+                    locale: 'es',
+                    minDate: 'today',
+                    defaultDate: '{{ form.vars.value.scheduledDate ? form.vars.value.scheduledDate|date('Y-m-d H:i') : '' }}'
+                });
+            }
+        });
+    </script>
+{% endblock %}

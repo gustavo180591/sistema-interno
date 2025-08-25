@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Calendar Test{% endblock %}
+
+{% block body %}
+    <div class="container mt-5">
+        <h1>Calendar API Test</h1>
+        <div id="result" class="mt-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            Testing calendar events endpoint...
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+            fetch(`{{ path('maintenance_maintenance_calendar_events') }}?start=${start.toISOString()}&end=${end.toISOString()}&showCompleted=true`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>Success!</h4>
+                            <p>Received ${data.length} events from the server.</p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h4>Error!</h4>
+                            <p>${error.message}</p>
+                            <p>Check the browser console for more details.</p>
+                        </div>
+                    `;
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+{% endblock %}
