@@ -3,7 +3,7 @@
 {% block page_title %}Tareas de Mantenimiento{% endblock %}
 
 {% block page_actions %}
-    <a href="{{ path('maintenance_task_new') }}" class="btn btn-sm btn-primary">
+    <a href="{{ path('maintenance_maintenance_task_new') }}" class="btn btn-sm btn-primary">
         <i class="fas fa-plus me-1"></i> Nueva Tarea
     </a>
 {% endblock %}
@@ -51,7 +51,7 @@
                     <input type="date" name="date_to" class="form-control" value="{{ filters.date_to ? filters.date_to|date('Y-m-d') : '' }}">
                 </div>
                 <div class="col-md-12 d-flex justify-content-end gap-2">
-                    <a href="{{ path('maintenance_tasks') }}" class="btn btn-outline-secondary">
+                    <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-undo me-1"></i> Restablecer
                     </a>
                     <button type="submit" class="btn btn-primary">
@@ -85,7 +85,7 @@
                             {% for task in tasks %}
                                 <tr class="{{ task.isOverdue() ? 'table-warning' : '' }}">
                                     <td>
-                                        <a href="{{ path('maintenance_task_show', {id: task.id}) }}" class="text-decoration-none">
+                                        <a href="{{ path('maintenance_maintenance_task_show', {id: task.id}) }}" class="text-decoration-none">
                                             {{ task.title }}
                                         </a>
                                         {% if task.description %}
@@ -115,20 +115,20 @@
                                     </td>
                                     <td class="text-end">
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ path('maintenance_task_show', {id: task.id}) }}" 
+                                            <a href="{{ path('maintenance_maintenance_task_show', {id: task.id}) }}" 
                                                class="btn btn-outline-primary"
                                                data-bs-toggle="tooltip" 
                                                title="Ver detalles">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ path('maintenance_task_edit', {id: task.id}) }}" 
+                                            <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" 
                                                class="btn btn-outline-secondary"
                                                data-bs-toggle="tooltip" 
                                                title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             {% if task.status != 'completed' %}
-                                                <form action="{{ path('maintenance_task_complete', {id: task.id}) }}" 
+                                                <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" 
                                                       method="post" 
                                                       class="d-inline"
                                                       onsubmit="return confirm('¿Marcar esta tarea como completada?')">
@@ -152,7 +152,7 @@
                     <i class="fas fa-tasks fa-4x mb-3"></i>
                     <h5>No se encontraron tareas</h5>
                     <p class="mb-0">No hay tareas que coincidan con los filtros seleccionados.</p>
-                    <a href="{{ path('maintenance_task_new') }}" class="btn btn-primary mt-3">
+                    <a href="{{ path('maintenance_maintenance_task_new') }}" class="btn btn-primary mt-3">
                         <i class="fas fa-plus me-1"></i> Crear tarea
                     </a>
                 </div>

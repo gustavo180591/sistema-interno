@@ -19,41 +19,17 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
             crossorigin="anonymous"></script>
-    
-    {# Socket.IO Client #}
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    
-    {# Global WebSocket Connection #}
+
+    {# Socket.IO Client - Temporarily Disabled #}
+    {# <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script> #}
+
+    {# Global WebSocket Connection - Temporarily Disabled #}
+    {# <script>
+        // WebSocket functionality temporarily disabled
+        // To re-enable, uncomment this section and ensure the Socket.IO server is running on localhost:3000
+    </script> #}
+
     <script>
-        // Initialize Socket.IO connection
-        const socket = io('http://localhost:3000', {
-            withCredentials: true,
-            reconnection: true,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 20000,
-            transports: ['websocket', 'polling']
-        });
-
-        // Global socket event listeners
-        socket.on('connect', () => {
-            console.log('Connected to WebSocket server');
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('WebSocket connection error:', error);
-        });
-
-        socket.on('disconnect', (reason) => {
-            console.log('Disconnected from WebSocket server:', reason);
-        });
-
-        // Global notification handler
-        socket.on('notification', (data) => {
-            showNotification(data.title, data.message, data.type || 'info');
-        });
-
         // Show notification function
         function showNotification(title, message, type = 'info') {
             const notification = document.createElement('div');
@@ -62,7 +38,7 @@
             notification.setAttribute('aria-live', 'assertive');
             notification.setAttribute('aria-atomic', 'true');
             notification.style.zIndex = '1100';
-            
+
             notification.innerHTML = `
                 <div class="d-flex">
                     <div class="toast-body">
@@ -71,18 +47,18 @@
                     <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
             `;
-            
+
             document.body.appendChild(notification);
             const toast = new bootstrap.Toast(notification, { autohide: true, delay: 5000 });
             toast.show();
-            
+
             // Remove the toast after it's hidden
             notification.addEventListener('hidden.bs.toast', function() {
                 notification.remove();
             });
         }
     </script>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize tooltips
@@ -90,13 +66,13 @@
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
-            
+
             // Initialize dropdowns
             var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
             var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
                 return new bootstrap.Dropdown(dropdownToggleEl);
             });
-            
+
             // Enable dropdowns on hover for desktop
             if (window.innerWidth > 992) { // lg breakpoint
                 document.querySelectorAll('.nav-item.dropdown').forEach(function(dropdown) {
@@ -110,7 +86,7 @@
                             dropdownInstance.show();
                         }
                     });
-                    
+
                     dropdown.addEventListener('mouseleave', function() {
                         var dropdownMenu = this.querySelector('.dropdown-menu');
                         if (dropdownMenu) {
@@ -149,26 +125,19 @@
                 </button>
                 <div class="collapse navbar-collapse" id="navbarMainContent">
                     <ul class="navbar-nav me-auto">
-                        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                        {% if is_granted('ROLE_USER') %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('ticket_index') }}">
                                 <i class="fas fa-ticket-alt me-1"></i> Tickets
                             </a>
                         </li>
-                        {% if is_granted('ROLE_ADMIN') %}
+                        {% endif %}
+
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
                                 <i class="far fa-calendar-alt me-1"></i> Calendario
                             </a>
                         </li>
-                        {% endif %}
-                        {% elseif is_granted('ROLE_USER') %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ path('ticket_index') }}">
-                                <i class="fas fa-ticket-alt me-1"></i> Mis Tickets
-                            </a>
-                        </li>
-                        {% endif %}
 
                         {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
                         <li class="nav-item">
@@ -177,16 +146,11 @@
                             </a>
                         </li>
                         {% endif %}
-                        
+
                         {% if is_granted('ROLE_USER') %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ path('maintenance_maintenance_dashboard') }}">
                                 <i class="fas fa-tools me-1"></i> Mantenimiento
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
-                                <i class="far fa-calendar-alt me-1"></i> Calendario
                             </a>
                         </li>
                         {% endif %}

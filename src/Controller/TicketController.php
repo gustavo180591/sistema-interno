@@ -85,33 +85,45 @@ class TicketController extends AbstractController
     #[IsGranted('propose_status', 'ticket')]
     public function proposeStatus(Request $request, Ticket $ticket, string $status): Response
     {
-        $validStatuses = [
-            'rechazado' => self::STATUS_REJECTED,
-            'en_progreso' => self::STATUS_IN_PROGRESS,
-            'completado' => self::STATUS_COMPLETED,
+        $statusMap = [
+            'pending' => self::STATUS_PENDING,
+            'in_progress' => self::STATUS_IN_PROGRESS,
+            'completed' => self::STATUS_COMPLETED,
+            'rejected' => self::STATUS_REJECTED,
             'status' => null // For the dropdown in index page
         ];
         
         // Handle dropdown form submission from index page
         if ($status === 'status') {
             $status = $request->request->get('status');
-            if (!array_key_exists($status, $validStatuses)) {
+            if (!array_key_exists($status, $statusMap)) {
                 $this->addFlash('error', 'Estado no válido');
                 return $this->redirectToRoute('ticket_index');
             }
-            $newStatus = $validStatuses[$status];
-            $noteContent = 'Cambio de estado a ' . $status;
+            $newStatus = $statusMap[$status];
+            $statusLabels = [
+                'pending' => 'Pendiente',
+                'in_progress' => 'En progreso',
+                'completed' => 'Completado',
+                'rejected' => 'Rechazado'
+            ];
+            $noteContent = 'Cambio de estado a ' . ($statusLabels[$status] ?? $status);
         } else {
-            if (!array_key_exists($status, $validStatuses)) {
+            if (!array_key_exists($status, $statusMap)) {
                 $this->addFlash('error', 'Estado no válido');
                 return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
             }
-            $newStatus = $validStatuses[$status];
+            $newStatus = $statusMap[$status];
             $noteContent = $request->request->get('note', '');
             
             if (empty(trim($noteContent))) {
-                $this->addFlash('error', 'Debe proporcionar una razón para el cambio de estado');
-                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+                $statusLabels = [
+                    'pending' => 'Pendiente',
+                    'in_progress' => 'En progreso',
+                    'completed' => 'Completado',
+                    'rejected' => 'Rechazado'
+                ];
+                $noteContent = 'Cambio de estado a ' . ($statusLabels[$status] ?? $status);
             }
         }
         
@@ -368,9 +380,10 @@ class TicketController extends AbstractController
         // Set the status
         $ticket->setStatus($status);
         
-        // If completing the ticket, set the completedAt timestamp
+        // If completing the ticket, set the completedBy user and current time
         if ($status === self::STATUS_COMPLETED) {
-            $ticket->setCompletedAt(new \DateTimeImmutable());
+            $ticket->setCompletedBy($this->getUser());
+            $ticket->setUpdatedAt(new \DateTimeImmutable());
         }
         
         $this->em->persist($ticket);
@@ -434,7 +447,7 @@ class TicketController extends AbstractController
     }
 
     #[Route('/tickets', name: 'ticket_index')]
-    #[IsGranted('ROLE_USER')]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
     public function index(Request $request): Response
     {
         $page = max(1, $request->query->getInt('page', 1));
@@ -487,8 +500,9 @@ class TicketController extends AbstractController
         
         $qb->orderBy('t.' . $sortBy, $sortOrder);
         
-        // Si no es admin, filtrar por usuario creador o asignado
-        if (!$this->isGranted('ROLE_ADMIN')) {
+        // Mostrar todos los tickets a administradores y auditores
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            // Para usuarios normales, solo mostrar tickets creados por ellos o asignados a ellos
             $qb->andWhere(
                 $qb->expr()->orX(
                     $qb->expr()->eq('t.createdBy', ':currentUser'),
@@ -773,6 +787,46 @@ class TicketController extends AbstractController
         ]);
     }
 
+    #[Route('/tickets/{id}/reject', name: 'ticket_reject', methods: ['POST'])]
+    public function reject(Request $request, Ticket $ticket): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
+        }
+        $this->denyAccessUnlessGranted('reject', $ticket);
+        
+        $reason = $request->request->get('reason', '');
+        $noteContent = 'Ticket rechazado por ' . $this->getUser()->getFullName() . ".\n\n";
+        $noteContent .= "Motivo del rechazo:\n" . $reason;
+        
+        $this->updateStatus($ticket, self::STATUS_REJECTED, $noteContent);
+        
+        $this->addFlash('success', 'El ticket ha sido rechazado correctamente.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/complete', name: 'ticket_complete', methods: ['POST'])]
+    public function complete(Request $request, Ticket $ticket): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
+        }
+        $this->denyAccessUnlessGranted('complete', $ticket);
+        
+        $notes = $request->request->get('notes', '');
+        
+        // Update the ticket's description with the completion notes
+        $ticket->setDescription($notes);
+        
+        // Create a note to track who completed the ticket
+        $noteContent = 'Ticket marcado como completado por ' . $this->getUser()->getFullName();
+        
+        $this->updateStatus($ticket, self::STATUS_COMPLETED, $noteContent);
+        
+        $this->addFlash('success', 'El ticket ha sido marcado como completado.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
     #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function rejectProposal(Request $request, Ticket $ticket): Response

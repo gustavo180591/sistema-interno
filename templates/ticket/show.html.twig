@@ -1,967 +1,468 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Ticket #{{ ticket.idSistemaInterno }}{% endblock %}
-
-{% block stylesheets %}
-    {{ parent() }}
-    <style>
-        .ticket-header {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            border-left: 4px solid #0d6efd;
-        }
-        
-        .info-card {
-            border: none;
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            transition: transform 0.2s;
-            height: 100%;
-        }
-        
-        .info-card:hover {
-            transform: translateY(-2px);
-        }
-        
-        .info-card .card-body {
-            padding: 1.5rem;
-        }
-        
-        .info-card .card-title {
-            color: #495057;
-            font-weight: 600;
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .info-card .card-title i {
-            color: #0d6efd;
-        }
-        
-        .info-item {
-            margin-bottom: 0.75rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-        
-        .info-item i {
-            color: #6c757d;
-            margin-top: 0.25rem;
-            min-width: 20px;
-        }
-        
-        .info-content {
-            flex: 1;
-        }
-        
-        .info-label {
-            font-weight: 500;
-            color: #495057;
-            margin-bottom: 0.25rem;
-        }
-        
-        .info-value {
-            color: #212529;
-            word-break: break-word;
-        }
-        
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 0.4em 0.8em;
-            border-radius: 0.25rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .action-buttons .btn {
-            min-width: 120px;
-            margin-right: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .ticket-content {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        }
-        
-        .ticket-actions {
-            background: #f8f9fa;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            border-left: 3px solid #0d6efd;
-        }
-        
-        .proposal-alert {
-            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-            border: 1px solid #ffeaa7;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .user-assignment {
-            background: #e3f2fd;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 3px solid #2196f3;
-        }
-        
-        .timeline {
-            position: relative;
-            padding-left: 2rem;
-            margin: 2rem 0;
-        }
-        
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 0.5rem;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #e9ecef;
-        }
-        
-        .timeline-item {
-            position: relative;
-            padding-bottom: 1.5rem;
-            padding-left: 1.5rem;
-        }
-        
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -1.9rem;
-            top: 0.25rem;
-            width: 1rem;
-            height: 1rem;
-            border-radius: 50%;
-            background: #0d6efd;
-            border: 3px solid #fff;
-        }
-        
-        .timeline-date {
-            font-size: 0.8rem;
-            color: #6c757d;
-            margin-bottom: 0.25rem;
-        }
-        
-        .timeline-content {
-            background: #fff;
-            padding: 1rem;
-            border-radius: 0.375rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.05);
-        }
-        
-        .assignment-history {
-            max-height: 200px;
-            overflow-y: auto;
-            padding-right: 5px;
-            margin-top: 0.5rem;
-        }
-        
-        .assignment-item {
-            background-color: #f8f9fa;
-            transition: all 0.2s;
-            border-left: 3px solid #0d6efd;
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            border-radius: 0.25rem;
-        }
-        
-        .assignment-item:hover {
-            background-color: #e9ecef;
-        }
-        
-        .ticket-taker-info {
-            background-color: #f8f9fa;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-left: 3px solid #198754;
-        }
-        
-    </style>
-{% endblock %}
+{% block title %}Ticket #{{ '%04d'|format(ticket.id) }} - {{ ticket.title }}{% endblock %}
 
 {% block body %}
 <div class="container py-4">
-
-    <!-- Ticket Header -->
-    <div class="ticket-header">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="mb-3 mb-md-0">
-                <div class="d-flex align-items-center flex-wrap gap-3 mb-2">
-                    <span class="badge bg-primary fs-5">
-                        #{{ ticket.idSistemaInterno }}
-                    </span>
-                    <h1 class="h3 mb-0">
-                        <i class="fas fa-ticket-alt text-primary me-2"></i>
-                        {{ ticket.title }}
-                    </h1>
-                    {% set status_config = {
-                        'in_progress': { class: 'warning', label: 'En Progreso' },
-                        'pending': { class: 'info', label: 'Pendiente' },
-                        'rejected': { class: 'danger', label: 'Rechazado' },
-                        'completed': { class: 'success', label: 'Completado' },
-                        'delayed': { class: 'warning', label: 'Atrasado' }
-                    } %}
-                    {% if status_config[ticket.status] is defined %}
-                        <span class="status-badge badge bg-{{ status_config[ticket.status].class|default('secondary') }} align-middle">
-                            {{ status_config[ticket.status].label }}
-                        </span>
-                    {% endif %}
-                </div>
-                
-                <div class="d-flex align-items-center flex-wrap gap-3 mt-2">
-                    {% if ticket.areaOrigen %}
-                        <span class="text-muted">
-                            <i class="fas fa-building me-1"></i>
-                            {{ ticket.areaOrigen }}
-                        </span>
-                    {% endif %}
-                    {% if ticket.dueDate %}
-                        <span class="text-{{ ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') ? 'danger' : 'muted' }}">
-                            <i class="far fa-calendar-alt me-1"></i>
-                            {{ ticket.dueDate|date('d/m/Y') }}
-                            {% if ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
-                                <span class="badge bg-danger ms-1">Vencido</span>
-                            {% endif %}
-                        </span>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Header with Breadcrumb -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-transparent p-0 mb-3">
+                    <li class="breadcrumb-item"><a href="{{ path('ticket_index') }}" class="text-decoration-none"><i class="fas fa-ticket-alt me-1"></i> Tickets</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">#{{ '%04d'|format(ticket.id) }}</li>
+                </ol>
+            </nav>
             
-            <div class="action-buttons">
-                {% if is_granted('ROLE_USER') and not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
-                    {% if not ticket.takenBy %}
-                        <form method="post" action="{{ path('ticket_take', {'id': ticket.id}) }}" class="d-inline me-2">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-hand-paper me-1"></i> Tomar ticket
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 d-flex align-items-center">
+                    <span class="me-3">{{ ticket.title }}</span>
+                    <span class="badge rounded-pill bg-{{ 
+                        ticket.status == 'in_progress' ? 'warning' : 
+                        (ticket.status == 'pending' ? 'info' : 
+                        (ticket.status == 'rejected' ? 'danger' : 
+                        (ticket.status == 'completed' ? 'success' : 'secondary'))) 
+                    }} fs-6">
+                        {{ ({
+                            'in_progress': 'En progreso',
+                            'pending': 'Pendiente',
+                            'rejected': 'Rechazado',
+                            'completed': 'Terminado'
+                        })[ticket.status] }}
+                    </span>
+                </h1>
+                <div class="btn-group">
+                    <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Volver
+                    </a>
+                    {% if is_granted('edit', ticket) %}
+                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit me-1"></i> Editar
+                        </a>
+                    {% endif %}
+                    
+                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                        {% if ticket.status != 'rejected' and ticket.status != 'completed' %}
+                            <button type="button" class="btn btn-outline-danger btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#rejectTicketModal">
+                                <i class="fas fa-times me-1"></i> Rechazar
                             </button>
-                        </form>
-                    {% else %}
-                        <div class="alert alert-info py-1 px-3 d-inline-flex align-items-center me-2 mb-0">
-                            <i class="fas fa-info-circle me-2"></i>
-                            {% if ticket.takenBy.id == app.user.id %}
-                                Has tomado este ticket
-                            {% else %}
-                                Ticket tomado por otro usuario
-                            {% endif %}
-                        </div>
+                            
+                            <button type="button" class="btn btn-outline-success btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#completeTicketModal">
+                                <i class="fas fa-check me-1"></i> Completar
+                            </button>
+                        {% endif %}
                     {% endif %}
-                {% endif %}
-                
-                {% if is_granted('ROLE_AUDITOR') and ticket.status not in ['completed', 'rejected'] %}
-                    {% if not ticket.takenBy %}
-                        <button type="button" 
-                                class="btn btn-primary btn-sm" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#assignTicketModal" 
-                                data-ticket-id="{{ ticket.id }}"
-                                title="Asignar ticket a un usuario">
-                            <i class="fas fa-user-plus me-1"></i> Asignar
-                        </button>
-                    {% elseif ticket.status not in ['rejected', 'completed'] %}
-                        <button type="button" 
-                                class="btn btn-sm btn-warning" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#assignTicketModal" 
-                                data-ticket-id="{{ ticket.id }}"
-                                title="Reasignar ticket a otro usuario">
-                            <i class="fas fa-user-edit me-1"></i> Reasignar
-                        </button>
-                    {% endif %}
-                {% endif %}
-                
-                {% if is_granted('ROLE_ADMIN') %}
-                    <form method="post" action="{{ path('ticket_delete', {'id': ticket.id}) }}" onsubmit="return confirm('¿Está seguro que desea eliminar este ticket?');" class="d-inline">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ ticket.id) }}">
-                        <button class="btn btn-danger">
-                            <i class="fas fa-trash me-1"></i> Eliminar
-                        </button>
-                    </form>
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <!-- Main Content Column -->
+        <!-- Main Content -->
         <div class="col-lg-8">
-            <!-- Observaciones del Auditor -->
-            <div class="ticket-content">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-clipboard-check text-primary me-2"></i>
-                        Observación
-                    </h5>
-                    {% if (is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN')) and (ticket.status == 'completed' or ticket.status == 'rejected') %}
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="editObservationBtn">
-                            <i class="fas fa-edit me-1"></i> Editar
-                        </button>
-                    {% endif %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Detalles del Ticket</h5>
                 </div>
-                
-                <div class="mb-3" id="observationContent">
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
+                        <div class="p-3 bg-light rounded-3">
+                            {{ ticket.description|nl2br }}
+                        </div>
+                    </div>
+                    
                     {% if ticket.observation %}
-                        <div class="mb-3">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
+                        <div class="p-3 bg-light rounded-3">
                             {{ ticket.observation|nl2br }}
                         </div>
-                        <div class="text-muted small">
-                            <i class="far fa-clock me-1"></i> 
-                            {% if ticket.updatedAt %}
-                                Actualizado el {{ ticket.updatedAt|date('d/m/Y H:i') }}
-                            {% else %}
-                                Sin actualizaciones recientes
-                            {% endif %}
-                        </div>
-                    {% else %}
-                        <p class="text-muted fst-italic">
-                            {% if ticket.status == 'completed' or ticket.status == 'rejected' %}
-                                No se han agregado observaciones.
-                            {% else %}
-                                Las observaciones estarán disponibles cuando el ticket sea completado o rechazado.
-                            {% endif %}
-                        </p>
-                    {% endif %}
-                </div>
-                
-                {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
-                    <div id="observationForm" class="d-none">
-                        <form action="{{ path('ticket_auditor_action', {'id': ticket.id}) }}" method="POST">
-                            <input type="hidden" name="action" value="update_observation">
-                            <input type="hidden" name="_token" value="{{ csrf_token('auditor_action_' ~ ticket.id) }}">
-                            <div class="mb-3">
-                                <textarea class="form-control" name="observation" rows="4" required>{{ ticket.observation }}</textarea>
-                                <div class="form-text">Ingrese las observaciones relevantes sobre el ticket.</div>
-                            </div>
-                            <div class="d-flex justify-content-end gap-2">
-                                <button type="button" id="cancelEditObservation" class="btn btn-outline-secondary">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Guardar cambios</button>
-                            </div>
-                        </form>
                     </div>
-                {% endif %}
-            </div>
-
-            <!-- Ticket Actions -->
-            {% if is_granted('ROLE_USER') and ticket.status not in ['rejected', 'completed'] %}
-                <div class="ticket-actions">
-                    <h6 class="mb-3">
-                        <i class="fas fa-tools text-primary me-2"></i>
-                        Acciones del Ticket
-                    </h6>
-                    
-                    {% if ticket.proposedStatus %}
-                        {% set statusLabels = {
-                            'rejected': 'rechazado',
-                            'in_progress': 'en progreso',
-                            'completed': 'completado'
-                        } %}
-                        <div class="proposal-alert">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <i class="fas fa-clock me-2"></i>
-                                    <strong>Propuesta de cambio de estado:</strong>
-                                    <span class="ms-2">
-                                        {{ statusLabels[ticket.proposedStatus]|default(ticket.proposedStatus) }}
-                                        {% if ticket.proposedBy %}
-                                            (solicitado por {{ ticket.proposedBy.nombre }} {{ ticket.proposedBy.apellido }})
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                {% if is_granted('ROLE_ADMIN') %}
-                                    <div class="d-flex gap-2">
-                                        <form action="{{ path('ticket_approve_proposal', {'id': ticket.id}) }}" method="post" class="d-inline">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('approve_proposal_' ~ ticket.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="fas fa-check me-1"></i> Aprobar
-                                            </button>
-                                        </form>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% elseif ticket.status != 'completed' and ticket.status != 'rejected' %}
-                        <div class="d-flex flex-wrap gap-2 justify-content-between">
-                            <span class="text-muted">Selecciona una acción:</span>
-                            <div class="d-flex flex-wrap gap-2">
-                                {% if not is_granted('ROLE_AUDITOR') and not is_granted('ROLE_ADMIN') %}
-                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#suggestInProgressModal">
-                                        <i class="fas fa-play me-1"></i> Sugerir En Progreso
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#suggestCompleteModal">
-                                        <i class="fas fa-check me-1"></i> Sugerir Completado
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#suggestRejectModal">
-                                        <i class="fas fa-times me-1"></i> Sugerir Rechazo
-                                    </button>
-                                {% else %}
-                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#auditorRejectModal">
-                                        <i class="fas fa-ban me-1"></i> Rechazar
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#auditorCompleteModal">
-                                        <i class="fas fa-flag-checkered me-1"></i> Finalizar
-                                    </button>
-                                {% endif %}
-                            </div>
-                        </div>
                     {% endif %}
                 </div>
-            {% endif %}
-
-            <!-- Notes Section -->
-            <div class="ticket-content mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        <i class="fas fa-sticky-note text-primary me-2"></i>
-                        Notas
-                    </h5>
-                    <span id="onlineUsers" class="badge bg-success d-none">
-                        <i class="fas fa-circle small me-1"></i>
-                        <span id="onlineUsersCount">0</span> usuarios en línea
-                    </span>
-                </div>
-                
-                <div id="notesContainer" class="mb-4">
-                    {% if notes|length > 0 %}
-                        {% for note in notes %}
-                            <div class="note-item card mb-3" data-note-id="{{ note.id }}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-user-circle me-2"></i>
-                                            <strong>{{ note.createdBy.nombre }} {{ note.createdBy.apellido }}</strong>
-                                            <span class="text-muted ms-2 small">{{ note.createdAt|date('d/m/Y H:i') }}</span>
-                                        </div>
-                                        {% if is_granted('ROLE_ADMIN') or note.createdBy == app.user %}
-                                            <button type="button" class="btn btn-sm btn-outline-danger delete-note" data-note-id="{{ note.id }}">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        {% endif %}
-                                    </div>
-                                    <div class="note-content">
-                                        {{ note.content|nl2br }}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div id="noNotesMessage" class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            No hay notas para mostrar.
-                        </div>
-                    {% endif %}
-                </div>
-
-                {% if is_granted('ROLE_USER') %}
-                    <div class="add-note">
-                        <form id="noteForm" class="mb-0">
-                            <input type="hidden" name="ticketId" value="{{ ticket.id }}">
-                            <div class="input-group">
-                                <input type="text" id="noteContent" name="content" class="form-control" 
-                                       placeholder="Escribe una nota..." required
-                                       autocomplete="off">
-                                <button class="btn btn-primary" type="submit" id="submitNoteBtn">
-                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                                    <span class="btn-text">Enviar</span>
-                                </button>
-                            </div>
-                            <div class="form-text text-muted small mt-1">
-                                Presiona Enter para enviar o Shift+Enter para un salto de línea
-                            </div>
-                        </form>
-                    </div>
-                {% endif %}
             </div>
             
-        </div>
-
-        <!-- Sidebar Column -->
-        <div class="col-lg-4">
-            <!-- Ticket Information Card -->
-            <div class="card info-card mb-4">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-info-circle"></i>
-                        Información del Ticket
-                    </h5>
-                    
-                    <div class="info-item">
-                        <i class="fas fa-fingerprint"></i>
-                        <div class="info-content">
-                            <div class="info-label">ID Externo</div>
-                            <div class="info-value">{{ ticket.idSistemaInterno ?: 'No especificado' }}</div>
-                        </div>
-                    </div>
-                    
-                    {% if ticket.status == 'completed' and ticket.completedBy is not null %}
-                    <div class="info-item">
-                        <i class="fas fa-user-check"></i>
-                        <div class="info-content">
-                            <div class="info-label">Finalizado por</div>
-                            <div class="info-value">
-                                {{ ticket.completedBy.nombre }} {{ ticket.completedBy.apellido }}
-                                <div class="text-muted small">
-                                    {{ ticket.updatedAt ? ticket.updatedAt|date('d/m/Y H:i') : '' }}
+            <!-- Notes Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-comments text-primary me-2"></i>Notas</h5>
+                </div>
+                <div class="card-body p-0" id="notes-container">
+                    {% if notes|length > 0 %}
+                        <div class="list-group list-group-flush">
+                            {% for note in notes %}
+                            <div class="list-group-item border-0 py-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <div>
+                                                <strong>{{ note.createdBy.username }}</strong>
+                                                <small class="text-muted ms-2">{{ note.createdAt|date('d/m/Y H:i') }}</small>
+                                            </div>
+                                            {% if is_granted('ROLE_ADMIN') or note.createdBy.id == app.user.id %}
+                                            <div>
+                                                <a href="#" class="text-muted delete-note" data-note-id="{{ note.id }}" title="Eliminar nota">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="note-content">
+                                            {{ note.content|nl2br }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
-                    </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-comment-slash fa-2x mb-2"></i>
+                            <p class="mb-0">No hay notas para este ticket</p>
+                        </div>
                     {% endif %}
-                    
-                    <div class="info-item">
-                        <i class="fas fa-layer-group"></i>
-                        <div class="info-content">
-                            <div class="info-label">Área de Origen</div>
-                            <div class="info-value">{{ ticket.areaOrigen ?: 'No especificada' }}</div>
+                </div>
+                
+                <!-- Add Note Form -->
+                {% if is_granted('ROLE_USER') and ticket.status not in ['completed', 'rejected'] %}
+                <div class="card-footer bg-white">
+                    <form id="add-note-form" class="mb-0">
+                        <div class="input-group">
+                            <textarea class="form-control" id="note-content" name="content" rows="2" placeholder="Agregar una nota..." required></textarea>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
                         </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Ticket Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0"><i class="fas fa-info text-primary me-2"></i>Información del Ticket</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Estado</small>
+                        <div class="fw-bold">{{ ({
+                            'in_progress': 'En progreso',
+                            'pending': 'Pendiente',
+                            'rejected': 'Rechazado',
+                            'completed': 'Terminado'
+                        })[ticket.status] }}</div>
                     </div>
                     
-                    <div class="info-item">
-                        <i class="fas fa-user-plus"></i>
-                        <div class="info-content">
-                            <div class="info-label">Creado por</div>
-                            <div class="info-value">
-                                <i class="fas fa-user-circle me-1"></i>
-                                {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}
-                                <div class="text-muted small">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
-                            </div>
-                        </div>
+
+                    
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Área</small>
+                        <div class="fw-bold">{{ ticket.areaOrigen|default('No especificada') }}</div>
                     </div>
                     
                     {% if ticket.takenBy %}
-                        <div class="info-item">
-                            <i class="fas fa-user-check"></i>
-                            <div class="info-content">
-                                <div class="info-label">Tomado por</div>
-                                <div class="info-value">
-                                    <i class="fas fa-user-check me-1"></i>
-                                    {{ ticket.takenBy.nombre }} {{ ticket.takenBy.apellido }}
-                                    {% if ticket.takenAt %}
-                                        <div class="text-muted small">{{ ticket.takenAt|date('d/m/Y H:i') }}</div>
-                                    {% endif %}
-                                </div>
-                            </div>
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Tomado por</small>
+                        <div class="fw-bold">
+                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
+                            {% if ticket.takenAt %}
+                                <small class="text-muted d-block">
+                                    {{ ticket.takenAt|date('d/m/Y H:i') }}
+                                </small>
+                            {% endif %}
                         </div>
-                    {% endif %}
-                    
-                    {% if ticket.status == 'completed' and ticket.updates|length > 0 %}
-                        {% set lastUpdate = ticket.updates.first() %}
-                        {% if lastUpdate and lastUpdate.status == 'completed' %}
-                            <div class="info-item">
-                                <i class="fas fa-flag-checkered"></i>
-                                <div class="info-content">
-                                    <div class="info-label">Completado por</div>
-                                    <div class="info-value">
-                                        <i class="fas fa-user-check me-1"></i>
-                                        {{ lastUpdate.user.nombre }} {{ lastUpdate.user.apellido }}
-                                        <div class="text-muted small">{{ lastUpdate.createdAt|date('d/m/Y H:i') }}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
+                    </div>
                     {% endif %}
                     
                     {% if ticket.dueDate %}
-                        <div class="info-item">
-                            <i class="fas fa-calendar-check"></i>
-                            <div class="info-content">
-                                <div class="info-label">Fecha límite</div>
-                                <div class="info-value">
-                                    <i class="far fa-clock me-1"></i>
-                                    {{ ticket.dueDate|date('d/m/Y') }}
-                                    {% if ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
-                                        <span class="badge bg-danger ms-2">Vencido</span>
-                                    {% endif %}
-                                </div>
-                            </div>
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Fecha límite</small>
+                        <div class="fw-bold">
+                            {{ ticket.dueDate|date('d/m/Y') }}
+                            {% if ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
+                                <span class="badge bg-danger ms-2">Vencido</span>
+                            {% endif %}
                         </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Creado</small>
+                        <div class="fw-bold">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
+                    </div>
+                    
+                    {% if ticket.updatedAt and ticket.updatedAt != ticket.createdAt %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Última actualización</small>
+                        <div class="fw-bold">{{ ticket.updatedAt|date('d/m/Y H:i') }}</div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
 
+            <!-- Assigned Users -->
+            {% if not is_granted('ROLE_USER') or is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                {# Create an array to store unique user assignments with their latest date #}
+                {% set uniqueAssignments = {} %}
+                
+                {# First, sort all assignments by assignedAt date (newest first) #}
+                {% set sortedAssignments = ticket.ticketAssignments|sort((a, b) => b.assignedAt <=> a.assignedAt) %}
+                
+                {# Then add to uniqueAssignments, which will automatically keep only the first (newest) entry for each user #}
+                {% for assignment in sortedAssignments %}
+                    {% if assignment.user.id not in uniqueAssignments|keys %}
+                        {% set uniqueAssignments = uniqueAssignments|merge({ (assignment.user.id) : assignment }) %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if uniqueAssignments|length > 0 %}
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0"><i class="fas fa-users text-primary me-2"></i>Asignado a</h6>
+                    </div>
+                    <div class="card-body">
+                        {% for assignment in uniqueAssignments %}
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                <i class="fas fa-user text-muted small"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ assignment.user.nombre ?? assignment.user.username }}</div>
+                                <small class="text-muted">Asignado el {{ assignment.assignedAt|date('d/m/Y H:i') }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            <!-- Ticket History -->
+            {% if ticket.updates|length > 0 %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0"><i class="fas fa-history text-primary me-2"></i>Historial</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for update in ticket.updates|slice(0, 5) %}
+                        <div class="list-group-item border-0 py-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;">
+                                    <i class="fas fa-{{ update.type == 'status_change' ? 'exchange-alt' : 'edit' }} text-muted small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="small">{{ update.description }}</div>
+                                    <small class="text-muted">{{ update.createdAt|date('d/m/Y H:i') }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modals -->
-{% include 'ticket/_modals.html.twig' %}
-
-{% block javascripts %}
-    {{ parent() }}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Toggle ticket info visibility
-            const toggleInfoBtn = document.getElementById('toggleInfoBtn');
-            const ticketInfoContainer = document.getElementById('ticketInfoContainer');
-            
-            if (toggleInfoBtn && ticketInfoContainer) {
-                toggleInfoBtn.addEventListener('click', function() {
-                    ticketInfoContainer.classList.toggle('d-none');
-                    const icon = this.querySelector('i');
-                    if (ticketInfoContainer.classList.contains('d-none')) {
-                        icon.classList.remove('fa-eye');
-                        icon.classList.add('fa-eye-slash');
-                        this.innerHTML = '<i class="fas fa-eye me-1"></i> Mostrar';
-                    } else {
-                        icon.classList.remove('fa-eye-slash');
-                        icon.classList.add('fa-eye');
-                        this.innerHTML = '<i class="fas fa-eye-slash me-1"></i> Ocultar';
-                    }
-                });
-            }
-            
-            // Handle description editing
-            const editDescriptionBtn = document.getElementById('editDescriptionBtn');
-            const cancelEditDescription = document.getElementById('cancelEditDescription');
-            const descriptionView = document.getElementById('descriptionView');
-            const descriptionForm = document.getElementById('descriptionForm');
-            
-            if (editDescriptionBtn && descriptionView && descriptionForm) {
-                editDescriptionBtn.addEventListener('click', function() {
-                    descriptionView.classList.add('d-none');
-                    descriptionForm.classList.remove('d-none');
-                    editDescriptionBtn.classList.add('d-none');
-                });
-
-                if (cancelEditDescription) {
-                    cancelEditDescription.addEventListener('click', function() {
-                        descriptionView.classList.remove('d-none');
-                        descriptionForm.classList.add('d-none');
-                        editDescriptionBtn.classList.remove('d-none');
-                    });
-                }
-            }
-
-            // Handle assign ticket modal
-            const assignModal = document.getElementById('assignTicketModal');
-            if (assignModal) {
-                const assignForm = assignModal.querySelector('form');
-                
-                // When modal is shown
-                assignModal.addEventListener('show.bs.modal', function (event) {
-                    const button = event.relatedTarget;
-                    const ticketId = button.getAttribute('data-ticket-id');
-                    const modalTitle = assignModal.querySelector('.modal-title');
-                    
-                    // Update the modal's content
-                    if (modalTitle) {
-                        modalTitle.textContent = `Asignar Usuarios al Ticket #${ticketId}`;
-                    }
-                    
-                    // Update the form action
-                    if (assignForm) {
-                        assignForm.action = `{{ path('ticket_assign', {'id': 'TICKET_ID'}) }}`.replace('TICKET_ID', ticketId);
-                        
-                        // Reset the form when modal is shown
-                        assignForm.reset();
-                    }
-                });
-                
-                // Handle form submission
-                if (assignForm) {
-                    assignForm.addEventListener('submit', function(e) {
-                        e.preventDefault();
-                        
-                        const formData = new FormData(this);
-                        
-                        fetch(this.action, {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                // Close the modal
-                                const modal = bootstrap.Modal.getInstance(assignModal);
-                                if (modal) {
-                                    modal.hide();
-                                }
-                                
-                                // Show success message
-                                const alert = document.createElement('div');
-                                alert.className = 'alert alert-success alert-dismissible fade show';
-                                alert.innerHTML = `
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    ${data.message}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                                `;
-                                
-                                // Insert the alert before the ticket header
-                                const ticketHeader = document.querySelector('.ticket-header');
-                                if (ticketHeader) {
-                                    ticketHeader.parentNode.insertBefore(alert, ticketHeader.nextSibling);
-                                }
-                                
-                                // Auto-dismiss the alert after 5 seconds
-                                setTimeout(() => {
-                                    const bsAlert = new bootstrap.Alert(alert);
-                                    bsAlert.close();
-                                }, 5000);
-                                
-                                // Reload the page after a short delay to show the updated data
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 1000);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('Ocurrió un error al asignar los usuarios. Por favor, inténtelo de nuevo.');
-                        });
-                    });
-                }
-            }
-        });
-
-        // Handle note submission
-        const noteForm = document.getElementById('noteForm');
-        const notesContainer = document.getElementById('notesContainer');
-        const noNotesMessage = document.getElementById('noNotesMessage');
-        const submitBtn = document.getElementById('submitNoteBtn');
-        const onlineUsersBadge = document.getElementById('onlineUsers');
-        const onlineUsersCount = document.getElementById('onlineUsersCount');
-        
-        // Initialize Socket.IO for this ticket
-        const ticketId = '{{ ticket.id }}';
-        const currentUser = {
-            id: '{{ app.user.id }}',
-            name: '{{ app.user.nombre }} {{ app.user.apellido }}',
-            isAdmin: {{ is_granted('ROLE_ADMIN') ? 'true' : 'false' }}
-        };
-        
-        // Join the ticket room
-        socket.emit('joinTicket', { 
-            ticketId: ticketId,
-            user: currentUser
-        });
-        
-        // Update online users count
-        socket.on('updateUsers', (data) => {
-            if (data.ticketId === ticketId) {
-                const count = data.count || 0;
-                onlineUsersCount.textContent = count;
-                onlineUsersBadge.classList.toggle('d-none', count <= 1);
-            }
-        });
-        
-        // Handle new note from server
-        socket.on('newNote', (data) => {
-            if (data.ticketId !== ticketId) return;
-            
-            // Hide no notes message if it exists
-            if (noNotesMessage) {
-                noNotesMessage.classList.add('d-none');
-            }
-            
-            // Create note element
-            const noteHtml = `
-                <div class="note-item card mb-3" data-note-id="${data.noteId}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-user-circle me-2"></i>
-                                <strong>${data.userName}</strong>
-                                <span class="text-muted ms-2 small">${new Date().toLocaleString('es-ES')}</span>
-                            </div>
-                            ${data.isOwner || data.isAdmin ? `
-                                <button type="button" class="btn btn-sm btn-outline-danger delete-note" data-note-id="${data.noteId}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                        <div class="note-content">
-                            ${data.content.replace(/\n/g, '<br>')}
-                        </div>
+<!-- Reject Ticket Modal -->
+<div class="modal fade" id="rejectTicketModal" tabindex="-1" aria-labelledby="rejectTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rejectTicketModalLabel"><i class="fas fa-times-circle me-2"></i>Rechazar Ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{{ path('ticket_reject', {'id': ticket.id}) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('reject' ~ ticket.id) }}">
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label fw-bold">Motivo del rechazo</label>
+                        <textarea class="form-control" id="rejectReason" name="reason" rows="4" required placeholder="Por favor, describe el motivo del rechazo del ticket..."></textarea>
                     </div>
                 </div>
-            `;
-            
-            // Add note to the top of the container
-            if (notesContainer.firstChild) {
-                notesContainer.insertAdjacentHTML('afterbegin', noteHtml);
-            } else {
-                notesContainer.innerHTML = noteHtml;
-            }
-            
-            // Scroll to the new note
-            const newNote = notesContainer.querySelector('.note-item:first-child');
-            if (newNote) {
-                newNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                newNote.classList.add('highlight');
-                setTimeout(() => newNote.classList.remove('highlight'), 2000);
-            }
-            
-            // Show notification if note is from another user
-            if (data.userId !== currentUser.id) {
-                showNotification('Nueva nota', `Tienes una nueva nota de ${data.userName}`, 'info');
-            }
-        });
-        
-        // Handle note deletion
-        socket.on('noteDeleted', (data) => {
-            if (data.ticketId !== ticketId) return;
-            
-            const noteElement = document.querySelector(`.note-item[data-note-id="${data.noteId}"]`);
-            if (noteElement) {
-                noteElement.style.opacity = '0';
-                setTimeout(() => noteElement.remove(), 300);
-                
-                // Show no notes message if no notes left
-                if (notesContainer.children.length === 0) {
-                    notesContainer.innerHTML = `
-                        <div id="noNotesMessage" class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
-                            No hay notas para mostrar.
-                        </div>
-                    `;
-                }
-            }
-        });
-        
-        // Handle note form submission
-        if (noteForm) {
-            const noteContent = document.getElementById('noteContent');
-            
-            // Handle Enter key (submit) and Shift+Enter (new line)
-            noteContent.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    noteForm.dispatchEvent(new Event('submit'));
-                }
-            });
-            
-            noteForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const content = noteContent.value.trim();
-                if (!content) return;
-                
-                // Disable form while submitting
-                noteContent.disabled = true;
-                submitBtn.disabled = true;
-                submitBtn.querySelector('.spinner-border').classList.remove('d-none');
-                submitBtn.querySelector('.btn-text').textContent = 'Enviando...';
-                
-                try {
-                    const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success) {
-                            // Clear the input
-                            noteContent.value = '';
-                            
-                            // Emit socket event
-                            socket.emit('newNote', {
-                                ticketId: ticketId,
-                                noteId: data.noteId,
-                                content: content,
-                                userId: currentUser.id,
-                                userName: currentUser.name,
-                                isAdmin: currentUser.isAdmin,
-                                isOwner: true
-                            });
-                        }
-                    } else {
-                        throw new Error('Error al guardar la nota');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showNotification('Error', 'No se pudo enviar la nota. Inténtalo de nuevo.', 'danger');
-                } finally {
-                    // Re-enable form
-                    noteContent.disabled = false;
-                    submitBtn.disabled = false;
-                    submitBtn.querySelector('.spinner-border').classList.add('d-none');
-                    submitBtn.querySelector('.btn-text').textContent = 'Enviar';
-                    noteContent.focus();
-                }
-            });
-        }
-        
-        // Handle note deletion
-        document.addEventListener('click', async function(e) {
-            if (e.target.closest('.delete-note')) {
-                const button = e.target.closest('.delete-note');
-                const noteId = button.dataset.noteId;
-                
-                if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(`/notes/delete/${noteId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: `_token={{ csrf_token('delete_note') }}`
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success) {
-                            // Emit socket event
-                            socket.emit('deleteNote', {
-                                ticketId: ticketId,
-                                noteId: noteId
-                            });
-                        }
-                    } else {
-                        throw new Error('Error al eliminar la nota');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    showNotification('Error', 'No se pudo eliminar la nota. Inténtalo de nuevo.', 'danger');
-                }
-            }
-        });
-        
-        // Handle observation form toggling
-        (function() {
-            const editBtn = document.getElementById('editObservationBtn');
-            const cancelBtn = document.getElementById('cancelEditObservation');
-            const contentEl = document.getElementById('observationContent');
-            const formEl = document.getElementById('observationForm');
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-            if (editBtn && formEl) {
-                // Show form when edit button is clicked
-                editBtn.addEventListener('click', function() {
-                    if (contentEl) contentEl.classList.add('d-none');
-                    formEl.classList.remove('d-none');
-                    editBtn.classList.add('d-none');
-                });
+<!-- Complete Ticket Modal -->
+<div class="modal fade" id="completeTicketModal" tabindex="-1" aria-labelledby="completeTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="completeTicketModalLabel"><i class="fas fa-check-circle me-2"></i>Completar Ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{{ path('ticket_complete', {'id': ticket.id}) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('complete' ~ ticket.id) }}">
+                    <div class="mb-3">
+                        <label for="completionNotes" class="form-label fw-bold">Notas de finalización</label>
+                        <textarea class="form-control" id="completionNotes" name="notes" rows="4" required placeholder="Por favor, proporciona detalles sobre la resolución del ticket..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Marcar como Completado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-                // Hide form when cancel button is clicked
-                if (cancelBtn) {
-                    cancelBtn.addEventListener('click', function() {
-                        if (contentEl) contentEl.classList.remove('d-none');
-    </script>
+<!-- Assign Ticket Modal -->
+<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="assignTicketForm" action="{{ path('ticket_assign', {'id': ticket.id}) }}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="userSelectionError" class="alert alert-danger d-none">
+                        Por favor selecciona al menos un usuario.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Usuarios:</label>
+                        {% for user in users %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="assigned_users[]" value="{{ user.id }}" id="user_{{ user.id }}">
+                                <label class="form-check-label" for="user_{{ user.id }}">
+                                    {{ user.username }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Asignar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Include Modals -->
+{% include 'ticket/_modals.html.twig' %}
+
 {% endblock %}
 
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add Note Form Handler
+    const addNoteForm = document.getElementById('add-note-form');
+    if (addNoteForm) {
+        addNoteForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const content = document.getElementById('note-content').value.trim();
+            if (!content) return;
+            
+            try {
+                const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload the page to show the new note
+                        window.location.reload();
+                    } else {
+                        alert('Error al agregar la nota: ' + (data.error || 'Error desconocido'));
+                    }
+                } else {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al agregar la nota. Por favor, inténtalo de nuevo.');
+            }
+        });
+    }
+    
+    // Delete Note Handler
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.delete-note')) {
+            const button = e.target.closest('.delete-note');
+            const noteId = button.dataset.noteId;
+            
+            if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/notes/delete/${noteId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `_token={{ csrf_token('delete_note') }}`
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload the page to reflect the deletion
+                        window.location.reload();
+                    } else {
+                        alert('Error al eliminar la nota: ' + (data.error || 'Error desconocido'));
+                    }
+                } else {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar la nota. Por favor, inténtalo de nuevo.');
+            }
+        }
+    });
+    
+    // Assign Ticket Form Handler
+    const assignTicketForm = document.getElementById('assignTicketForm');
+    if (assignTicketForm) {
+        assignTicketForm.addEventListener('submit', function(e) {
+            const selectedUsers = assignTicketForm.querySelectorAll('input[name="assigned_users[]"]:checked');
+            const errorDiv = document.getElementById('userSelectionError');
+            
+            if (selectedUsers.length === 0) {
+                e.preventDefault();
+                errorDiv.classList.remove('d-none');
+                return false;
+            } else {
+                errorDiv.classList.add('d-none');
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

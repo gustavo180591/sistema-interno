@@ -5,10 +5,13 @@ const { Server } = require('socket.io');
 const server = http.createServer();
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:8000",
-        methods: ["GET", "POST"],
+        origin: ["http://localhost:8000", "https://localhost:8000"],
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
         credentials: true
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000
 });
 
 // Store active rooms

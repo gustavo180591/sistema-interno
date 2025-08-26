@@ -65,11 +65,11 @@ security:
         - { path: ^/_profiler, roles: PUBLIC_ACCESS }
         
         # Protected routes
-        - { path: ^/admin/maintenance/calendar, roles: ROLE_USER }
-        - { path: ^/admin/maintenance/tasks, roles: ROLE_USER }
-        - { path: ^/admin/maintenance/categories, roles: ROLE_USER }
-        - { path: ^/admin, roles: ROLE_USER }
+        - { path: ^/admin/maintenance, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        - { path: ^/admin/user, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/auditor, roles: ROLE_AUDITOR }
+        - { path: ^/tickets, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/tickets/\d+/approve-proposal, roles: ROLE_USER }
         - { path: ^/tickets/\d+/reject-proposal, roles: ROLE_USER }
         - { path: ^/profile, roles: ROLE_USER }

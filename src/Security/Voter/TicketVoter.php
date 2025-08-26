@@ -15,6 +15,8 @@ class TicketVoter extends Voter
     public const DELETE = 'delete';
     public const NOTE = 'note';
     public const PROPOSE_STATUS = 'propose_status';
+    public const REJECT = 'reject';
+    public const COMPLETE = 'complete';
 
     private $security;
 
@@ -26,7 +28,7 @@ class TicketVoter extends Voter
     protected function supports(string $attribute, $subject): bool
     {
         // if the attribute isn't one we support, return false
-        if (!in_array($attribute, [self::VIEW, self::EDIT, self::DELETE, self::NOTE, self::PROPOSE_STATUS])) {
+        if (!in_array($attribute, [self::VIEW, self::EDIT, self::DELETE, self::NOTE, self::PROPOSE_STATUS, self::REJECT, self::COMPLETE])) {
             return false;
         }
 
@@ -61,6 +63,10 @@ class TicketVoter extends Voter
                 return $this->canAddNote($ticket, $user);
             case self::PROPOSE_STATUS:
                 return $this->canProposeStatus($ticket, $user);
+            case self::REJECT:
+                return $this->canReject($ticket, $user);
+            case self::COMPLETE:
+                return $this->canComplete($ticket, $user);
         }
 
         throw new \LogicException('This code should not be reached!');
@@ -68,8 +74,8 @@ class TicketVoter extends Voter
 
     private function canView(Ticket $ticket, User $user): bool
     {
-        // If they can edit, they can view
-        if ($this->canEdit($ticket, $user)) {
+        // Admins and Auditors can view any ticket
+        if ($this->security->isGranted('ROLE_ADMIN') || $this->security->isGranted('ROLE_AUDITOR')) {
             return true;
         }
 
@@ -127,5 +133,29 @@ class TicketVoter extends Voter
     {
         // Any authenticated user can propose a status change to a ticket they can view
         return $this->canView($ticket, $user);
+    }
+    
+    private function canReject(Ticket $ticket, User $user): bool
+    {
+        // Only admins and auditors can reject tickets
+        if (!$this->security->isGranted('ROLE_ADMIN') && !$this->security->isGranted('ROLE_AUDITOR')) {
+            return false;
+        }
+        
+        // Can only reject tickets that are not already completed or rejected
+        return $ticket->getStatus() !== 'completed' && 
+               $ticket->getStatus() !== 'rejected';
+    }
+    
+    private function canComplete(Ticket $ticket, User $user): bool
+    {
+        // Only admins and auditors can complete tickets
+        if (!$this->security->isGranted('ROLE_ADMIN') && !$this->security->isGranted('ROLE_AUDITOR')) {
+            return false;
+        }
+        
+        // Can only complete tickets that are not already completed or rejected
+        return $ticket->getStatus() !== 'completed' && 
+               $ticket->getStatus() !== 'rejected';
     }
 }

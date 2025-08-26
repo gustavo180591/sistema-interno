@@ -23,6 +23,17 @@ class NoteController extends AbstractController
         EntityManagerInterface $em,
         NoteRepository $noteRepository
     ): JsonResponse {
+        // Get the ticket and check permissions
+        $ticket = $em->getRepository(Ticket::class)->find($ticketId);
+        if (!$ticket) {
+            return $this->json([
+                'success' => false,
+                'error' => 'No se encontró el ticket especificado'
+            ], 404);
+        }
+        
+        // Check if user has permission to add a note to this ticket
+        $this->denyAccessUnlessGranted('note', $ticket);
         $content = $request->request->get('content');
         
         if (empty(trim($content))) {
@@ -32,12 +43,13 @@ class NoteController extends AbstractController
             ], 400);
         }
 
-        $ticket = $em->getRepository(Ticket::class)->find($ticketId);
-        if (!$ticket) {
+        
+        // Check if ticket is completed or rejected
+        if (in_array($ticket->getStatus(), ['completed', 'rejected'])) {
             return $this->json([
                 'success' => false,
-                'error' => 'No se encontró el ticket especificado'
-            ], 404);
+                'error' => 'No se pueden agregar notas a un ticket ' . ($ticket->getStatus() === 'completed' ? 'completado' : 'rechazado')
+            ], 400);
         }
 
         $note = new Note();

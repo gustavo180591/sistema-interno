@@ -187,13 +187,19 @@ if (!empty($filters['category'])) {
         }
 
         if (!empty($filters['date_from'])) {
+            $dateFrom = $filters['date_from'] instanceof \DateTimeInterface 
+                ? $filters['date_from'] 
+                : new \DateTime($filters['date_from']);
             $qb->andWhere('t.scheduledDate >= :dateFrom')
-               ->setParameter('dateFrom', $filters['date_from']);
+               ->setParameter('dateFrom', $dateFrom->format('Y-m-d 00:00:00'));
         }
 
         if (!empty($filters['date_to'])) {
+            $dateTo = $filters['date_to'] instanceof \DateTimeInterface
+                ? $filters['date_to']
+                : new \DateTime($filters['date_to']);
             $qb->andWhere('t.scheduledDate <= :dateTo')
-               ->setParameter('dateTo', $filters['date_to']);
+               ->setParameter('dateTo', $dateTo->format('Y-m-d 23:59:59'));
         }
 
         $sortField = $filters['sort'] ?? 'scheduledDate';
