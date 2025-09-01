@@ -4,17 +4,17 @@
 
 {% block page_actions %}
     <div class="btn-group">
-        <a href="{{ path('maintenance_task_edit', {id: task.id}) }}" class="btn btn-sm btn-outline-secondary">
+        <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-edit me-1"></i> Editar
         </a>
         {% if task.status != 'completed' %}
-            <form action="{{ path('maintenance_task_complete', {id: task.id}) }}" method="post" class="d-inline">
+            <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" method="post" class="d-inline">
                 <button type="submit" class="btn btn-sm btn-success">
                     <i class="fas fa-check me-1"></i> Marcar como Completada
                 </button>
             </form>
         {% endif %}
-        <a href="{{ path('maintenance_tasks') }}" class="btn btn-sm btn-outline-secondary">
+        <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Volver al listado
         </a>
     </div>
@@ -178,11 +178,11 @@
                     <h5 class="mb-0">Acciones</h5>
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{{ path('maintenance_task_edit', {id: task.id}) }}" class="list-group-item list-group-item-action">
+                    <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" class="list-group-item list-group-item-action">
                         <i class="fas fa-edit me-2"></i> Editar Tarea
                     </a>
                     {% if task.status != 'completed' %}
-                        <form action="{{ path('maintenance_task_complete', {id: task.id}) }}" method="post" class="list-group-item p-0">
+                        <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" method="post" class="list-group-item p-0">
                             <button type="submit" class="btn btn-link text-start w-100 text-decoration-none ps-3">
                                 <i class="fas fa-check me-2"></i> Marcar como Completada
                             </button>
@@ -209,7 +209,7 @@
                     {% if task.category.tasks|length > 1 %}
                         <div class="list-group list-group-flush">
                             {% for relatedTask in task.category.tasks|filter(t => t.id != task.id)|slice(0, 5) %}
-                                <a href="{{ path('maintenance_task_show', {id: relatedTask.id}) }}" 
+                                <a href="{{ path('maintenance_maintenance_task_show', {id: relatedTask.id}) }}" 
                                    class="list-group-item list-group-item-action">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h6 class="mb-1">{{ relatedTask.title }}</h6>
@@ -227,7 +227,7 @@
                             {% endfor %}
                         </div>
                         <div class="text-center mt-2">
-                            <a href="{{ path('maintenance_tasks', {category: task.category.id}) }}" class="btn btn-sm btn-outline-primary">
+                            <a href="{{ path('maintenance_maintenance_tasks', {category: task.category.id}) }}" class="btn btn-sm btn-outline-primary">
                                 Ver todas las tareas de {{ task.category }}
                             </a>
                         </div>
@@ -255,7 +255,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <form action="{{ path('maintenance_task_delete', {id: task.id}) }}" method="post" class="d-inline">
+                    <form action="{{ path('maintenance_maintenance_task_delete', {id: task.id}) }}" method="post" class="d-inline">
                         <input type="hidden" name="_method" value="DELETE">
                         <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ task.id) }}">
                         <button type="submit" class="btn btn-danger">Eliminar</button>
@@ -273,7 +273,7 @@
                     <h5 class="modal-title" id="reopenTaskModalLabel">Reabrir Tarea</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <form action="{{ path('maintenance_task_reopen', {id: task.id}) }}" method="post">
+                <form action="{{ path('maintenance_maintenance_task_reopen', {id: task.id}) }}" method="post">
                     <div class="modal-body">
                         <p>¿Estás seguro de que deseas reabrir esta tarea?</p>
                         <div class="mb-3">

@@ -20,6 +20,13 @@ note_controller:
     resource: '../src/Controller/NoteController.php'
     type: attribute
 
+# Import Maintenance OfficeController
+maintenance_office:
+    resource: '../src/Controller/Maintenance/OfficeController.php'
+    type: attribute
+    prefix: /maintenance
+    name_prefix: office_
+
 # Import TicketController (no prefix)
 ticket_controller:
     resource: '../src/Controller/TicketController.php'

@@ -1,0 +1,6 @@
+# Maintenance module routes
+app_maintenance_office:
+    resource: ../../src/Controller/Maintenance/OfficeController.php
+    type: attribute
+    prefix: /maintenance/offices
+    name_prefix: office_

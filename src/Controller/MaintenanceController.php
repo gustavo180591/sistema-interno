@@ -44,18 +44,18 @@ class MaintenanceController extends AbstractController
     {
         try {
             $this->denyAccessUnlessGranted('ROLE_USER');
-            
+
             // Log request data for debugging
             error_log('Received request data: ' . print_r($request->request->all(), true));
-            
+
             // Validate CSRF token
             $token = $request->request->get('_token');
             error_log('CSRF Token received: ' . $token);
-            
+
             if (!$this->isCsrfTokenValid('submit', $token)) {
                 $error = 'Invalid CSRF token. Expected: ' . $this->container->get('security.csrf.token_manager')->getToken('submit')->getValue();
                 error_log($error);
-                
+
                 if ($request->isXmlHttpRequest()) {
                     return $this->json(['error' => 'Invalid CSRF token', 'debug' => [
                         'received_token' => $token,
@@ -106,7 +106,7 @@ class MaintenanceController extends AbstractController
             $task->setScheduledDate($scheduledDateTime);
             $task->setStatus('pending');
             // Fields createdBy, externalReference, area were removed from entity; omitting setters.
-            
+
 
             // Ensure category exists: try by area; fallback to 'General'; create if missing
             $category = null;
@@ -153,14 +153,14 @@ class MaintenanceController extends AbstractController
                         'description' => $task->getDescription()
                     ]
                 ]);
-                
+
                 $this->addFlash('success', 'La tarea ha sido programada exitosamente.');
                 return $this->redirectToRoute('maintenance_calendar');
-                
+
             } catch (\Exception $e) {
                 error_log('Error creating task: ' . $e->getMessage());
                 error_log($e->getTraceAsString());
-                
+
                 if ($request->isXmlHttpRequest()) {
                     return $this->json([
                         'success' => false,
@@ -168,14 +168,14 @@ class MaintenanceController extends AbstractController
                         'message' => $e->getMessage()
                     ], 500);
                 }
-                
+
                 throw $e;
             }
-            
+
         } catch (\Exception $e) {
             error_log('Unhandled exception in newFromTicket: ' . $e->getMessage());
             error_log($e->getTraceAsString());
-            
+
             if ($request->isXmlHttpRequest()) {
                 return $this->json([
                     'success' => false,
@@ -183,7 +183,7 @@ class MaintenanceController extends AbstractController
                     'message' => $e->getMessage()
                 ], 500);
             }
-            
+
             throw $e;
         }
     }
@@ -206,17 +206,17 @@ class MaintenanceController extends AbstractController
             'categories' => $categories,
         ]);
     }
-    
+
     #[Route('/calendar', name: 'maintenance_calendar')]
     public function calendar(): Response
     {
         $categories = $this->categoryRepository->findAll();
-        
+
         return $this->render('maintenance/calendar.html.twig', [
             'categories' => $categories,
         ]);
     }
-    
+
     #[Route('/api/calendar/events', name: 'maintenance_calendar_events', methods: ['GET'])]
     public function getCalendarEvents(Request $request): Response
     {
@@ -225,28 +225,28 @@ class MaintenanceController extends AbstractController
         $showCompleted = $request->query->get('showCompleted', 'true') === 'true';
         $priorities = $request->query->get('priorities', '');
         $categoryId = $request->query->get('category');
-        
+
         $category = $categoryId ? $this->categoryRepository->find($categoryId) : null;
-        
+
         $tasks = $this->taskRepository->findTasksForCalendar(
             $start,
             $end,
             $showCompleted,
             $category
         );
-        
+
         $events = [];
         $now = new \DateTime();
-        
+
         foreach ($tasks as $task) {
-            $isOverdue = $task->getStatus() !== 'completed' && 
+            $isOverdue = $task->getStatus() !== 'completed' &&
                          $task->getScheduledDate() < $now;
-            
+
             $events[] = [
                 'id' => $task->getId(),
                 'title' => $task->getTitle(),
                 'start' => $task->getScheduledDate()->format('Y-m-d\TH:i:s'),
-                'end' => $task->getCompletedAt() ? $task->getCompletedAt()->format('Y-m-d\TH:i:s') : 
+                'end' => $task->getCompletedAt() ? $task->getCompletedAt()->format('Y-m-d\TH:i:s') :
                           ($task->getScheduledDate() ? $task->getScheduledDate()->modify('+1 hour')->format('Y-m-d\TH:i:s') : null),
                 'allDay' => false,
                 'color' => '#6c757d',
@@ -260,10 +260,10 @@ class MaintenanceController extends AbstractController
                 ]
             ];
         }
-        
+
         return $this->json($events);
     }
-    
+
 #[Route('/tasks', name: 'maintenance_tasks')]
     public function tasks(Request $request): Response
     {
@@ -307,7 +307,7 @@ class MaintenanceController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             // createdBy not present in entity; omit setting user.
-            
+
             $this->entityManager->persist($task);
             $this->entityManager->flush();
 
@@ -317,7 +317,7 @@ class MaintenanceController extends AbstractController
 
         return $this->render('maintenance/task_form.html.twig', [
             'form' => $form->createView(),
-            'title' => 'Nueva Tarea de Mantenimiento'
+            'title' => 'Mantenimiento Preventivo'
         ]);
     }
 
@@ -325,7 +325,7 @@ class MaintenanceController extends AbstractController
     public function showTask(MaintenanceTask $task): Response
     {
         $logs = $this->logRepository->findByTask($task);
-        
+
         return $this->render('maintenance/tasks/show.html.twig', [
             'task' => $task,
             'logs' => $logs,
@@ -356,11 +356,11 @@ class MaintenanceController extends AbstractController
         $task->setStatus(MaintenanceTask::STATUS_COMPLETED);
         $task->setCompletedAt(new \DateTimeImmutable());
         $task->setCompletedBy($this->getUser());
-        
+
         $this->entityManager->flush();
-        
+
         $this->logRepository->logCompletion($task, $this->getUser());
-        
+
         $this->addFlash('success', 'Tarea marcada como completada.');
         return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
     }
@@ -369,7 +369,7 @@ class MaintenanceController extends AbstractController
     public function categories(): Response
     {
         $categories = $this->categoryRepository->findAll();
-        
+
         return $this->render('maintenance/categories/list.html.twig', [
             'categories' => $categories,
         ]);
@@ -448,7 +448,7 @@ class MaintenanceController extends AbstractController
         // Generate reports data
         $stats = $this->taskRepository->getTaskStats();
         $categories = $this->categoryRepository->findWithTaskCounts();
-        
+
         return $this->render('maintenance/reports/index.html.twig', [
             'stats' => $stats,
             'categories' => $categories,

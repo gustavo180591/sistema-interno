@@ -477,4 +477,33 @@ class Ticket
     {
         return sprintf('Ticket #%s - %s', $this->id, $this->title);
     }
+
+    public function setCreatedAt(\DateTime $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function addUpdate(TicketUpdate $update): static
+    {
+        if (!$this->updates->contains($update)) {
+            $this->updates->add($update);
+            $update->setTicket($this);
+        }
+
+        return $this;
+    }
+
+    public function removeUpdate(TicketUpdate $update): static
+    {
+        if ($this->updates->removeElement($update)) {
+            // set the owning side to null (unless already changed)
+            if ($update->getTicket() === $this) {
+                $update->setTicket(null);
+            }
+        }
+
+        return $this;
+    }
 }

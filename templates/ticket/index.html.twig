@@ -67,31 +67,83 @@
                                             <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
                                             <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
                                             <td>
+                                                {% set statusConfig = {
+                                                    'pending': {
+                                                        'class': 'bg-info bg-opacity-10 text-info border border-info',
+                                                        'icon': 'fa-clock',
+                                                        'text': 'Pendiente',
+                                                        'description': 'El ticket está esperando ser atendido'
+                                                    },
+                                                    'in_progress': {
+                                                        'class': 'bg-warning bg-opacity-10 text-warning border border-warning',
+                                                        'icon': 'fa-spinner fa-spin',
+                                                        'text': 'En progreso',
+                                                        'description': 'El ticket está siendo atendido actualmente'
+                                                    },
+                                                    'completed': {
+                                                        'class': 'bg-success bg-opacity-10 text-success border border-success',
+                                                        'icon': 'fa-check-circle',
+                                                        'text': 'Terminado',
+                                                        'description': 'El ticket ha sido completado exitosamente'
+                                                    },
+                                                    'rejected': {
+                                                        'class': 'bg-danger bg-opacity-10 text-danger border border-danger',
+                                                        'icon': 'fa-times-circle',
+                                                        'text': 'Rechazado',
+                                                        'description': 'El ticket ha sido rechazado'
+                                                    },
+                                                    'delayed': {
+                                                        'class': 'bg-warning bg-opacity-20 text-warning border border-warning',
+                                                        'icon': 'fa-clock',
+                                                        'text': 'Demorado',
+                                                        'description': 'El ticket ha sido retrasado'
+                                                    }
+                                                }[ticket.status] ?? {
+                                                    'class': 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
+                                                    'icon': 'fa-question-circle',
+                                                    'text': 'Desconocido',
+                                                    'description': 'Estado desconocido'
+                                                } %}
+
                                                 {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
-                                                    <form action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}" method="post" class="d-inline" onchange="this.submit()">
-                                                        <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
-                                                        <select name="status" class="form-select form-select-sm" style="width: auto; display: inline-block; height: auto; padding: 0.25rem 0.5rem;">
-                                                            <option value="pending" {{ ticket.status == 'pending' ? 'selected' : '' }} class="text-info">Pendiente</option>
-                                                            <option value="in_progress" {{ ticket.status == 'in_progress' ? 'selected' : '' }} class="text-warning">En progreso</option>
-                                                            <option value="completed" {{ ticket.status == 'completed' ? 'selected' : '' }} class="text-success">Terminado</option>
-                                                            <option value="rejected" {{ ticket.status == 'rejected' ? 'selected' : '' }} class="text-danger">Rechazado</option>
-                                                        </select>
-                                                    </form>
+                                                    <div class="dropdown d-inline-block">
+                                                        <button class="btn btn-sm {{ statusConfig.class }} dropdown-toggle d-flex align-items-center" type="button" id="statusDropdown{{ ticket.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            <i class="fas {{ statusConfig.icon }} me-1"></i>
+                                                            <span>{{ statusConfig.text }}</span>
+                                                        </button>
+                                                        <ul class="dropdown-menu" aria-labelledby="statusDropdown{{ ticket.id }}">
+                                                            <li>
+                                                                <form action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}" method="post" id="statusForm{{ ticket.id }}">
+                                                                    <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
+                                                                    {% for status, config in {
+                                                                        'pending': {'icon': 'fa-clock', 'text': 'Pendiente'},
+                                                                        'in_progress': {'icon': 'fa-spinner', 'text': 'En progreso'},
+                                                                        'completed': {'icon': 'fa-check-circle', 'text': 'Terminado'},
+                                                                        'rejected': {'icon': 'fa-times-circle', 'text': 'Rechazado'},
+                                                                        'delayed': {'icon': 'fa-clock', 'text': 'Demorado'}
+                                                                    } %}
+                                                                        <button type="button" 
+                                                                                class="dropdown-item d-flex align-items-center {{ ticket.status == status ? 'active' : '' }}"
+                                                                                onclick="document.getElementById('statusForm{{ ticket.id }}').elements['status'].value='{{ status }}'; this.form.submit();">
+                                                                            <i class="fas {{ config.icon }} me-2 text-{{ 
+                                                                                status == 'in_progress' ? 'warning' : 
+                                                                                (status == 'pending' ? 'info' : 
+                                                                                (status == 'rejected' ? 'danger' : 
+                                                                                (status == 'completed' ? 'success' : 
+                                                                                (status == 'delayed' ? 'warning' : 'secondary')))) 
+                                                                            }}"></i>
+                                                                            {{ config.text }}
+                                                                        </button>
+                                                                    {% endfor %}
+                                                                    <input type="hidden" name="status" value="">
+                                                                </form>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
                                                 {% else %}
-                                                    <span class="badge bg-{{ 
-                                                        ticket.status == 'in_progress' ? 'warning' : 
-                                                        (ticket.status == 'pending' ? 'info' : 
-                                                        (ticket.status == 'rejected' ? 'danger' : 
-                                                        (ticket.status == 'completed' ? 'success' : 
-                                                        (ticket.status == 'delayed' ? 'warning' : 'secondary')))) 
-                                                    }}">
-                                                        {{ ({
-                                                            'in_progress': 'En progreso',
-                                                            'pending': 'Pendiente',
-                                                            'rejected': 'Rechazado',
-                                                            'completed': 'Terminado',
-                                                            'delayed': 'Demorado'
-                                                        })[ticket.status] }}
+                                                    <span class="badge {{ statusConfig.class }} d-inline-flex align-items-center" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ statusConfig.description }}">
+                                                        <i class="fas {{ statusConfig.icon }} me-1"></i>
+                                                        {{ statusConfig.text }}
                                                     </span>
                                                 {% endif %}
                                             </td>
@@ -210,6 +262,13 @@
 {% block javascripts %}
   {{ parent() }}
   <script>
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    });
     document.addEventListener('DOMContentLoaded', function () {
       var assignModal = document.getElementById('assignTicketModal');
       var assignForm = document.getElementById('assignTicketForm');

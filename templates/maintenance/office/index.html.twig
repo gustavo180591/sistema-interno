@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mantenimiento • Oficinas{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4"><i class="fas fa-building me-2"></i>Oficinas</h1>
+        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+            <a href="{{ path('office_office_new') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Nueva oficina
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-3">
+        {% for office in offices %}
+            {% set institutionalCount = office.machines|filter(m => m.institutional)|length %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-1">{{ office.name }}</h5>
+                        <div class="text-muted mb-2">{{ office.location ?? '—' }}</div>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="badge bg-primary">
+                                {{ institutionalCount }} máquinas institucionales
+                            </span>
+                            <span class="badge bg-secondary">
+                                {{ office.machines|length }} total (incluye personales)
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ path('office_office_show', {id: office.id}) }}" class="btn btn-sm btn-outline-primary">
+                                Ver detalle
+                            </a>
+                            {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                                <a href="{{ path('office_office_edit', {id: office.id}) }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info mb-0">No hay oficinas cargadas.</div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

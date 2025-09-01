@@ -272,4 +272,60 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return trim(($this->nombre ?? '') . ' ' . ($this->apellido ?? '')) ?: ($this->username ?? '');
     }
+
+    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static
+    {
+        $this->updatedAt = $updatedAt;
+
+        return $this;
+    }
+
+    public function getResetToken(): ?string
+    {
+        return $this->resetToken;
+    }
+
+    public function setResetToken(?string $resetToken): static
+    {
+        $this->resetToken = $resetToken;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TicketAssignment>
+     */
+    public function getTicketAssignments(): Collection
+    {
+        return $this->ticketAssignments;
+    }
+
+    public function addTicketAssignment(TicketAssignment $ticketAssignment): static
+    {
+        if (!$this->ticketAssignments->contains($ticketAssignment)) {
+            $this->ticketAssignments->add($ticketAssignment);
+            $ticketAssignment->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTicketAssignment(TicketAssignment $ticketAssignment): static
+    {
+        if ($this->ticketAssignments->removeElement($ticketAssignment)) {
+            // set the owning side to null (unless already changed)
+            if ($ticketAssignment->getUser() === $this) {
+                $ticketAssignment->setUser(null);
+            }
+        }
+
+        return $this;
+    }
 }

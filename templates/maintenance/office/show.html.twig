@@ -1,0 +1,186 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Oficina {{ office.name }}{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h4 mb-0">{{ office.name }}</h1>
+            <div class="text-muted">{{ office.location ?? '—' }}</div>
+        </div>
+        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMachineModal">
+                <i class="fas fa-plus me-1"></i>Agregar máquina
+            </button>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Inventario de máquinas</strong>
+                <span class="ms-2 badge bg-primary">
+                    {{ office.machines|filter(m => m.institutional)|length }} institucionales
+                </span>
+                <span class="ms-1 badge bg-secondary">{{ office.machines|length }} total</span>
+            </div>
+            <a href="{{ path('office_office_index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Volver al listado
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° Inventario</th>
+                            <th>RAM</th>
+                            <th>CPU</th>
+                            <th>Disco</th>
+                            <th>Sistema Operativo</th>
+                            <th>Tipo</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for machine in office.machines %}
+                            <tr>
+                                <td>{{ machine.inventoryNumber }}</td>
+                                <td>{{ machine.ramGb }} GB</td>
+                                <td>{{ machine.cpu ?? '—' }}</td>
+                                <td>{{ machine.disk ?? '—' }}</td>
+                                <td>{{ machine.os ?? '—' }}</td>
+                                <td>
+                                    {% if machine.institutional %}
+                                        <span class="badge bg-success">Institucional</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Personal</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                data-bs-toggle="tooltip" title="Ver detalles"
+                                                data-bs-html="true"
+                                                data-bs-placement="top"
+                                                data-bs-title="<div class='text-start'><strong>Detalles de la máquina</strong></div>"
+                                                data-bs-content="
+                                                    <div class='text-start'>
+                                                        <div class='mb-2'><strong>N° Inventario:</strong> {{ machine.inventoryNumber }}</div>
+                                                        <div class='mb-2'><strong>RAM:</strong> {{ machine.ramGb }} GB</div>
+                                                        {% if machine.cpu %}
+                                                            <div class='mb-2'><strong>CPU:</strong> {{ machine.cpu }}</div>
+                                                        {% endif %}
+                                                        {% if machine.disk %}
+                                                            <div class='mb-2'><strong>Disco:</strong> {{ machine.disk }}</div>
+                                                        {% endif %}
+                                                        {% if machine.os %}
+                                                            <div class='mb-2'><strong>Sistema Operativo:</strong> {{ machine.os }}</div>
+                                                        {% endif %}
+                                                        <div class='mb-2'><strong>Tipo:</strong> {{ machine.institutional ? 'Institucional' : 'Personal' }}</div>
+                                                        <div><strong>Notas:</strong> {{ machine.notes ? machine.notes|nl2br : 'Sin observaciones' }}</div>
+                                                    </div>
+                                                ">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#editMachineModal{{ machine.id }}"
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form method="post" 
+                                                  action="{{ path('office_office_machine_delete', {'id': machine.id}) }}" 
+                                                  onsubmit="return confirm('¿Está seguro de eliminar esta máquina?')">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ machine.id) }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    No hay máquinas registradas en esta oficina.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Agregar Máquina -->
+<div class="modal fade" id="addMachineModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Agregar Máquina</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_start(form, {'attr': {'id': 'machine-form', 'action': path('office_office_show', {'id': office.id}) }}) }}
+                    {{ form_widget(form) }}
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                    </div>
+                {{ form_end(form) }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modales de Edición de Máquinas -->
+{% for machine in office.machines %}
+    <div class="modal fade" id="editMachineModal{{ machine.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Máquina {{ machine.inventoryNumber }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    {{ form_start(edit_forms[machine.id], {
+                        'action': path('office_office_machine_edit', {'id': machine.id}),
+                        'attr': {'id': 'edit-machine-form-' ~ machine.id}
+                    }) }}
+                        {{ form_widget(edit_forms[machine.id]) }}
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                        </div>
+                    {{ form_end(edit_forms[machine.id]) }}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}
+
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Inicializar tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl, {
+                    html: true,
+                    trigger: 'hover',
+                    placement: 'top',
+                    container: 'body',
+                    sanitize: false
+                });
+            });
+        });
+    </script>
+{% endblock %}
