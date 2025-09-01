@@ -13,10 +13,24 @@
         {% endif %}
     </div>
 
-    <div class="row g-3">
+    <!-- Search Box -->
+    <div class="mb-4">
+        <div class="input-group">
+            <span class="input-group-text bg-white border-end-0">
+                <i class="fas fa-search text-muted"></i>
+            </span>
+            <input type="text" 
+                   id="officeSearch" 
+                   class="form-control border-start-0" 
+                   placeholder="Buscar oficina o área..."
+                   style="box-shadow: none; border-left: 0 !important;">
+        </div>
+    </div>
+
+    <div class="row g-3" id="officesContainer">
         {% for office in offices %}
             {% set institutionalCount = office.machines|filter(m => m.institutional)|length %}
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-lg-4 office-card">
                 <div class="card h-100 shadow-sm">
                     <div class="card-body">
                         <h5 class="card-title mb-1">{{ office.name }}</h5>
@@ -51,4 +65,55 @@
         {% endfor %}
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('officeSearch');
+            const officesContainer = document.getElementById('officesContainer');
+            const officeCards = officesContainer.getElementsByClassName('office-card');
+            
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                
+                Array.from(officeCards).forEach(function(card) {
+                    const title = card.querySelector('.card-title').textContent.toLowerCase();
+                    const location = card.querySelector('.text-muted').textContent.toLowerCase();
+                    
+                    if (title.includes(searchTerm) || location.includes(searchTerm)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Add fade-in animation when filtering
+            searchInput.addEventListener('keyup', function() {
+                const visibleCards = Array.from(officeCards).filter(card => card.style.display !== 'none');
+                visibleCards.forEach((card, index) => {
+                    card.style.animation = `fadeIn 0.3s ease ${index * 0.05}s forwards`;
+                    card.style.opacity = 0;
+                });
+            });
+        });
+    </script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .office-card {
+            transition: all 0.3s ease;
+        }
+        #officeSearch:focus {
+            box-shadow: none !important;
+            border-color: #ced4da !important;
+        }
+        .input-group-text {
+            border-right: 0 !important;
+        }
+    </style>
 {% endblock %}

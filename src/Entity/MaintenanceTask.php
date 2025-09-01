@@ -62,6 +62,26 @@ class MaintenanceTask
     #[ORM\Column(type: 'integer', nullable: true)]
     private $actualDuration; // in minutes
 
+    #[ORM\Column(type: 'string', length: 20, nullable: false, options: ['default' => 'normal'])]
+    private $priority = 'normal';
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private $estimatedDuration; // in minutes
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private $attachments = [];
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private $checklist = [];
+
+    #[ORM\ManyToOne(targetEntity: Machine::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private $machine;
+
+    #[ORM\ManyToOne(targetEntity: Office::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private $office;
+
     #[ORM\OneToMany(mappedBy: 'task', targetEntity: MaintenanceLog::class, orphanRemoval: true)]
     private $logs;
 
@@ -70,6 +90,8 @@ class MaintenanceTask
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
         $this->logs = new ArrayCollection();
+        $this->attachments = [];
+        $this->checklist = [];
     }
 
     public function getId(): ?int
@@ -206,6 +228,89 @@ class MaintenanceTask
     public function setActualDuration(?int $actualDuration): self
     {
         $this->actualDuration = $actualDuration;
+        return $this;
+    }
+
+    public function getPriority(): string
+    {
+        return $this->priority;
+    }
+
+    public function setPriority(string $priority): self
+    {
+        $this->priority = $priority;
+        return $this;
+    }
+
+    public function getEstimatedDuration(): ?int
+    {
+        return $this->estimatedDuration;
+    }
+
+    public function setEstimatedDuration(?int $estimatedDuration): self
+    {
+        $this->estimatedDuration = $estimatedDuration;
+        return $this;
+    }
+
+    public function getAttachments(): array
+    {
+        return $this->attachments ?? [];
+    }
+
+    public function setAttachments(array $attachments): self
+    {
+        $this->attachments = $attachments;
+        return $this;
+    }
+
+    public function addAttachment(string $attachment): self
+    {
+        if (!in_array($attachment, $this->attachments, true)) {
+            $this->attachments[] = $attachment;
+        }
+        return $this;
+    }
+
+    public function removeAttachment(string $attachment): self
+    {
+        if (($key = array_search($attachment, $this->attachments, true)) !== false) {
+            unset($this->attachments[$key]);
+            $this->attachments = array_values($this->attachments); // Re-index array
+        }
+        return $this;
+    }
+
+    public function getChecklist(): array
+    {
+        return $this->checklist ?? [];
+    }
+
+    public function setChecklist(array $checklist): self
+    {
+        $this->checklist = $checklist;
+        return $this;
+    }
+
+    public function getMachine(): ?Machine
+    {
+        return $this->machine;
+    }
+
+    public function setMachine(?Machine $machine): self
+    {
+        $this->machine = $machine;
+        return $this;
+    }
+
+    public function getOffice(): ?Office
+    {
+        return $this->office;
+    }
+
+    public function setOffice(?Office $office): self
+    {
+        $this->office = $office;
         return $this;
     }
 

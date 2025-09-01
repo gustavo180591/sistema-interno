@@ -302,22 +302,108 @@ class MaintenanceController extends AbstractController
     public function newTask(Request $request): Response
     {
         $task = new MaintenanceTask();
+        
+        // Set default values
+        $task->setStatus('pending');
+        $task->setScheduledDate(new \DateTimeImmutable('+1 day 09:00'));
+        
+        // Get machine_id from query parameters if present
+        $machineId = $request->query->get('machine_id');
+        $machine = null;
+        
+        if ($machineId) {
+            $machine = $this->entityManager->getRepository(Machine::class)->find($machineId);
+            if ($machine) {
+                $task->setTitle('Mantenimiento preventivo - ' . $machine->getInventoryNumber());
+                $task->setDescription("Mantenimiento preventivo programado para la máquina " . $machine->getInventoryNumber());
+                
+                // Set the office from the machine if available
+                if ($machine->getOffice()) {
+                    $task->setOffice($machine->getOffice());
+                }
+            }
+        }
+        
         $form = $this->createForm(MaintenanceTaskType::class, $task);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // createdBy not present in entity; omit setting user.
-
-            $this->entityManager->persist($task);
-            $this->entityManager->flush();
-
-            $this->addFlash('success', 'Tarea de mantenimiento creada correctamente.');
-            return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
+            try {
+                // Handle file uploads
+                $uploadedFiles = $request->files->get('attachments');
+                $attachments = [];
+                
+                if ($uploadedFiles) {
+                    $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/maintenance';
+                    
+                    // Create directory if it doesn't exist
+                    if (!file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0777, true);
+                    }
+                    
+                    foreach ($uploadedFiles as $uploadedFile) {
+                        if ($uploadedFile) {
+                            $originalFilename = pathinfo($uploadedFile->getClientOriginalName(), PATHINFO_FILENAME);
+                            $newFilename = $originalFilename.'-'.uniqid().'.'.$uploadedFile->guessExtension();
+                            
+                            $uploadedFile->move(
+                                $uploadDir,
+                                $newFilename
+                            );
+                            
+                            $attachments[] = $newFilename;
+                        }
+                    }
+                    
+                    if (!empty($attachments)) {
+                        $task->setAttachments($attachments);
+                    }
+                }
+                
+                // Set additional fields from form
+                $task->setPriority($request->request->get('priority', 'normal'));
+                $task->setEstimatedDuration((int) $request->request->get('estimatedDuration', 0));
+                
+                // Handle checklist
+                $checklist = $request->request->all('checklist');
+                if (!empty($checklist)) {
+                    $task->setChecklist($checklist);
+                }
+                
+                // Set created by user
+                if ($this->getUser()) {
+                    $task->setCreatedBy($this->getUser());
+                }
+                
+                // Set machine if available
+                if ($machine) {
+                    $task->setMachine($machine);
+                }
+                
+                $this->entityManager->persist($task);
+                $this->entityManager->flush();
+                
+                // Log the creation
+                $log = new MaintenanceLog();
+                $log->setTask($task);
+                $log->setUser($this->getUser());
+                $log->setType('status_change');
+                $log->setMessage('Tarea de mantenimiento creada');
+                $this->entityManager->persist($log);
+                $this->entityManager->flush();
+                
+                $this->addFlash('success', 'Tarea de mantenimiento creada correctamente.');
+                return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
+                
+            } catch (\Exception $e) {
+                $this->addFlash('error', 'Error al crear la tarea: ' . $e->getMessage());
+            }
         }
 
-        return $this->render('maintenance/task_form.html.twig', [
+        return $this->render('maintenance/tasks/new.html.twig', [
             'form' => $form->createView(),
-            'title' => 'Mantenimiento Preventivo'
+            'machine' => $machine,
+            'title' => 'Nueva Tarea de Mantenimiento Preventivo'
         ]);
     }
 
