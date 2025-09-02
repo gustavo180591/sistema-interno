@@ -7,6 +7,10 @@ security:
             time_cost: 3  # For Argon2i
             memory_cost: 65536  # For Argon2i
 
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_AUDITOR, ROLE_USER]
+        ROLE_AUDITOR: ROLE_USER
+
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
         app_user_provider:

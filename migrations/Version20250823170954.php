@@ -20,9 +20,10 @@ final class Version20250823170954 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE notification DROP FOREIGN KEY FK_BF5476CA700047D2');
-        $this->addSql('ALTER TABLE notification DROP FOREIGN KEY FK_BF5476CAE92F8F78');
-        $this->addSql('DROP TABLE notification');
+        // Skip notification table operations as it doesn't exist
+        // $this->addSql('ALTER TABLE notification DROP FOREIGN KEY FK_BF5476CA700047D2');
+        // $this->addSql('ALTER TABLE notification DROP FOREIGN KEY FK_BF5476CAE92F8F78');
+        // $this->addSql('DROP TABLE notification');
         $this->addSql('ALTER TABLE ticket ADD proposed_by_id INT DEFAULT NULL, ADD proposed_status VARCHAR(20) DEFAULT NULL, ADD proposal_note LONGTEXT DEFAULT NULL');
         $this->addSql('ALTER TABLE ticket ADD CONSTRAINT FK_97A0ADA3DAB5A938 FOREIGN KEY (proposed_by_id) REFERENCES `user` (id)');
         $this->addSql('CREATE INDEX IDX_97A0ADA3DAB5A938 ON ticket (proposed_by_id)');

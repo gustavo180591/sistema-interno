@@ -39,6 +39,9 @@ class Ticket
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_PENDING;
 
+    #[ORM\Column(length: 20)]
+    private string $priority = 'medium';
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $createdBy = null;
@@ -225,6 +228,16 @@ class Ticket
         return $this;
     }
 
+    public function getPriority(): string
+    {
+        return $this->priority;
+    }
+
+    public function setPriority(string $priority): self
+    {
+        $this->priority = $priority;
+        return $this;
+    }
 
     public function getCreatedBy(): ?User
     {
