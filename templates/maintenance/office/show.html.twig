@@ -60,7 +60,7 @@
                                 </td>
                                 <td>
                                     <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="tooltip" title="Ver detalles"
                                                 data-bs-html="true"
                                                 data-bs-placement="top"
@@ -84,18 +84,18 @@
                                                 ">
                                             <i class="fas fa-info-circle"></i>
                                         </button>
-                                        <a href="{{ path('maintenance_maintenance_task_new') }}?machine_id={{ machine.id }}" class="btn btn-sm btn-warning" title="Realizar mantenimiento">
+                                        <a href="{{ path('maintenance_maintenance_task_new', { machine_id: machine.id, date: 'now'|date('Y-m-d') }) }}" class="btn btn-sm btn-warning" title="Realizar mantenimiento">
                                             <i class="fas fa-tools"></i>
                                         </a>
                                         {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    data-bs-toggle="modal" 
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal"
                                                     data-bs-target="#editMachineModal{{ machine.id }}"
                                                     title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <form method="post" 
-                                                  action="{{ path('office_office_machine_delete', {'id': machine.id}) }}" 
+                                            <form method="post"
+                                                  action="{{ path('office_office_machine_delete', {'id': machine.id}) }}"
                                                   onsubmit="return confirm('¿Está seguro de eliminar esta máquina?')">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ machine.id) }}">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">

@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\MaintenanceCategory;
 use App\Entity\MaintenanceTask;
 use App\Entity\MaintenanceLog;
+use App\Entity\Machine;
 use App\Form\MaintenanceTaskType;
 use App\Form\MaintenanceCategoryType;
 use App\Repository\MaintenanceCategoryRepository;
@@ -155,7 +156,7 @@ class MaintenanceController extends AbstractController
                 ]);
 
                 $this->addFlash('success', 'La tarea ha sido programada exitosamente.');
-                return $this->redirectToRoute('maintenance_calendar');
+                return $this->redirectToRoute('maintenance_maintenance_calendar');
 
             } catch (\Exception $e) {
                 error_log('Error creating task: ' . $e->getMessage());
@@ -393,7 +394,7 @@ class MaintenanceController extends AbstractController
                 $this->entityManager->flush();
                 
                 $this->addFlash('success', 'Tarea de mantenimiento creada correctamente.');
-                return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
+                return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
                 
             } catch (\Exception $e) {
                 $this->addFlash('error', 'Error al crear la tarea: ' . $e->getMessage());
@@ -418,6 +419,19 @@ class MaintenanceController extends AbstractController
         ]);
     }
 
+    #[Route('/tasks/{id}/comment', name: 'maintenance_task_comment', methods: ['POST'])]
+    public function commentTask(Request $request, MaintenanceTask $task): Response
+    {
+        $comment = trim((string) $request->request->get('comment', ''));
+        if ($comment !== '') {
+            $this->logRepository->addComment($task, $comment, $this->getUser());
+        } else {
+            $this->addFlash('error', 'El comentario no puede estar vacío.');
+        }
+
+        return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
+    }
+
     #[Route('/tasks/{id}/edit', name: 'maintenance_task_edit')]
     public function editTask(Request $request, MaintenanceTask $task): Response
     {
@@ -427,7 +441,7 @@ class MaintenanceController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->flush();
             $this->addFlash('success', 'Tarea actualizada correctamente.');
-            return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
+            return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
         }
 
         return $this->render('maintenance/tasks/edit.html.twig', [
@@ -448,7 +462,7 @@ class MaintenanceController extends AbstractController
         $this->logRepository->logCompletion($task, $this->getUser());
 
         $this->addFlash('success', 'Tarea marcada como completada.');
-        return $this->redirectToRoute('maintenance_task_show', ['id' => $task->getId()]);
+        return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
     }
 
     #[Route('/categories', name: 'maintenance_categories')]
@@ -473,7 +487,7 @@ class MaintenanceController extends AbstractController
             $this->entityManager->flush();
 
             $this->addFlash('success', 'Categoría creada correctamente.');
-            return $this->redirectToRoute('maintenance_categories');
+            return $this->redirectToRoute('maintenance_maintenance_categories');
         }
 
         return $this->render('maintenance/categories/new.html.twig', [
@@ -490,7 +504,7 @@ class MaintenanceController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->entityManager->flush();
             $this->addFlash('success', 'Categoría actualizada correctamente.');
-            return $this->redirectToRoute('maintenance_categories');
+            return $this->redirectToRoute('maintenance_maintenance_categories');
         }
 
         return $this->render('maintenance/categories/edit.html.twig', [
@@ -506,7 +520,7 @@ class MaintenanceController extends AbstractController
             // Check if category has associated tasks
             if ($category->getTasks()->count() > 0) {
                 $this->addFlash('error', 'No se puede eliminar la categoría porque tiene tareas asociadas. Primero debe eliminar o reasignar las tareas.');
-                return $this->redirectToRoute('maintenance_categories');
+                return $this->redirectToRoute('maintenance_maintenance_categories');
             }
 
             $this->entityManager->remove($category);
@@ -517,7 +531,7 @@ class MaintenanceController extends AbstractController
             $this->addFlash('error', 'Error al eliminar la categoría: ' . $e->getMessage());
         }
 
-        return $this->redirectToRoute('maintenance_categories');
+        return $this->redirectToRoute('maintenance_maintenance_categories');
     }
 
     #[Route('/tasks/{id}/details', name: 'maintenance_task_details', methods: ['GET'])]
@@ -526,6 +540,57 @@ class MaintenanceController extends AbstractController
         return $this->render('maintenance/tasks/_task_details.html.twig', [
             'task' => $task,
         ]);
+    }
+
+    #[Route('/tasks/{id}/delete', name: 'maintenance_task_delete', methods: ['POST', 'DELETE'])]
+    public function deleteTask(Request $request, MaintenanceTask $task): Response
+    {
+        $submittedToken = (string) $request->request->get('_token', '');
+        if (!$this->isCsrfTokenValid('delete' . $task->getId(), $submittedToken)) {
+            $this->addFlash('error', 'Token CSRF inválido.');
+            return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
+        }
+
+        try {
+            $this->entityManager->remove($task);
+            $this->entityManager->flush();
+
+            $this->addFlash('success', 'Tarea eliminada correctamente.');
+        } catch (\Exception $e) {
+            $this->addFlash('error', 'No se pudo eliminar la tarea: ' . $e->getMessage());
+            return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
+        }
+
+        return $this->redirectToRoute('maintenance_maintenance_tasks');
+    }
+
+    #[Route('/tasks/{id}/reopen', name: 'maintenance_task_reopen', methods: ['POST'])]
+    public function reopenTask(Request $request, MaintenanceTask $task): Response
+    {
+        $newStatus = (string) $request->request->get('status', MaintenanceTask::STATUS_PENDING);
+        $newDateStr = (string) $request->request->get('scheduledDate', '');
+
+        // Parse new date
+        $newDate = null;
+        if ($newDateStr !== '') {
+            $newDate = \DateTime::createFromFormat('Y-m-d\TH:i', $newDateStr) ?: new \DateTime($newDateStr);
+        }
+
+        $oldStatus = $task->getStatus();
+        $task->setStatus($newStatus);
+        if ($newDate instanceof \DateTimeInterface) {
+            $task->setScheduledDate(\DateTimeImmutable::createFromMutable($newDate));
+        }
+        $task->setCompletedAt(null);
+        $task->setCompletedBy(null);
+
+        $this->entityManager->flush();
+
+        // Log status change
+        $this->logRepository->logStatusChange($task, $oldStatus, $newStatus, $this->getUser());
+
+        $this->addFlash('success', 'Tarea reabierta correctamente.');
+        return $this->redirectToRoute('maintenance_maintenance_task_show', ['id' => $task->getId()]);
     }
 
     #[Route('/reports', name: 'maintenance_reports')]

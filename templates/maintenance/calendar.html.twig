@@ -442,27 +442,43 @@
             function initCalendar() {
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     dateClick: function(info) {
-                        // Get the selected date and time
-                        const clickedDate = new Date(info.date);
-                        const formattedDate = clickedDate.toISOString().split('T')[0];
-                        const formattedTime = clickedDate.toTimeString().substring(0, 5);
-
-                        // Set the date and time in the form
+                        // Prevent default behavior
+                        info.jsEvent.preventDefault();
+                        
+                        // Get the clicked date
+                        const clickedDate = info.date;
+                        
+                        // Format date as YYYY-MM-DD
+                        const y = clickedDate.getFullYear();
+                        const m = String(clickedDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(clickedDate.getDate()).padStart(2, '0');
+                        const formattedDate = `${y}-${m}-${d}`;
+                        
+                        // Set date and default time (09:00)
                         document.getElementById('taskDate').value = formattedDate;
-                        document.getElementById('taskTime').value = formattedTime;
-
-                        // Update hidden fields
-                        updateScheduledDateTime();
-
-                        // Set the modal title with the selected date
+                        document.getElementById('taskTime').value = '09:00';
+                        
+                        // Update the hidden datetime field
+                        if (typeof updateScheduledDateTime === 'function') {
+                            updateScheduledDateTime();
+                        }
+                        
+                        // Format date for display
                         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                         const formattedDateText = clickedDate.toLocaleDateString('es-ES', options);
-                        document.getElementById('newTaskFromTicketModalLabel').textContent = `Agendar para ${formattedDateText}`;
-
-                        // Reset and show the modal
-                        document.getElementById('newTaskFromTicketForm').reset();
-                        const modal = new bootstrap.Modal(document.getElementById('newTaskFromTicketModal'));
-                        modal.show();
+                        
+                        // Update modal title
+                        const modalTitle = document.getElementById('newTaskFromTicketModalLabel');
+                        if (modalTitle) {
+                            modalTitle.textContent = `Agendar para ${formattedDateText}`;
+                        }
+                        
+                        // Show the modal
+                        const modalElement = document.getElementById('newTaskFromTicketModal');
+                        if (modalElement) {
+                            const modal = new bootstrap.Modal(modalElement);
+                            modal.show();
+                        }
                     },
                     locale: 'es',
                     firstDay: 1, // Monday

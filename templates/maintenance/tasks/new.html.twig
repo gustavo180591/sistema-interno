@@ -35,43 +35,43 @@
                 <div class="card border-0 mb-4">
                     <div class="card-body">
                         {{ form_row(form.title, {
-                            label: 'Título',
-                            attr: { placeholder: 'Ej: Revisión mensual equipo Oficina 3', class: 'form-control-lg' }
+                            'label': 'Título',
+                            'attr': { 'placeholder': 'Ej: Revisión mensual equipo Oficina 3', 'class': 'form-control-lg' }
                         }) }}
 
                         {{ form_row(form.description, {
-                            label: 'Descripción',
-                            attr: { rows: 4, placeholder: 'Detalle de tareas, contexto, observaciones…' }
+                            'label': 'Descripción',
+                            'attr': { 'rows': 4, 'placeholder': 'Detalle de tareas, contexto, observaciones…' }
                         }) }}
 
                         <div class="row g-3">
                             <div class="col-md-6">
                                 {{ form_row(form.category, {
-                                    label: 'Categoría',
-                                    placeholder: 'Seleccione una categoría'
-                                }) }
+                                    'label': 'Categoría',
+                                    'placeholder': 'Seleccione una categoría'
+                                }) }}
                             </div>
                             <div class="col-md-6">
                                 {{ form_row(form.assignedTo, {
-                                    label: 'Asignar a',
-                                    placeholder: 'Seleccione un usuario',
-                                    required: false
-                                }) }
+                                    'label': 'Asignar a',
+                                    'placeholder': 'Seleccione un usuario',
+                                    'required': false
+                                }) }}
                             </div>
                         </div>
 
                         <div class="row g-3 mt-1">
                             <div class="col-md-6">
                                 {{ form_row(form.status, {
-                                    label: 'Estado',
-                                    placeholder: 'Seleccione un estado'
-                                }) }
+                                    'label': 'Estado',
+                                    'placeholder': 'Seleccione un estado'
+                                }) }}
                             </div>
                             <div class="col-md-6">
                                 {{ form_row(form.scheduledDate, {
-                                    label: 'Fecha Programada',
-                                    attr: {
-                                        class: 'js-datetime-picker',
+                                    'label': 'Fecha Programada',
+                                    'attr': {
+                                        'class': 'js-datetime-picker',
                                         'data-enable-time': 'true',
                                         'data-date-format': 'Y-m-d H:i',
                                         'data-alt-input': 'true',
@@ -250,74 +250,21 @@
             </div>
         </div>
 
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Crear Tarea
+                    </button>
+                </div>
+            </div>
+        </div>
         {{ form_end(form) }}
     </div>
 </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                {{ form_row(form.scheduledDate, {
-                                    'label': 'Fecha Programada',
-                                    'attr': {
-                                        'class': 'js-datetime-picker',
-                                        'data-enable-time': 'true',
-                                        'data-date-format': 'Y-m-d H:i',
-                                        'data-alt-input': 'true',
-                                        'data-alt-format': 'd/m/Y H:i',
-                                        'data-time_24hr': 'true',
-                                        'data-min-date': 'today'
-                                    }
-                                }) }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-md-4">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body">
-                                <h6 class="card-title text-muted">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Información de la Tarea
-                                </h6>
-
-                                <div class="mb-3">
-                                    <small class="text-muted">
-                                        <strong>Estado:</strong> La tarea se creará con estado "Pendiente" por defecto.
-                                    </small>
-                                </div>
-
-
-                                <div class="mb-3">
-                                    <small class="text-muted">
-                                        <strong>Fecha Programada:</strong> Establezca cuándo debe realizarse la tarea.
-                                    </small>
-                                </div>
-
-                                <div class="mb-3">
-                                    <small class="text-muted">
-                                        <strong>Duración:</strong> Tiempo estimado para completar la tarea.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between">
-                            <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-outline-secondary">
-                                <i class="fas fa-times me-1"></i> Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save me-1"></i> Crear Tarea
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            {{ form_end(form) }}
         </div>
     </div>
 {% endblock %}
@@ -374,18 +321,18 @@
             // Actualizar barra de progreso
             function updateProgress() {
                 if (!items.length || !progressBar || !counter) return;
-                
+
                 const total = items.length;
                 const checked = Array.from(items).filter(i => i.checked).length;
                 const pct = Math.round((checked / total) * 100);
 
                 progressBar.style.width = pct + '%';
                 progressBar.setAttribute('aria-valuenow', pct);
-                
+
                 // Actualizar clases de estilo
                 progressBar.classList.remove('bg-success', 'bg-warning');
                 progressBar.classList.add(pct === 100 ? 'bg-success' : 'bg-warning');
-                
+
                 // Actualizar contador
                 counter.textContent = `${checked} / ${total}`;
 

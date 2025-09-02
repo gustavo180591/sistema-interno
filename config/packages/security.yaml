@@ -68,7 +68,27 @@ security:
         - { path: ^/_wdt, roles: PUBLIC_ACCESS }
         - { path: ^/_profiler, roles: PUBLIC_ACCESS }
         
-        # Protected routes
+        # Maintenance routes accessible by all authenticated users
+        - { path: ^/admin/maintenance/calendar, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/task, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/tasks, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/task/new, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/tasks/new, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/task/create, roles: ROLE_USER, methods: [POST] }
+        - { path: ^/admin/maintenance/tasks/create, roles: ROLE_USER, methods: [POST] }
+        - { path: ^/admin/maintenance/task/\d+/edit, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/tasks/\d+/edit, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/task/\d+/complete, roles: ROLE_USER, methods: [POST] }
+        - { path: ^/admin/maintenance/tasks/\d+/complete, roles: ROLE_USER, methods: [POST] }
+        - { path: ^/admin/maintenance/task/\d+/details, roles: ROLE_USER }
+        - { path: ^/admin/maintenance/tasks/\d+/details, roles: ROLE_USER }
+        
+        # Other maintenance routes (admin/auditor only)
+        - { path: ^/admin/maintenance/categories, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        - { path: ^/admin/maintenance/reports, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        - { path: ^/admin/maintenance/settings, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        
+        # Catch-all for other maintenance routes
         - { path: ^/admin/maintenance, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
         - { path: ^/admin/user, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
         - { path: ^/admin, roles: ROLE_ADMIN }

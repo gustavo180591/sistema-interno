@@ -13,9 +13,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
-#[Route('/offices', name: 'office_')]
+#[Route('', name: 'office_')]
 class OfficeController extends AbstractController
 {
+    #[Route('', name: 'index', methods: ['GET'])]
     #[Route('/', name: 'index', methods: ['GET'])]
     public function index(OfficeRepository $officeRepository): Response
     {

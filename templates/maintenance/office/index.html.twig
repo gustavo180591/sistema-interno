@@ -2,10 +2,41 @@
 
 {% block title %}Mantenimiento • Oficinas{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .office-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .office-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
+        }
+        .machine-stats {
+            font-size: 0.85rem;
+        }
+        .stat-icon {
+            width: 24px;
+            text-align: center;
+            margin-right: 5px;
+            color: #6c757d;
+        }
+        .no-results {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4"><i class="fas fa-building me-2"></i>Oficinas</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="fas fa-building me-2 text-primary"></i>Oficinas</h1>
+            <p class="text-muted mb-0">Gestión de ubicaciones y equipos</p>
+        </div>
         {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
             <a href="{{ path('office_office_new') }}" class="btn btn-primary">
                 <i class="fas fa-plus me-1"></i>Nueva oficina
@@ -13,57 +44,194 @@
         {% endif %}
     </div>
 
-    <!-- Search Box -->
-    <div class="mb-4">
-        <div class="input-group">
-            <span class="input-group-text bg-white border-end-0">
-                <i class="fas fa-search text-muted"></i>
-            </span>
-            <input type="text" 
-                   id="officeSearch" 
-                   class="form-control border-start-0" 
-                   placeholder="Buscar oficina o área..."
-                   style="box-shadow: none; border-left: 0 !important;">
-        </div>
-    </div>
-
-    <div class="row g-3" id="officesContainer">
-        {% for office in offices %}
-            {% set institutionalCount = office.machines|filter(m => m.institutional)|length %}
-            <div class="col-md-6 col-lg-4 office-card">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title mb-1">{{ office.name }}</h5>
-                        <div class="text-muted mb-2">{{ office.location ?? '—' }}</div>
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="badge bg-primary">
-                                {{ institutionalCount }} máquinas institucionales
-                            </span>
-                            <span class="badge bg-secondary">
-                                {{ office.machines|length }} total (incluye personales)
-                            </span>
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Oficinas registradas</h6>
+                            <h4 class="mb-0">{{ offices|length }}</h4>
                         </div>
-                    </div>
-                    <div class="card-footer bg-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="{{ path('office_office_show', {id: office.id}) }}" class="btn btn-sm btn-outline-primary">
-                                Ver detalle
-                            </a>
-                            {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
-                                <a href="{{ path('office_office_edit', {id: office.id}) }}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                            {% endif %}
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-building text-primary"></i>
                         </div>
                     </div>
                 </div>
             </div>
-        {% else %}
-            <div class="col-12">
-                <div class="alert alert-info mb-0">No hay oficinas cargadas.</div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total equipos</h6>
+                            <h4 class="mb-0">{{ offices|reduce((total, office) => total + office.machines|length, 0) }}</h4>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-desktop text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Equipos institucionales</h6>
+                            <h4 class="mb-0">{{ offices|reduce((total, office) => total + office.machines|filter(m => m.institutional)|length, 0) }}</h4>
+                        </div>
+                        <div class="bg-info bg-opacity-10 p-3 rounded-circle">
+                            <i class="fas fa-laptop-house text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" 
+                       id="officeSearch" 
+                       class="form-control border-start-0" 
+                       placeholder="Buscar oficina, ubicación o equipo..."
+                       style="box-shadow: none; border-left: 0 !important;">
+                <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingIndicator" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-2 text-muted">Cargando oficinas...</p>
+    </div>
+
+    <div class="row g-4" id="officesContainer" style="display: none;">
+        {% for office in offices %}
+            {% set institutionalCount = office.machines|filter(m => m.institutional)|length %}
+            {% set personalCount = office.machines|length - institutionalCount %}
+            <div class="col-md-6 col-xl-4 office-card">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    <i class="fas fa-building text-primary me-2"></i>{{ office.name }}
+                                </h5>
+                                {% if office.location %}
+                                    <p class="text-muted mb-2">
+                                        <i class="fas fa-map-marker-alt me-1"></i>{{ office.location }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary rounded-circle" type="button" 
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('office_office_show', {id: office.id}) }}">
+                                            <i class="fas fa-eye me-2"></i>Ver detalles
+                                        </a>
+                                    </li>
+                                    {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                                    <li>
+                                        <a class="dropdown-item" href="{{ path('office_office_edit', {id: office.id}) }}">
+                                            <i class="fas fa-edit me-2"></i>Editar
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="machine-stats mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="stat-icon">
+                                    <i class="fas fa-laptop-house"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Institucionales</span>
+                                        <strong>{{ institutionalCount }}</strong>
+                                    </div>
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar bg-primary" role="progressbar" 
+                                             style="width: {{ office.machines|length > 0 ? (institutionalCount / office.machines|length * 100) : 0 }}%" 
+                                             aria-valuenow="{{ institutionalCount }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="{{ office.machines|length }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <div class="stat-icon">
+                                    <i class="fas fa-user-tie"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Personales</span>
+                                        <strong>{{ personalCount }}</strong>
+                                    </div>
+                                    <div class="progress" style="height: 4px;">
+                                        <div class="progress-bar bg-secondary" role="progressbar" 
+                                             style="width: {{ office.machines|length > 0 ? (personalCount / office.machines|length * 100) : 0 }}%" 
+                                             aria-valuenow="{{ personalCount }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="{{ office.machines|length }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ path('office_office_show', {id: office.id}) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>Ver detalle
+                            </a>
+                            <div class="d-flex align-items-center">
+                                {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                                    <a href="{{ path('office_office_edit', {id: office.id}) }}" class="btn btn-sm btn-outline-secondary me-2">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                {% endif %}
+                                <span class="badge bg-light text-dark me-2">
+                                    <i class="fas fa-microchip me-1"></i>{{ office.machines|map(m => m.cpu ? 1 : 0)|reduce((a, b) => a + b, 0) }}
+                                </span>
+                                <span class="badge bg-light text-dark">
+                                    <i class="fas fa-memory me-1"></i>{{ office.machines|map(m => m.ramGb)|reduce((a, b) => a + b, 0) }}GB
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         {% endfor %}
     </div>
+</div>
+
+<div class="no-results" id="noResults">
+    <div class="mb-3">
+        <i class="fas fa-search fa-3x text-muted"></i>
+    </div>
+    <h5>No se encontraron oficinas</h5>
+    <p class="text-muted">Intenta con otro término de búsqueda</p>
 </div>
 {% endblock %}
 
@@ -72,32 +240,88 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('officeSearch');
+            const clearSearchBtn = document.getElementById('clearSearch');
             const officesContainer = document.getElementById('officesContainer');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const noResults = document.getElementById('noResults');
+
+            // Hide loading indicator and show content after page loads
+            setTimeout(() => {
+                loadingIndicator.style.display = 'none';
+                officesContainer.style.display = 'flex';
+            }, 500);
+
+            // Clear search
+            clearSearchBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                filterOffices('');
+                this.blur();
+            });
+
+            // Toggle clear button
+            searchInput.addEventListener('input', function() {
+                clearSearchBtn.style.display = this.value ? 'block' : 'none';
+            });
+
+            // Initial hide of clear button
+            clearSearchBtn.style.display = 'none';
             const officeCards = officesContainer.getElementsByClassName('office-card');
             
-            searchInput.addEventListener('input', function(e) {
-                const searchTerm = e.target.value.toLowerCase();
-                
-                Array.from(officeCards).forEach(function(card) {
-                    const title = card.querySelector('.card-title').textContent.toLowerCase();
-                    const location = card.querySelector('.text-muted').textContent.toLowerCase();
-                    
-                    if (title.includes(searchTerm) || location.includes(searchTerm)) {
+            // Search functionality
+            searchInput.addEventListener('keyup', function(e) {
+                filterOffices(this.value.toLowerCase());
+            });
+
+            function filterOffices(searchTerm) {
+                const officeCards = document.querySelectorAll('.office-card');
+                let hasResults = false;
+                let visibleCount = 0;
+
+                officeCards.forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    if (searchTerm === '' || text.includes(searchTerm)) {
                         card.style.display = '';
+                        hasResults = true;
+                        visibleCount++;
                     } else {
                         card.style.display = 'none';
                     }
                 });
-            });
-            
-            // Add fade-in animation when filtering
-            searchInput.addEventListener('keyup', function() {
-                const visibleCards = Array.from(officeCards).filter(card => card.style.display !== 'none');
-                visibleCards.forEach((card, index) => {
-                    card.style.animation = `fadeIn 0.3s ease ${index * 0.05}s forwards`;
-                    card.style.opacity = 0;
-                });
-            });
+
+                // Show/hide no results message
+                noResults.style.display = !hasResults && searchTerm !== '' ? 'block' : 'none';
+                
+                // If no search term, ensure no results is hidden
+                if (searchTerm === '') {
+                    noResults.style.display = 'none';
+                }
+
+                // Show loading animation when searching
+                if (searchTerm) {
+                    officesContainer.style.opacity = '0.7';
+                    setTimeout(() => {
+                        officesContainer.style.opacity = '1';
+                    }, 200);
+                }
+
+                // Update URL with search term
+                const url = new URL(window.location);
+                if (searchTerm) {
+                    url.searchParams.set('q', searchTerm);
+                } else {
+                    url.searchParams.delete('q');
+                }
+                window.history.pushState({}, '', url);
+            }
+
+            // Check for search term in URL on load
+            const urlParams = new URLSearchParams(window.location.search);
+            const searchTerm = urlParams.get('q');
+            if (searchTerm) {
+                searchInput.value = searchTerm;
+                clearSearchBtn.style.display = 'block';
+                filterOffices(searchTerm);
+            }
         });
     </script>
     <style>
