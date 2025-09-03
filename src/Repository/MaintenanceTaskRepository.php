@@ -221,30 +221,124 @@ if (!empty($filters['category'])) {
         return $qb->getQuery()->getResult();
     }
 
-    public function getTaskStats()
+    public function getTaskStats(\DateTimeInterface $startDate = null, \DateTimeInterface $endDate = null): array
     {
         $conn = $this->getEntityManager()->getConnection();
         
-        $sql = '
-            SELECT 
+        // Set default date range to last 30 days if not specified
+        $now = new \DateTime();
+        $startDate = $startDate ?? (clone $now)->modify('-30 days');
+        $endDate = $endDate ?? $now;
+        
+        // Base statistics query
+        $sql = 'SELECT 
                 COUNT(*) as total_tasks,
                 SUM(CASE WHEN status = :pending THEN 1 ELSE 0 END) as pending_tasks,
                 SUM(CASE WHEN status = :in_progress THEN 1 ELSE 0 END) as in_progress_tasks,
                 SUM(CASE WHEN status = :completed THEN 1 ELSE 0 END) as completed_tasks,
-                SUM(CASE WHEN status = :overdue OR (status = :pending2 AND scheduled_date < :now) THEN 1 ELSE 0 END) as overdue_tasks
+                SUM(CASE WHEN status = :overdue OR (status = :pending2 AND scheduled_date < :now) THEN 1 ELSE 0 END) as overdue_tasks,
+                COUNT(DISTINCT assigned_to_id) as active_users,
+                AVG(TIMESTAMPDIFF(HOUR, created_at, completed_at)) as avg_completion_hours
             FROM maintenance_task
-        ';
+            WHERE created_at BETWEEN :start_date AND :end_date';
         
         $stmt = $conn->prepare($sql);
-        $result = $stmt->executeQuery([
+        $baseStats = $stmt->executeQuery([
             'pending' => MaintenanceTask::STATUS_PENDING,
             'in_progress' => MaintenanceTask::STATUS_IN_PROGRESS,
             'completed' => MaintenanceTask::STATUS_COMPLETED,
             'overdue' => MaintenanceTask::STATUS_OVERDUE,
             'pending2' => MaintenanceTask::STATUS_PENDING,
-            'now' => (new \DateTime())->format('Y-m-d H:i:s')
-        ]);
+            'now' => $now->format('Y-m-d H:i:s'),
+            'start_date' => $startDate->format('Y-m-d 00:00:00'),
+            'end_date' => $endDate->format('Y-m-d 23:59:59')
+        ])->fetchAssociative();
         
-        return $result->fetchAssociative();
+        // Get category distribution
+        $categorySql = 'SELECT 
+                c.name as category_name,
+                COUNT(t.id) as task_count,
+                ROUND(COUNT(t.id) * 100.0 / (SELECT COUNT(*) FROM maintenance_task WHERE created_at BETWEEN :start_date AND :end_date), 1) as percentage
+            FROM maintenance_task t
+            LEFT JOIN maintenance_category c ON t.category_id = c.id
+            WHERE t.created_at BETWEEN :start_date AND :end_date
+            GROUP BY c.id, c.name
+            ORDER BY task_count DESC';
+            
+        $categoryStats = $conn->executeQuery($categorySql, [
+            'start_date' => $startDate->format('Y-m-d 00:00:00'),
+            'end_date' => $endDate->format('Y-m-d 23:59:59')
+        ])->fetchAllAssociative();
+        
+        // Get status trend (last 7 days)
+        $trendStart = (clone $endDate)->modify('-6 days');
+        $trendSql = 'SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = :completed THEN 1 ELSE 0 END) as completed
+            FROM maintenance_task
+            WHERE created_at BETWEEN :trend_start AND :end_date
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC';
+            
+        $trendStats = $conn->executeQuery($trendSql, [
+            'completed' => MaintenanceTask::STATUS_COMPLETED,
+            'trend_start' => $trendStart->format('Y-m-d 00:00:00'),
+            'end_date' => $endDate->format('Y-m-d 23:59:59')
+        ])->fetchAllAssociative();
+        
+        // Calculate completion rate
+        $completionRate = $baseStats['total_tasks'] > 0 
+            ? round(($baseStats['completed_tasks'] / $baseStats['total_tasks']) * 100, 1)
+            : 0;
+            
+        return [
+            'overview' => [
+                'total_tasks' => (int)($baseStats['total_tasks'] ?? 0),
+                'pending_tasks' => (int)($baseStats['pending_tasks'] ?? 0),
+                'in_progress_tasks' => (int)($baseStats['in_progress_tasks'] ?? 0),
+                'completed_tasks' => (int)($baseStats['completed_tasks'] ?? 0),
+                'overdue_tasks' => (int)($baseStats['overdue_tasks'] ?? 0),
+                'active_users' => (int)($baseStats['active_users'] ?? 0),
+                'avg_completion_hours' => round($baseStats['avg_completion_hours'] ?? 0, 1),
+                'completion_rate' => $completionRate,
+                'date_range' => [
+                    'start' => $startDate->format('Y-m-d'),
+                    'end' => $endDate->format('Y-m-d')
+                ]
+            ],
+            'categories' => $categoryStats,
+            'trends' => $this->fillMissingDates($trendStats, $trendStart, $endDate)
+        ];
+    }
+    
+    private function fillMissingDates(array $data, \DateTimeInterface $startDate, \DateTimeInterface $endDate): array
+    {
+        $result = [];
+        $period = new \DatePeriod(
+            $startDate,
+            new \DateInterval('P1D'),
+            $endDate
+        );
+        
+        $dataByDate = [];
+        foreach ($data as $row) {
+            $dataByDate[$row['date']] = $row;
+        }
+        
+        foreach ($period as $date) {
+            $dateStr = $date->format('Y-m-d');
+            if (isset($dataByDate[$dateStr])) {
+                $result[] = $dataByDate[$dateStr];
+            } else {
+                $result[] = [
+                    'date' => $dateStr,
+                    'total' => 0,
+                    'completed' => 0
+                ];
+            }
+        }
+        
+        return $result;
     }
 }

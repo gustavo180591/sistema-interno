@@ -1,0 +1,320 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rendimiento de Personal{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .kpi-card .display-6 { font-weight: 600; }
+        .avatar-sm { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #e9ecef; }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0"><i class="fas fa-chart-line me-2 text-warning"></i>Rendimiento de Personal</h1>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form id="filtersForm" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" name="from" value="{{ default_from }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" name="to" value="{{ default_to }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Estado</label>
+                <select class="form-select" name="status[]" multiple>
+                    <option value="pending">Pendiente</option>
+                    <option value="in_progress">En Progreso</option>
+                    <option value="completed">Completada</option>
+                    <option value="overdue">Atrasada</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Usuario</label>
+                <select class="form-select" name="users[]" multiple>
+                    {% for u in users %}
+                        <option value="{{ u.id }}">{{ u.nombre ?? u.username ?? u.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Aplicar</button>
+                <button type="button" id="resetBtn" class="btn btn-outline-secondary">Restablecer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="text-muted small">Tareas completadas</div>
+                <div class="display-6" id="kpiCompleted">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="text-muted small">Promedio por tarea</div>
+                <div class="display-6" id="kpiAvg">0 min</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="text-muted small">Efectividad</div>
+                <div class="display-6" id="kpiEffectiveness">0%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="text-muted small">En curso / Pendientes</div>
+                <div class="display-6"><span id="kpiInProgress">0</span> / <span id="kpiPending">0</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <div class="text-muted small">Empleado del mes</div>
+            <div class="h5 mb-0" id="employeeOfMonth">-</div>
+        </div>
+        <div class="avatar-sm"><i class="fas fa-medal text-warning"></i></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-white">Tareas completadas por usuario</div>
+            <div class="card-body">
+                <canvas id="barChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header bg-white">Tiempo promedio (líneas)</div>
+            <div class="card-body">
+                <canvas id="lineChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header bg-white">Detalle por usuario</div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="performanceTable">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th class="text-center">Tareas</th>
+                    <th class="text-center">Tickets</th>
+                    <th class="text-center">Rendimiento</th>
+                    <th class="text-center">Detalle</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const form = document.getElementById('filtersForm');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const kpiCompleted = document.getElementById('kpiCompleted');
+    const kpiAvg = document.getElementById('kpiAvg');
+    const kpiEffectiveness = document.getElementById('kpiEffectiveness');
+    const kpiInProgress = document.getElementById('kpiInProgress');
+    const kpiPending = document.getElementById('kpiPending');
+    const employeeOfMonth = document.getElementById('employeeOfMonth');
+
+    let barChart, lineChart;
+
+    async function fetchData(params) {
+        const qs = new URLSearchParams(params).toString();
+        const res = await fetch('{{ path('admin_performance_data') }}?' + qs);
+        if (!res.ok) throw new Error('Error al cargar datos');
+        return res.json();
+    }
+
+    function renderKPIs(kpis) {
+        kpiCompleted.textContent = kpis.totalCompleted;
+        kpiAvg.textContent = (kpis.avgDurationMin || 0) + ' min';
+        kpiEffectiveness.textContent = (kpis.effectiveness || 0) + '%';
+        kpiInProgress.textContent = kpis.inProgress || 0;
+        kpiPending.textContent = kpis.pending || 0;
+        employeeOfMonth.textContent = kpis.employeeOfMonth || '-';
+    }
+
+    function ensureCharts() {
+        const barCtx = document.getElementById('barChart');
+        const lineCtx = document.getElementById('lineChart');
+        if (barChart) barChart.destroy();
+        if (lineChart) lineChart.destroy();
+        barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: { labels: [], datasets: [{ label: 'Completadas', data: [], backgroundColor: '#0d6efd' }] },
+            options: { responsive: true, plugins: { legend: { display: false }}}
+        });
+        lineChart = new Chart(lineCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Promedio (min)', data: [], borderColor: '#20c997' }] },
+            options: { responsive: true }
+        });
+    }
+
+    function renderCharts(payload) {
+        barChart.data.labels = payload.bar.labels;
+        barChart.data.datasets[0].data = payload.bar.data;
+        barChart.update();
+        lineChart.data.labels = payload.bar.labels;
+        lineChart.data.datasets[0].data = payload.table.map(r => r.avgDurationMin);
+        lineChart.update();
+    }
+
+    function renderTable(rows) {
+        const tbody = document.querySelector('#performanceTable tbody');
+        tbody.innerHTML = '';
+        tbody.innerHTML = '';
+        if (!rows.length) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="7" class="text-center text-muted py-4">Sin datos para el rango seleccionado</td>';
+            tbody.appendChild(tr);
+            return;
+        }
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            const progress = Math.min(100, Math.max(0, row.effectiveness || 0));
+            const progressClass = progress > 80 ? 'bg-success' : progress > 50 ? 'bg-warning' : 'bg-danger';
+            
+            tr.innerHTML = `
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-sm me-2">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div>
+                            <div class="fw-medium">${row.userName}</div>
+                            <small class="text-muted">${row.userEmail || ''}</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="d-flex flex-column">
+                        <span class="fw-medium">${row.assigned || 0} <small>asignadas</small></span>
+                        <div class="progress mt-1" style="height: 4px;">
+                            <div class="progress-bar ${progressClass}" style="width: ${progress}%" role="progressbar"></div>
+                        </div>
+                        <small class="text-muted">${row.completed || 0} completadas (${row.effectiveness || 0}%)</small>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-primary rounded-pill">${row.ticketsCompleted || 0} cerrados</span>
+                    ${row.lastTicketDate ? `<div class="small text-muted mt-1">Último: ${row.lastTicketDate}</div>` : ''}
+                </td>
+                <td class="text-center">
+                    <div class="d-flex flex-column">
+                        <span class="small">⏱️ ${row.avgDurationMin || 0} min/promedio</span>
+                        <span class="small">🏆 ${row.completedThisMonth || 0} este mes</span>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails(${row.userId || 0})">
+                        <i class="fas fa-chart-line me-1"></i>Ver detalles
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function load() {
+        const formData = new FormData(form);
+        const params = {};
+        for (const [k, v] of formData.entries()) {
+            if (params[k]) {
+                if (!Array.isArray(params[k])) params[k] = [params[k]];
+                params[k].push(v);
+            } else {
+                params[k] = v;
+            }
+        }
+        try {
+            ensureCharts();
+            const data = await fetchData(params);
+            renderKPIs(data.kpis);
+            renderCharts(data);
+            renderTable(data.table);
+        } catch (e) {
+            showNotification('Error', e.message, 'danger');
+        }
+    }
+
+    form.addEventListener('submit', function(ev) {
+        ev.preventDefault();
+        load();
+    });
+
+    resetBtn.addEventListener('click', function() {
+        form.reset();
+        load();
+    });
+
+    load();
+})();
+</script>
+<script>
+function viewUserDetails(userId) {
+    // Implementar vista detallada del usuario
+    alert('Vista detallada del usuario ' + userId + ' se abrirá aquí');
+    // Aquí podrías abrir un modal o redirigir a una vista detallada
+}
+</script>
+<style>
+.avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+}
+.progress {
+    background-color: #e9ecef;
+    border-radius: 2px;
+}
+.progress-bar {
+    transition: width 0.6s ease;
+}
+.table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+</style>
+{% endblock %}

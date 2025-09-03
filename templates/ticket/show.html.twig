@@ -163,6 +163,30 @@
                         })[ticket.status] }}</div>
                     </div>
                     
+                    {% if ticket.takenBy %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Tarea realizada por</small>
+                        <div class="fw-bold">
+                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
+                            {% if ticket.takenAt %}
+                                <small class="text-muted d-block">el {{ ticket.takenAt|date('d/m/Y') }} a las {{ ticket.takenAt|date('H:i') }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if ticket.status == 'completed' and ticket.completedBy %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Ticket cerrado por</small>
+                        <div class="fw-bold">
+                            {{ ticket.completedBy.nombre ?? ticket.completedBy.username }}
+                            {% if ticket.updatedAt %}
+                                <small class="text-muted d-block">el {{ ticket.updatedAt|date('d/m/Y') }} a las {{ ticket.updatedAt|date('H:i') }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
 
                     
                     <div class="mb-3">

@@ -48,6 +48,7 @@
                                         <th>ID Ticket Externo</th>
                                         <th>Ticket</th>
                                         <th>Área De Origen</th>
+                                        <th>Asignado a</th>
                                         <th>Fecha</th>
                                         <th>Estado</th>
                                         <th>Observación</th>
@@ -65,6 +66,15 @@
                                                 </a>
                                             </td>
                                             <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
+                                            <td>
+                                                {% if ticket.ticketAssignments|length > 0 %}
+                                                    {% for assignment in ticket.ticketAssignments %}
+                                                        <span class="badge bg-primary">{{ assignment.user.username }}</span>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <span class="text-muted">Sin asignar</span>
+                                                {% endif %}
+                                            </td>
                                             <td>{{ ticket.createdAt|date('d/m/Y H:i') }}</td>
                                             <td>
                                                 {% set statusConfig = {

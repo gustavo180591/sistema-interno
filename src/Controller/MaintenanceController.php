@@ -191,20 +191,38 @@ class MaintenanceController extends AbstractController
 
 
     #[Route('', name: 'maintenance_dashboard')]
-    public function dashboard(): Response
+    public function dashboard(Request $request): Response
     {
-        $stats = $this->taskRepository->getTaskStats();
+        // Get date range from request or use defaults
+        $startDate = $request->query->get('start_date') 
+            ? new \DateTime($request->query->get('start_date')) 
+            : null;
+            
+        $endDate = $request->query->get('end_date')
+            ? new \DateTime($request->query->get('end_date'))
+            : null;
+        
+        // Get enhanced statistics
+        $stats = $this->taskRepository->getTaskStats($startDate, $endDate);
+        
+        // Get other dashboard data
         $recentTasks = $this->taskRepository->findUpcomingTasks(5);
         $overdueTasks = $this->taskRepository->findOverdueTasks();
         $recentActivity = $this->logRepository->findRecentActivity(10);
         $categories = $this->categoryRepository->findAll();
 
         return $this->render('maintenance/dashboard.html.twig', [
-            'stats' => $stats,
+            'stats' => $stats['overview'],
+            'categoryStats' => $stats['categories'],
+            'trendStats' => $stats['trends'],
             'recentTasks' => $recentTasks,
             'overdueTasks' => $overdueTasks,
             'recentActivity' => $recentActivity,
             'categories' => $categories,
+            'dateRange' => [
+                'start' => $startDate ? $startDate->format('Y-m-d') : (new \DateTime('-30 days'))->format('Y-m-d'),
+                'end' => $endDate ? $endDate->format('Y-m-d') : (new \DateTime())->format('Y-m-d')
+            ]
         ]);
     }
 
