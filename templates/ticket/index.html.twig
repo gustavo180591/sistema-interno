@@ -157,7 +157,19 @@
                                                     </span>
                                                 {% endif %}
                                             </td>
-                                            <td>{{ ticket.observation ? (ticket.observation|length > 50 ? ticket.observation|slice(0, 50) ~ '...' : ticket.observation) : 'N/A' }}</td>
+                                            <td>
+                                                {% set observation = ticket.getObservation() %}
+                                                {% if observation is not empty %}
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="me-2"><i class="fas fa-info-circle text-primary"></i></span>
+                                                        <span title="{{ observation }}" data-bs-toggle="tooltip">
+                                                            {{ observation|length > 50 ? observation|slice(0, 50) ~ '...' : observation }}
+                                                        </span>
+                                                    </div>
+                                                {% else %}
+                                                    <span class="text-muted">Sin observaciones</span>
+                                                {% endif %}
+                                            </td>
                                             <td>
                                                 <div class="btn-group">
                                                     <!-- Ver -->
@@ -272,8 +284,17 @@
 {% block javascripts %}
   {{ parent() }}
   <script>
-    // Initialize tooltips
+    // Initialize tooltips and other UI elements
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                trigger: 'hover',
+                placement: 'top',
+                container: 'body'
+            });
+        });
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
       var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);

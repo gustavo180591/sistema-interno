@@ -4,6 +4,8 @@ namespace App\Controller\Admin;
 
 use App\Entity\MaintenanceTask;
 use App\Entity\Ticket;
+use App\Entity\User;
+use App\Repository\MaintenanceTaskRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -12,30 +14,71 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('', name: 'performance_')]
+#[Route('/admin/performance')]
 #[IsGranted('ROLE_AUDITOR')]
 class PerformanceController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
         private UserRepository $userRepository,
+        private MaintenanceTaskRepository $taskRepository
     ) {}
 
-    #[Route('/performance', name: 'dashboard')]
+    #[Route('', name: 'dashboard')]
     public function dashboard(Request $request): Response
     {
         $now = new \DateTimeImmutable('now');
-        $fromDefault = $now->modify('first day of this month')->setTime(0, 0);
-        $toDefault = $now->modify('last day of this month')->setTime(23, 59, 59);
+        $from = $request->query->get('from') 
+            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
+            : $now->modify('first day of this month')->setTime(0, 0);
+            
+        $to = $request->query->get('to')
+            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
+            : $now->modify('last day of this month')->setTime(23, 59, 59);
+
+        $summary = $this->taskRepository->getPerformanceSummary($from, $to);
 
         return $this->render('admin/performance/dashboard.html.twig', [
-            'default_from' => $fromDefault->format('Y-m-d'),
-            'default_to' => $toDefault->format('Y-m-d'),
-            'users' => $this->userRepository->findAll(),
+            'from' => $from,
+            'to' => $to,
+            'summary' => $summary,
+            'allUsers' => $this->userRepository->findAll(),
+        ]);
+    }
+    
+    #[Route('/user/{id}', name: 'user')]
+    public function userPerformance(int $id, Request $request): Response
+    {
+        $user = $this->userRepository->find($id);
+        if (!$user) {
+            throw $this->createNotFoundException('Usuario no encontrado');
+        }
+
+        $now = new \DateTimeImmutable('now');
+        $from = $request->query->get('from') 
+            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
+            : $now->modify('first day of this month')->setTime(0, 0);
+            
+        $to = $request->query->get('to')
+            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
+            : $now->modify('last day of this month')->setTime(23, 59, 59);
+
+        $detail = $this->taskRepository->getUserPerformance($user, $from, $to);
+        
+        // Get task status distribution for the chart
+        $statusDistribution = $this->taskRepository->getUserTaskStatusDistribution($user, $from, $to);
+
+        return $this->render('admin/performance/user.html.twig', [
+            'user' => $user,
+            'from' => $from,
+            'to' => $to,
+            'detail' => $detail,
+            'status_distribution' => $statusDistribution,
         ]);
     }
 
-    #[Route('/performance/data', name: 'data')]
+    #[Route('/data', name: 'data')]
+    #[IsGranted('ROLE_AUDITOR')]
     public function data(Request $request): Response
     {
         $from = $request->query->get('from');

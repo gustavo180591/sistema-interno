@@ -177,11 +177,20 @@
             <!-- Chart Column -->
             <div class="col-12 col-xl-8 mb-4">
                 <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-white border-0 py-3">
+                    <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>Distribución de Tickets</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary chart-type-btn active" data-type="donut">
+                                <i class="fas fa-chart-pie"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary chart-type-btn" data-type="bar">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="ticketsChart" class="chart-container"></div>
+                        <div class="chart-legend mt-3 text-center"></div>
                     </div>
                 </div>
             </div>
@@ -409,39 +418,132 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize ApexCharts if the element exists
             if (document.getElementById('ticketsChart')) {
+                // Prepare data for the chart
+                var categories = ['Pendientes', 'En Progreso', 'Rechazados', 'Retrasados', 'Completados'];
+                var seriesData = [
+                    {{ stats.pending|default(0) }}, 
+                    {{ stats.in_progress|default(0) }}, 
+                    {{ stats.rejected|default(0) }}, 
+                    {{ stats.delayed|default(0) }}, 
+                    {{ stats.completed|default(0) }}
+                ];
+                var colors = ['#4E73DF', '#36B9CC', '#F6C23E', '#E74A3B', '#1CC88A'];
+                
+                // Function to update chart type
+                function updateChartType(type) {
+                    if (type === 'donut') {
+                        chart.updateOptions({
+                            chart: { type: 'donut' },
+                            plotOptions: {
+                                pie: {
+                                    donut: {
+                                        size: '65%',
+                                        labels: {
+                                            show: true,
+                                            total: {
+                                                show: true,
+                                                label: 'Total',
+                                                formatter: function(w) {
+                                                    return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            dataLabels: { enabled: false },
+                            legend: { position: 'right' },
+                            xaxis: { type: 'category' },
+                            yaxis: { show: false },
+                            grid: { padding: { top: 0, right: 0, bottom: 0, left: 0 } }
+                        }, false, false, true);
+                    } else {
+                        chart.updateOptions({
+                            chart: { type: 'bar' },
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 8,
+                                    horizontal: false,
+                                    columnWidth: '45%',
+                                    dataLabels: { position: 'top' }
+                                }
+                            },
+                            dataLabels: {
+                                enabled: true,
+                                formatter: function(val) { return val > 0 ? val : ''; },
+                                offsetY: -20,
+                                style: { fontSize: '12px', colors: ['#6c757d'] }
+                            },
+                            legend: { show: false },
+                            xaxis: { 
+                                categories: categories,
+                                labels: { style: { fontSize: '12px', fontWeight: 600 } }
+                            },
+                            yaxis: { 
+                                labels: { 
+                                    formatter: function(val) { return Math.floor(val) === val ? val : ''; },
+                                    style: { colors: ['#6c757d'], fontSize: '12px' }
+                                }
+                            },
+                            grid: { 
+                                borderColor: '#f8f9fa',
+                                strokeDashArray: 5,
+                                padding: { top: 0, right: 30, bottom: 0, left: 30 }
+                            }
+                        }, false, false, true);
+                    }
+                }
+
+                // Initialize chart with donut as default
                 var options = {
-                    series: [
-                        {{ stats.pending|default(0) }}, 
-                        {{ stats.in_progress|default(0) }}, 
-                        {{ stats.rejected|default(0) }}, 
-                        {{ stats.delayed|default(0) }}, 
-                        {{ stats.completed|default(0) }}
-                    ],
+                    series: seriesData,
                     chart: {
                         type: 'donut',
                         height: 350,
                         fontFamily: 'Nunito, sans-serif',
                         toolbar: {
-                            show: true
+                            show: true,
+                            tools: {
+                                download: true,
+                                selection: false,
+                                zoom: false,
+                                zoomin: false,
+                                zoomout: false,
+                                pan: false,
+                                reset: false
+                            }
                         },
-                    },
-                    labels: ['Pendientes', 'En Progreso', 'Rechazados', 'Retrasados', 'Completados'],
-                    colors: ['#36A2EB', '#4E73DF', '#E74A3B', '#F6C23E', '#1CC88A'],
-                    responsive: [{
-                        breakpoint: 480,
-                        options: {
-                            chart: {
-                                width: 300
+                        animations: {
+                            enabled: true,
+                            easing: 'easeinout',
+                            speed: 800,
+                            animateGradually: { enabled: true, delay: 150 },
+                            dynamicAnimation: { enabled: true, speed: 350 }
+                        },
+                        events: {
+                            mounted: function(chartContext, config) {
+                                updateLegend(chartContext, config);
                             },
-                            legend: {
-                                position: 'bottom'
+                            updated: function(chartContext, config) {
+                                updateLegend(chartContext, config);
                             }
                         }
-                    }],
+                    },
+                    colors: colors,
+                    labels: categories,
+                    dataLabels: { enabled: false },
                     legend: {
                         position: 'right',
                         offsetY: 0,
                         height: 230,
+                        formatter: function(seriesName, opts) {
+                            return [
+                                seriesName,
+                                ' - ',
+                                opts.w.globals.series[opts.seriesIndex],
+                                ' (' + opts.w.globals.seriesPercent[opts.seriesIndex].toFixed(1) + '%)'
+                            ].join('');
+                        }
                     },
                     plotOptions: {
                         pie: {
@@ -462,9 +564,7 @@
                                         fontFamily: 'Nunito, sans-serif',
                                         color: '#4e73df',
                                         offsetY: -10,
-                                        formatter: function (val) {
-                                            return val;
-                                        }
+                                        formatter: function (val) { return val; }
                                     },
                                     total: {
                                         show: true,
@@ -472,41 +572,266 @@
                                         label: 'Total',
                                         color: '#6c757d',
                                         formatter: function (w) {
-                                            return w.globals.seriesTotals.reduce((a, b) => {
-                                                return a + b;
-                                            }, 0);
+                                            return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                         }
                                     }
                                 }
                             }
                         }
                     },
-                    dataLabels: {
-                        enabled: false
+                    stroke: { show: false },
+                    tooltip: {
+                        fillSeriesColor: false,
+                        y: {
+                            formatter: function(val) { return val + ' ticket' + (val !== 1 ? 's' : ''); },
+                            title: { formatter: function(seriesName) { return seriesName + ':'; } }
+                        }
                     },
-                    stroke: {
-                        show: false
+                    responsive: [{
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 300 },
+                            legend: { position: 'bottom' }
+                        }
+                    }]
+                };
+
+                // Function to update legend
+                function updateLegend(chartContext, config) {
+                    var legendContainer = document.querySelector('.chart-legend');
+                    var total = config.config.series.reduce((a, b) => a + b, 0);
+                    
+                    if (total > 0) {
+                        var legendHtml = '<div class="d-flex flex-wrap justify-content-center gap-3">';
+                        
+                        config.config.labels.forEach((label, index) => {
+                            var value = config.config.series[index];
+                            if (value > 0) {
+                                var percentage = ((value / total) * 100).toFixed(1);
+                                legendHtml += `
+                                    <div class="d-flex align-items-center">
+                                        <span class="legend-marker me-2" style="background-color: ${config.config.colors[index]}; width: 12px; height: 12px; border-radius: 3px;"></span>
+                                        <span class="me-2 fw-medium">${label}:</span>
+                                        <span class="text-muted">${value} (${percentage}%)</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        legendHtml += '</div>';
+                        legendContainer.innerHTML = legendHtml;
+                    } else {
+                        legendContainer.innerHTML = '<p class="text-muted text-center mb-0">No hay datos disponibles</p>';
+                    }
+                }
+                    chart: {
+                        type: 'bar',
+                        height: 350,
+                        fontFamily: 'Nunito, sans-serif',
+                        toolbar: {
+                            show: true,
+                            tools: {
+                                download: true,
+                                selection: false,
+                                zoom: false,
+                                zoomin: false,
+                                zoomout: false,
+                                pan: false,
+                                reset: false
+                            }
+                        },
+                        animations: {
+                            enabled: true,
+                            easing: 'easeinout',
+                            speed: 800,
+                            animateGradually: {
+                                enabled: true,
+                                delay: 150
+                            },
+                            dynamicAnimation: {
+                                enabled: true,
+                                speed: 350
+                            }
+                        }
+                    },
+                    plotOptions: {
+                        bar: {
+                            borderRadius: 8,
+                            horizontal: false,
+                            columnWidth: '45%',
+                            distributed: false,
+                            dataLabels: {
+                                position: 'top'
+                            },
+                            colors: {
+                                ranges: [{
+                                    from: -1000,
+                                    to: 1000,
+                                    color: undefined
+                                }]
+                            }
+                        }
+                    },
+                    colors: colors,
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val) {
+                            return val > 0 ? val : '';
+                        },
+                        offsetY: -20,
+                        style: {
+                            fontSize: '12px',
+                            colors: ['#6c757d']
+                        }
+                    },
+                    xaxis: {
+                        categories: categories,
+                        labels: {
+                            style: {
+                                fontSize: '12px',
+                                fontWeight: 600
+                            },
+                            rotate: -45,
+                            rotateAlways: false
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#e9ecef',
+                            height: 1,
+                            width: '100%',
+                            offsetX: 0,
+                            offsetY: 0
+                        },
+                        axisTicks: {
+                            show: true,
+                            borderType: 'solid',
+                            color: '#e9ecef',
+                            height: 6,
+                            offsetX: 0,
+                            offsetY: 0
+                        }
+                    },
+                    yaxis: {
+                        labels: {
+                            formatter: function(val) {
+                                return Math.floor(val) === val ? val : '';
+                            },
+                            style: {
+                                colors: ['#6c757d'],
+                                fontSize: '12px'
+                            }
+                        },
+                        axisBorder: {
+                            show: true,
+                            color: '#e9ecef',
+                            offsetX: 0,
+                            offsetY: 0
+                        }
+                    },
+                    grid: {
+                        borderColor: '#f8f9fa',
+                        strokeDashArray: 5,
+                        yaxis: {
+                            lines: {
+                                show: true
+                            }
+                        },
+                        padding: {
+                            top: 0,
+                            right: 30,
+                            bottom: 0,
+                            left: 30
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + ' ticket' + (val !== 1 ? 's' : '');
+                            }
+                        },
+                        marker: {
+                            show: true
+                        },
+                        x: {
+                            show: true
+                        },
+                        style: {
+                            fontSize: '14px',
+                            fontFamily: 'Nunito, sans-serif'
+                        }
                     },
                     states: {
                         hover: {
                             filter: {
                                 type: 'darken',
-                                value: 0.9
+                                value: 0.05
+                            }
+                        },
+                        active: {
+                            filter: {
+                                type: 'none'
                             }
                         }
                     },
-                    tooltip: {
-                        fillSeriesColor: false,
-                        y: {
-                            formatter: function(val) {
-                                return val + ' ticket' + (val !== 1 ? 's' : '');
+                    responsive: [{
+                        breakpoint: 768,
+                        options: {
+                            plotOptions: {
+                                bar: {
+                                    columnWidth: '60%'
+                                }
+                            },
+                            dataLabels: {
+                                enabled: false
+                            },
+                            xaxis: {
+                                labels: {
+                                    rotate: -45
+                                }
                             }
                         }
-                    }
+                    }]
                 };
 
+                // Add total count annotation
+                var totalTickets = seriesData.reduce((a, b) => a + b, 0);
+                if (totalTickets > 0) {
+                    options.annotations = {
+                        yaxis: [{
+                            y: Math.max(...seriesData) * 0.9,
+                            borderColor: '#6c757d',
+                            label: {
+                                borderColor: '#6c757d',
+                                style: {
+                                    color: '#fff',
+                                    background: '#6c757d',
+                                    fontSize: '12px',
+                                    padding: {
+                                        left: 10,
+                                        right: 10,
+                                        top: 2,
+                                        bottom: 2
+                                    }
+                                },
+                                text: 'Total: ' + totalTickets + ' ticket' + (totalTickets !== 1 ? 's' : '')
+                            }
+                        }]
+                    };
+                }
+                };
+
+                // Initialize chart
                 var chart = new ApexCharts(document.querySelector("#ticketsChart"), options);
                 chart.render();
+
+                // Add event listeners for chart type buttons
+                document.querySelectorAll('.chart-type-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        updateChartType(this.dataset.type);
+                    });
+                });
             }
 
             // Add click handlers for table rows

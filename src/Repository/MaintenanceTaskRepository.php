@@ -42,6 +42,44 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         }
     }
 
+    public function getPerformanceSummary(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        return $this->createQueryBuilder('t')
+            ->select('u.id as userId, u.apellido, u.nombre,
+                COUNT(t.id) as assignedCount,
+                SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount,
+                SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount,
+                AVG(CASE WHEN t.completedAt IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, COALESCE(t.startedAt, t.createdAt), t.completedAt) END) as avgMinutes')
+            ->leftJoin('t.assignedTo', 'u')
+            ->andWhere('t.createdAt BETWEEN :from AND :to')
+            ->groupBy('u.id')
+            ->setParameters([
+                'from' => $from,
+                'to' => $to,
+                'completed' => MaintenanceTask::STATUS_COMPLETED,
+                'inProgress' => MaintenanceTask::STATUS_IN_PROGRESS
+            ])
+            ->getQuery()
+            ->getArrayResult();
+    }
+
+    public function getUserPerformance(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        return $this->createQueryBuilder('t')
+            ->select('t.id, t.description, t.status, t.createdAt, t.startedAt, t.completedAt,
+                TIMESTAMPDIFF(MINUTE, COALESCE(t.startedAt, t.createdAt), t.completedAt) as durationMin')
+            ->andWhere('t.assignedTo = :user')
+            ->andWhere('t.createdAt BETWEEN :from AND :to')
+            ->setParameters([
+                'user' => $user,
+                'from' => $from,
+                'to' => $to
+            ])
+            ->orderBy('t.createdAt', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
+    }
+
     public function findByDateRange(
         \DateTimeInterface $start,
         \DateTimeInterface $end,
@@ -94,17 +132,59 @@ if ($category) {
         return $qb->getQuery()->getResult();
     }
 
-    public function findUpcomingTasks(int $limit = 10): array
+    public function findUpcomingTasks(\DateTimeInterface $date = null, int $limit = 10): array
     {
-        $qb = $this->createQueryBuilder('t')
-            ->where('t.scheduledDate >= :now')
-            ->andWhere('t.status != :completed')
-            ->setParameter('now', new \DateTime())
-            ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
-            ->orderBy('t.scheduledDate', 'ASC')
-            ->setMaxResults($limit);
+        $date = $date ?? new \DateTimeImmutable('now');
 
-        return $qb->getQuery()->getResult();
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.dueDate >= :now')
+            ->andWhere('t.status != :completed')
+            ->setParameter('now', $date)
+            ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
+            ->orderBy('t.dueDate', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function getUserTaskStatusDistribution(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $result = $this->createQueryBuilder('t')
+            ->select('t.status, COUNT(t.id) as count')
+            ->where('t.assignedTo = :user')
+            ->andWhere('t.createdAt BETWEEN :from AND :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->groupBy('t.status')
+            ->getQuery()
+            ->getResult();
+
+        // Initialize all statuses with 0 using the correct constants
+        $statuses = [
+            MaintenanceTask::STATUS_PENDING => 0,
+            MaintenanceTask::STATUS_IN_PROGRESS => 0,
+            MaintenanceTask::STATUS_COMPLETED => 0,
+            MaintenanceTask::STATUS_OVERDUE => 0,
+            MaintenanceTask::STATUS_SKIPPED => 0,
+        ];
+
+        // Update with actual counts
+        foreach ($result as $row) {
+            $statuses[$row['status']] = (int) $row['count'];
+        }
+
+        return [
+            'labels' => array_keys($statuses),
+            'data' => array_values($statuses),
+            'colors' => [
+                '#4E73DF', // Pending
+                '#36B9CC', // In Progress
+                '#1CC88A', // Completed
+                '#F6C23E', // Overdue (yellow)
+                '#6F42C1', // Skipped (purple)
+            ]
+        ];
     }
 
     public function findOverdueTasks(): array

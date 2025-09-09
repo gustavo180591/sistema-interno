@@ -6,97 +6,166 @@
     {{ parent() }}
     <style>
         .kpi-card .display-6 { font-weight: 600; }
-        .avatar-sm { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #e9ecef; }
+        .avatar-sm { 
+            width: 36px; 
+            height: 36px; 
+            border-radius: 50%; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #e9ecef; 
+        }
+        .progress { height: 0.5rem; }
+        .table th { font-weight: 600; }
     </style>
 {% endblock %}
 
 {% block body %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h4 mb-0"><i class="fas fa-chart-line me-2 text-warning"></i>Rendimiento de Personal</h1>
+    <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver al Inicio
+    </a>
 </div>
 
-<div class="card mb-3">
+<div class="card mb-4">
     <div class="card-body">
-        <form id="filtersForm" class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label class="form-label">Desde</label>
-                <input type="date" class="form-control" name="from" value="{{ default_from }}">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Desde</label>
+                <input type="date" class="form-control" name="from" value="{{ from|date('Y-m-d') }}" required>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Hasta</label>
-                <input type="date" class="form-control" name="to" value="{{ default_to }}">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Hasta</label>
+                <input type="date" class="form-control" name="to" value="{{ to|date('Y-m-d') }}" required>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Estado</label>
-                <select class="form-select" name="status[]" multiple>
-                    <option value="pending">Pendiente</option>
-                    <option value="in_progress">En Progreso</option>
-                    <option value="completed">Completada</option>
-                    <option value="overdue">Atrasada</option>
-                </select>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
             </div>
-            <div class="col-md-3">
-                <label class="form-label">Usuario</label>
-                <select class="form-select" name="users[]" multiple>
-                    {% for u in users %}
-                        <option value="{{ u.id }}">{{ u.nombre ?? u.username ?? u.email }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-12 d-flex gap-2">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Aplicar</button>
-                <button type="button" id="resetBtn" class="btn btn-outline-secondary">Restablecer</button>
+            <div class="col-md-2">
+                <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-sync-alt me-1"></i>Restablecer
+                </a>
             </div>
         </form>
     </div>
 </div>
 
-<div class="row g-3 mb-3">
-    <div class="col-md-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="text-muted small">Tareas completadas</div>
-                <div class="display-6" id="kpiCompleted">0</div>
-            </div>
-        </div>
+<div class="card mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Resumen de Rendimiento</h5>
     </div>
-    <div class="col-md-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="text-muted small">Promedio por tarea</div>
-                <div class="display-6" id="kpiAvg">0 min</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="text-muted small">Efectividad</div>
-                <div class="display-6" id="kpiEffectiveness">0%</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="text-muted small">En curso / Pendientes</div>
-                <div class="display-6"><span id="kpiInProgress">0</span> / <span id="kpiPending">0</span></div>
-            </div>
-        </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Usuario</th>
+                    <th class="text-center">Asignadas</th>
+                    <th class="text-center">Completadas</th>
+                    <th class="text-center">En Progreso</th>
+                    <th class="text-center">Promedio (min)</th>
+                    <th class="text-center">Efectividad</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if summary|length > 0 %}
+                    {% set totalAssigned = 0 %}
+                    {% set totalCompleted = 0 %}
+                    {% set totalInProgress = 0 %}
+                    
+                    {% for user in summary %}
+                        {% set totalAssigned = totalAssigned + user.assignedCount %}
+                        {% set totalCompleted = totalCompleted + user.completedCount %}
+                        {% set totalInProgress = totalInProgress + user.inProgressCount %}
+                        
+                        <tr>
+                            <td class="fw-medium">
+                                <i class="fas fa-user-circle me-2 text-primary"></i>
+                                {{ user.apellido }}, {{ user.nombre }}
+                            </td>
+                            <td class="text-center">{{ user.assignedCount }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-success bg-opacity-10 text-success">
+                                    {{ user.completedCount }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary bg-opacity-10 text-primary">
+                                    {{ user.inProgressCount }}
+                                </span>
+                            </td>
+                            <td class="text-center fw-medium">
+                                {{ user.avgMinutes ? user.avgMinutes|number_format(1, ',', '.') : '-' }}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                        {% set effectiveness = (user.completedCount / (user.assignedCount ?: 1)) * 100 %}
+                                        <div class="progress-bar bg-{{ effectiveness > 80 ? 'success' : (effectiveness > 50 ? 'warning' : 'danger') }}" 
+                                             role="progressbar" 
+                                             style="width: {{ effectiveness|min(100) }}%" 
+                                             aria-valuenow="{{ effectiveness }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <span class="small fw-medium">{{ effectiveness|number_format(1) }}%</span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ path('admin_performance_user', {'id': user.userId, 'from': from|date('Y-m-d'), 'to': to|date('Y-m-d')}) }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Ver detalles del usuario">
+                                    <i class="fas fa-eye"></i> Detalles
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    
+                    <!-- Total row -->
+                    <tr class="table-light fw-bold">
+                        <td>Total</td>
+                        <td class="text-center">{{ totalAssigned }}</td>
+                        <td class="text-center">{{ totalCompleted }}</td>
+                        <td class="text-center">{{ totalInProgress }}</td>
+                        <td class="text-center">-</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                    {% set totalEffectiveness = totalAssigned > 0 ? (totalCompleted / totalAssigned) * 100 : 0 %}
+                                    <div class="progress-bar bg-{{ totalEffectiveness > 80 ? 'success' : (totalEffectiveness > 50 ? 'warning' : 'danger') }}" 
+                                         role="progressbar" 
+                                         style="width: {{ totalEffectiveness|min(100) }}%" 
+                                         aria-valuenow="{{ totalEffectiveness }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                                <span class="small fw-bold">{{ totalEffectiveness|number_format(1) }}%</span>
+                            </div>
+                        </td>
+                        <td></td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <div class="mb-2">
+                                <i class="fas fa-inbox fa-3x opacity-25 mb-3"></i>
+                            </div>
+                            <h6 class="mb-1">No hay datos disponibles</h6>
+                            <p class="small mb-0">No se encontraron registros para el rango de fechas seleccionado.</p>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<div class="card mb-3">
-    <div class="card-body d-flex justify-content-between align-items-center">
-        <div>
-            <div class="text-muted small">Empleado del mes</div>
-            <div class="h5 mb-0" id="employeeOfMonth">-</div>
-        </div>
-        <div class="avatar-sm"><i class="fas fa-medal text-warning"></i></div>
-    </div>
-</div>
-
-<div class="row g-3 mb-3">
+<div class="row g-3 mb-3 d-none">
     <div class="col-lg-6">
         <div class="card h-100">
             <div class="card-header bg-white">Tareas completadas por usuario</div>

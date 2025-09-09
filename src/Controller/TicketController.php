@@ -463,7 +463,7 @@ class TicketController extends AbstractController
         
         // Construir query base
         $qb = $this->em->createQueryBuilder();
-        $qb->select('t')
+        $qb->select('t', 'u', 'ta', 'assignedUser')
            ->from(Ticket::class, 't')
            ->leftJoin('t.createdBy', 'u')
            ->leftJoin('t.ticketAssignments', 'ta')
