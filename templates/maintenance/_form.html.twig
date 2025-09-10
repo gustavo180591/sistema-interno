@@ -1,0 +1,123 @@
+{# Base form template for maintenance forms #}
+{% block form_start %}
+    {{ form_start(form, {
+        'attr': {
+            'class': 'needs-validation',
+            'novalidate': 'novalidate'
+        }
+    }) }}
+{% endblock %}
+
+{% block form_errors %}
+    {% if form.vars.errors|length > 0 %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for error in form.vars.errors %}
+                    <li>{{ error.message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    
+    {% for child in form.children %}
+        {% if child.vars.errors is defined and child.vars.errors|length > 0 %}
+            <div class="invalid-feedback d-block">
+                {% for error in child.vars.errors %}
+                    {{ error.message }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endblock %}
+
+{% block form_row %}
+    <div class="mb-3">
+        {{ form_label(form) }}
+        {{ form_widget(form, {'attr': {'class': 'form-control' ~ (form.vars.required ? ' required' : '')}}) }}
+        {% if form.vars.help is defined and form.vars.help %}
+            <small class="form-text text-muted">{{ form.vars.help }}</small>
+        {% endif %}
+        {{ form_errors(form) }}
+    </div>
+{% endblock %}
+
+{% block form_widget_simple %}
+    {% set type = type|default('text') %}
+    <input type="{{ type }}" {{ block('widget_attributes') }} {% if value is not empty %}value="{{ value }}" {% endif %} class="form-control">
+{% endblock %}
+
+{% block textarea_widget %}
+    <textarea {{ block('widget_attributes') }} class="form-control">{{ value }}</textarea>
+{% endblock %}
+
+{% block choice_widget %}
+    {% if expanded %}
+        <div {{ block('widget_container_attributes') }}>
+            {% for child in form %}
+                <div class="form-check">
+                    {{ form_widget(child, {'attr': {'class': 'form-check-input'}}) }}
+                    {{ form_label(child, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <select {{ block('widget_attributes') }} class="form-select">
+            {% if placeholder is not none %}
+                <option value=""{% if required and value is empty %} selected="selected"{% endif %}>{{ placeholder|trans({}, translation_domain) }}</option>
+            {% endif %}
+            {% if preferred_choices|length > 0 %}
+                {% set options = preferred_choices %}
+                {{ block('choice_widget_options') }}
+                {% if choices|length > 0 and separator is not none %}
+                    <option disabled="disabled">{{ separator }}</option>
+                {% endif %}
+            {% endif %}
+            {% set options = choices %}
+            {{ block('choice_widget_options') }}
+        </select>
+    {% endif %}
+{% endblock %}
+
+{% block checkbox_widget %}
+    <div class="form-check">
+        <input type="checkbox" {{ block('widget_attributes') }}{% if value is defined %} value="{{ value }}"{% endif %}{% if checked %} checked="checked"{% endif %} class="form-check-input">
+        {{ form_label(form, null, {'label_attr': {'class': 'form-check-label'}}) }}
+    </div>
+{% endblock %}
+
+{% block radio_widget %}
+    <div class="form-check">
+        <input type="radio" {{ block('widget_attributes') }}{% if value is defined %} value="{{ value }}"{% endif %}{% if checked %} checked="checked"{% endif %} class="form-check-input">
+        {{ form_label(form, null, {'label_attr': {'class': 'form-check-label'}}) }}
+    </div>
+{% endblock %}
+
+{% block form_end %}
+    {{ form_end(form) }}
+{% endblock %}
+
+{% block submit_widget %}
+    {% set type = type|default('submit') %}
+    <button type="{{ type }}" {{ block('button_attributes') }} class="btn btn-primary">
+        {% if icon is defined and icon %}
+            <i class="{{ icon }} me-1"></i>
+        {% endif %}
+        {{ label|default('Guardar') }}
+    </button>
+{% endblock %}
+
+{% block button_widget %}
+    {% set attr = attr|merge({class: (attr.class|default('btn-secondary') ~ ' btn')|trim}) %}
+    {{ parent() }}
+{% endblock %}
+
+{% block form_actions %}
+    <div class="form-actions mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i> {{ button_label|default('Guardar') }}
+        </button>
+        <a href="{{ path('maintenance_tasks') }}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-times me-1"></i> Cancelar
+        </a>
+    </div>
+{% endblock %}

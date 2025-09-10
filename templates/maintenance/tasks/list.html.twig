@@ -1,0 +1,191 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}Tareas de Mantenimiento{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ path('maintenance_maintenance_task_new') }}" class="btn btn-sm btn-primary">
+        <i class="fas fa-plus me-1"></i> Nueva Tarea
+    </a>
+{% endblock %}
+
+{% block content %}
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <select name="status" class="form-select">
+                        <option value="">Todos los estados</option>
+                        {% for value, label in statuses %}
+                            <option value="{{ value }}" {{ filters.status == value ? 'selected' : '' }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+<div class="col-md-3">
+                    <label class="form-label">Categoría</label>
+                    <select name="category" class="form-select">
+                        <option value="">Todas las categorías</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" {{ filters.category == category.id ? 'selected' : '' }}>{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Asignado a</label>
+                    <select name="assigned_to" class="form-select">
+                        <option value="">Cualquier persona</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}" {{ filters.assigned_to == user.id ? 'selected' : '' }}>{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Desde</label>
+                    <input type="date" name="date_from" class="form-control" value="{{ filters.date_from ? filters.date_from|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Hasta</label>
+                    <input type="date" name="date_to" class="form-control" value="{{ filters.date_to ? filters.date_to|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-12 d-flex justify-content-end gap-2">
+                    <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-undo me-1"></i> Restablecer
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Lista de Tareas</h5>
+            <span class="badge bg-primary">{{ tasks|length }} tareas</span>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Título</th>
+                                <th>Categoría</th>
+                                <th>Estado</th>
+                                <th>Programada</th>
+                                <th>Asignada a</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                                <tr class="{{ task.isOverdue() ? 'table-warning' : '' }}">
+                                    <td>
+                                        <a href="{{ path('maintenance_maintenance_task_show', {id: task.id}) }}" class="text-decoration-none">
+                                            {{ task.title }}
+                                        </a>
+                                        {% if task.description %}
+                                            <p class="small text-muted mb-0">{{ task.description|length > 50 ? task.description|slice(0, 50) ~ '...' : task.description }}</p>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ task.category }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ task.statusClass }} status-badge">
+                                            {{ task.status|trans }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {{ task.scheduledDate|date('d/m/Y H:i') }}
+                                        {% if task.isOverdue() %}
+                                            <span class="badge bg-danger">Atrasada</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if task.assignedTo %}
+                                            {{ task.assignedTo.username }}
+                                        {% else %}
+                                            <span class="text-muted">Sin asignar</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ path('maintenance_maintenance_task_show', {id: task.id}) }}" 
+                                               class="btn btn-outline-primary"
+                                               data-bs-toggle="tooltip" 
+                                               title="Ver detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" 
+                                               class="btn btn-outline-secondary"
+                                               data-bs-toggle="tooltip" 
+                                               title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            {% if task.status != 'completed' %}
+                                                <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" 
+                                                      method="post" 
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('¿Marcar esta tarea como completada?')">
+                                                    <button type="submit" 
+                                                            class="btn btn-outline-success"
+                                                            data-bs-toggle="tooltip" 
+                                                            title="Marcar como completada">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center p-5 text-muted">
+                    <i class="fas fa-tasks fa-4x mb-3"></i>
+                    <h5>No se encontraron tareas</h5>
+                    <p class="mb-0">No hay tareas que coincidan con los filtros seleccionados.</p>
+                    <a href="{{ path('maintenance_maintenance_task_new') }}" class="btn btn-primary mt-3">
+                        <i class="fas fa-plus me-1"></i> Crear tarea
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        {% if tasks|length > 0 %}
+            <div class="card-footer bg-white">
+                <nav aria-label="Paginación">
+                    <ul class="pagination justify-content-center mb-0">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Anterior</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Siguiente</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block page_javascripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Enable tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+{% endblock %}

@@ -1,546 +1,876 @@
 <?php
-// src/Controller/TicketController.php
 
 namespace App\Controller;
 
+use App\Entity\Note;
+use Doctrine\Common\Collections\ArrayCollection;
 use App\Entity\Ticket;
-use App\Entity\TicketCollaborator;
+use App\Entity\TicketAssignment;
+use App\Entity\User;
 use App\Form\TicketType;
-use App\Form\TicketFilterType;
 use App\Repository\TicketRepository;
-use App\Repository\TicketCollaboratorRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use App\Form\TaskType;
-use App\Entity\Task;
-use App\Repository\TaskRepository;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/ticket')]
 class TicketController extends AbstractController
 {
-    private const ITEMS_PER_PAGE = 15;
+    private const STATUS_PENDING = 'pending';
+    private const STATUS_IN_PROGRESS = 'in_progress';
+    private const STATUS_COMPLETED = 'completed';
+    private const STATUS_REJECTED = 'rejected';
     
-    #[Route('/lista', name: 'ticket_lista')]
-    public function index(
-        Request $request,
-        TicketRepository $ticketRepository
-    ): Response {
-        $page = max(1, $request->query->getInt('page', 1));
-        
-        $filterForm = $this->createForm(\App\Form\TicketFilterType::class);
-        $filterForm->handleRequest($request);
+    private function getStatusLabel(string $status): string
+    {
+        return [
+            self::STATUS_PENDING => 'pendiente',
+            self::STATUS_IN_PROGRESS => 'en progreso',
+            self::STATUS_COMPLETED => 'completado',
+            self::STATUS_REJECTED => 'rechazado'
+        ][$status] ?? 'desconocido';
+    }
+    private LoggerInterface $logger;
+    private EntityManagerInterface $em;
+    private TicketRepository $ticketRepository;
+    private UserRepository $userRepository;
 
-        $searchData = [
-            'search' => $request->query->get('search'),
-            'estado' => $request->query->get('estado'),
-            'departamento' => $request->query->get('departamento') ? (int)$request->query->get('departamento') : null,
-            'fechaDesde' => $request->query->get('fechaDesde') ? new \DateTime($request->query->get('fechaDesde')) : null,
-            'fechaHasta' => $request->query->get('fechaHasta') ? new \DateTime($request->query->get('fechaHasta')) : null,
-        ];
-
-        if ($filterForm->isSubmitted() && $filterForm->isValid()) {
-            if ($filterForm->get('limpiar')->isClicked()) {
-                return $this->redirectToRoute('ticket_lista');
-            }
-
-            $formData = $filterForm->getData();
-            $searchData = [
-                'search' => $formData['search'] ?? null,
-                'estado' => $formData['estado'] ?? null,
-                'departamento' => $formData['departamento'] ? (int)$formData['departamento'] : null,
-                'fechaDesde' => $formData['fechaDesde'] ?? null,
-                'fechaHasta' => $formData['fechaHasta'] ?? null,
-            ];
-        }
-
-        // Get sort parameters
-        $sortBy = $request->query->get('sort_by', 'createdAt');
-        $sortOrder = $request->query->get('sort_order', 'DESC');
+    /**
+     * @Route("/tickets/{id}/update-observation", name="ticket_update_observation", methods={"POST"})
+     * @IsGranted("ROLE_AUDITOR")
+     */
+    public function updateObservation(Request $request, Ticket $ticket): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_AUDITOR');
         
-        // Check if user is admin
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
-        
-        $result = $ticketRepository->search(
-            $searchData['search'],
-            $searchData['estado'],
-            $searchData['departamento'],
-            $searchData['fechaDesde'],
-            $searchData['fechaHasta'],
-            $page,
-            self::ITEMS_PER_PAGE,
-            $sortBy,
-            $sortOrder,
-            $isAdmin ? null : $this->getUser() // Only show current user's tickets if not admin
-        );
-        
-        // Store current sort state for the view
-        $sortState = [
-            'currentSort' => $sortBy,
-            'currentOrder' => $sortOrder,
-        ];
-
-        // Update form with current search data
-        $filterForm = $this->createForm(\App\Form\TicketFilterType::class, $searchData);
-        
-        // Prepare the view data
-        $viewData = [
-            'tickets' => $result['items'],
-            'filter_form' => $filterForm->createView(),
-            'currentPage' => $result['currentPage'],
-            'totalPages' => $result['totalPages'],
-            'totalItems' => $result['totalItems'],
-            'itemsPerPage' => $result['itemsPerPage'],
-            'searchParams' => array_filter($searchData, function($value) {
-                return $value !== null && $value !== '';
-            }),
-            'sortState' => $sortState,
-        ];
-        
-        // If it's an AJAX request, return only the table content
-        if ($request->isXmlHttpRequest()) {
-            $content = $this->renderView('ticket/_ticket_table.html.twig', $viewData);
-            return new Response($content);
+        if ($ticket->getStatus() !== self::STATUS_COMPLETED && $ticket->getStatus() !== self::STATUS_REJECTED) {
+            $this->addFlash('error', 'Solo se pueden editar observaciones en tickets completados o rechazados.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
         
-        $viewData['isAdmin'] = $isAdmin;
+        $observation = $request->request->get('observation');
         
-        return $this->render('ticket/index.html.twig', $viewData);
+        if (empty(trim($observation))) {
+            $this->addFlash('error', 'La observación no puede estar vacía.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $ticket->setObservation($observation);
+        $ticket->setUpdatedAt(new \DateTimeImmutable());
+        
+        $this->em->persist($ticket);
+        $this->em->flush();
+        
+        $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    public function __construct(
+        LoggerInterface $logger,
+        EntityManagerInterface $entityManager,
+        TicketRepository $ticketRepository,
+        UserRepository $userRepository
+    ) {
+        $this->logger = $logger;
+        $this->em = $entityManager; // Using $em as the property name for consistency
+        $this->ticketRepository = $ticketRepository;
+        $this->userRepository = $userRepository;
     }
 
-    #[Route('/nuevo', name: 'ticket_nuevo')]
-    public function nuevo(
-        Request $request, 
-        EntityManagerInterface $em,
-        TicketRepository $ticketRepository,
-        TicketCollaboratorRepository $collaboratorRepository
-    ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+    #[Route('/tickets/{id}/propose-status/{status}', name: 'ticket_propose_status', methods: ['POST'])]
+    #[IsGranted('propose_status', 'ticket')]
+    public function proposeStatus(Request $request, Ticket $ticket, string $status): Response
+    {
+        $statusMap = [
+            'pending' => self::STATUS_PENDING,
+            'in_progress' => self::STATUS_IN_PROGRESS,
+            'completed' => self::STATUS_COMPLETED,
+            'rejected' => self::STATUS_REJECTED,
+            'status' => null // For the dropdown in index page
+        ];
+        
+        // Handle dropdown form submission from index page
+        if ($status === 'status') {
+            $status = $request->request->get('status');
+            if (!array_key_exists($status, $statusMap)) {
+                $this->addFlash('error', 'Estado no válido');
+                return $this->redirectToRoute('ticket_index');
+            }
+            $newStatus = $statusMap[$status];
+            $statusLabels = [
+                'pending' => 'Pendiente',
+                'in_progress' => 'En progreso',
+                'completed' => 'Completado',
+                'rejected' => 'Rechazado'
+            ];
+            $noteContent = 'Cambio de estado a ' . ($statusLabels[$status] ?? $status);
+        } else {
+            if (!array_key_exists($status, $statusMap)) {
+                $this->addFlash('error', 'Estado no válido');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+            $newStatus = $statusMap[$status];
+            $noteContent = $request->request->get('note', '');
+            
+            if (empty(trim($noteContent))) {
+                $statusLabels = [
+                    'pending' => 'Pendiente',
+                    'in_progress' => 'En progreso',
+                    'completed' => 'Completado',
+                    'rejected' => 'Rechazado'
+                ];
+                $noteContent = 'Cambio de estado a ' . ($statusLabels[$status] ?? $status);
+            }
+        }
+        
+        // If user is not an auditor or admin, create a proposal
+        if (!$this->isGranted('ROLE_AUDITOR') && !$this->isGranted('ROLE_ADMIN')) {
+            $ticket->setProposedStatus($newStatus);
+            $ticket->setProposalNote($noteContent);
+            $ticket->setProposedBy($this->getUser());
+            
+            $this->em->persist($ticket);
+            $this->em->flush();
+            
+            $this->addFlash('warning', 'Se ha enviado la propuesta de cambio de estado a los auditores para su revisión.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // If user is auditor or admin, apply the status change directly
+        return $this->updateStatus($ticket, $newStatus, $noteContent);
+    }
+    
+    #[Route('/tickets/{id}/approve-proposal', name: 'ticket_approve_proposal', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function approveProposal(Request $request, Ticket $ticket): Response
+    {
+        if (!$ticket->getProposedStatus()) {
+            $this->addFlash('error', 'No hay una propuesta de cambio de estado pendiente para este ticket');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $note = new Note();
+        $note->setContent(sprintf(
+            "Propuesta aprobada por %s\n\n%s",
+            $this->getUser()->getUserIdentifier(),
+            $ticket->getProposalNote()
+        ));
+        $note->setTicket($ticket);
+        $note->setCreatedBy($this->getUser());
+        
+        $this->em->persist($note);
+        
+        // Update the status
+        $ticket->setStatus($ticket->getProposedStatus());
+        $ticket->setProposedStatus(null);
+        $ticket->setProposalNote(null);
+        $ticket->setProposedBy(null);
+        
+        $this->em->persist($ticket);
+        $this->em->flush();
+        
+        $this->addFlash('success', 'La propuesta ha sido aprobada y el estado del ticket ha sido actualizado.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/suggest-rejection', name: 'ticket_suggest_rejection', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function suggestRejection(Request $request, Ticket $ticket): Response
+    {
+        return $this->suggestStatus($request, $ticket, self::STATUS_REJECTED, 'rechazo');
+    }
+    
+    #[Route('/tickets/{id}/suggest-status/{statusType}', name: 'ticket_suggest_status', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function suggestStatus(Request $request, Ticket $ticket, string $statusType): Response
+    {
+        $suggestion = $request->request->get('suggestion', '');
+        
+        if (empty(trim($suggestion))) {
+            $this->addFlash('error', 'Debe proporcionar una explicación para esta sugerencia');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $statusMap = [
+            'en_progreso' => 'En Progreso',
+            'completado' => 'Completado',
+            'rechazado' => 'Rechazado'
+        ];
+        
+        if (!array_key_exists($statusType, $statusMap)) {
+            throw $this->createNotFoundException('Tipo de estado no válido');
+        }
+        
+        $statusLabel = $statusMap[$statusType];
+        
+        $note = new Note();
+        $note->setContent(sprintf(
+            "Sugerencia de %s\nUsuario: %s %s\nFecha: %s\n\n%s",
+            $statusLabel,
+            $this->getUser()->getNombre(),
+            $this->getUser()->getApellido(),
+            (new \DateTime())->format('d/m/Y H:i'),
+            $suggestion
+        ));
+        $note->setTicket($ticket);
+        $note->setCreatedBy($this->getUser());
+        
+        $this->em->persist($note);
+        $this->em->flush();
+        
+        $this->addFlash('success', sprintf('Su sugerencia de %s ha sido guardada en las notas del ticket', strtolower($statusLabel)));
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/auditor-action', name: 'ticket_auditor_action', methods: ['POST'])]
+    #[IsGranted('ROLE_AUDITOR')]
+    public function auditorAction(Request $request, Ticket $ticket): Response
+    {
+        $action = $request->request->get('action');
+        $description = $request->request->get('description', $request->request->get('observation', ''));
+        $assignToId = $request->request->get('assign_to');
+        
+        // Handle observation update
+        if ($action === 'update_observation') {
+            if (empty(trim($description))) {
+                $this->addFlash('error', 'La observación no puede estar vacía');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            }
+            
+            $ticket->setObservation($description);
+            $ticket->setUpdatedAt(new \DateTimeImmutable());
+            
+            $this->em->persist($ticket);
+            $this->em->flush();
+            
+            $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // For other actions, require a description
+        if (empty(trim($description))) {
+            $this->addFlash('error', 'Debe proporcionar una descripción para esta acción');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        // Initialize note variable
+        $note = null;
+        
+        // Handle description/note
+        if (!empty($description)) {
+            $note = new Note();
+            $note->setContent($description);
+            $note->setCreatedBy($this->getUser());
+            $ticket->addNote($note);
+        }
+        
+        // Handle user assignment if provided
+        if ($assignToId && $assignToId !== '') {
+            $user = $this->userRepository->find($assignToId);
+            if ($user) {
+                $previousUser = $ticket->getTakenBy();
+                $ticket->setTakenBy($user);
+                
+                // Create a new assignment record
+                $assignment = new TicketAssignment();
+                $assignment->setTicket($ticket);
+                $assignment->setUser($user);
+                $assignment->setAssignedBy($this->getUser());
+                $assignment->setAssignedAt(new \DateTimeImmutable());
+                $this->em->persist($assignment);
+                
+                // Update note content with assignment details
+                $assignmentNote = "\n\nTicket reasignado a: " . $user->getFullName();
+                if ($previousUser) {
+                    $assignmentNote = "\n\nTicket reasignado de " . $previousUser->getFullName() . " a " . $user->getFullName();
+                }
+                $note->setContent($note->getContent() . $assignmentNote);
+            }
+        }
+        
+        // Update ticket description for reject/finalize actions
+        if (in_array($action, ['rechazar', 'finalizar'])) {
+            $currentDate = (new \DateTime())->format('d/m/Y H:i');
+            $actionLabel = $action === 'rechazar' ? 'Rechazado' : 'Finalizado';
+            
+            // For finalizing, set the observation and completedBy
+            if ($action === 'finalizar') {
+                $ticket->setObservation($description);
+                $ticket->setCompletedBy($this->getUser());
+                $ticket->setUpdatedAt(new \DateTimeImmutable());
+            } else {
+                // For reject, keep the old behavior
+                $ticket->setDescription(
+                    $ticket->getDescription() . 
+                    "\n\n---\n" .
+                    "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() . 
+                    "\n" . 
+                    $description
+                );
+            }
+        }
+        
+        // Update status based on action
+        $statusUpdated = false;
+        $statusMessage = '';
+        
+        switch ($action) {
+            case 'rechazar':
+                $ticket->setStatus(self::STATUS_REJECTED);
+                $statusUpdated = true;
+                $statusMessage = 'El ticket ha sido rechazado';
+                break;
+            case 'finalizar':
+                $ticket->setStatus(self::STATUS_COMPLETED);
+                $statusUpdated = true;
+                $statusMessage = 'El ticket ha sido finalizado';
+                break;
+            case 'continuar':
+            case 'reasignar':
+                $ticket->setStatus(self::STATUS_IN_PROGRESS);
+                $statusUpdated = true;
+                $statusMessage = $action === 'reasignar' 
+                    ? 'El ticket ha sido reasignado' 
+                    : 'El ticket ha sido marcado como en progreso';
+                break;
+        }
+        
+        if ($statusUpdated) {
+            if ($note) {
+                $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+            } else {
+                $note = new Note();
+                $note->setContent("Estado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
+                $note->setCreatedBy($this->getUser());
+                $ticket->addNote($note);
+            }
+        }
+        
+        $this->em->persist($ticket);
+        if ($note) {
+            $this->em->persist($note);
+        }
+        $this->em->flush();
+        
+        $this->addFlash('success', $statusMessage ?: 'La acción ha sido registrada');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    private function updateStatus(Ticket $ticket, string $status, ?string $noteContent = null): Response
+    {
+        // Create a note if content is provided
+        if (!empty(trim($noteContent))) {
+            $note = new Note();
+            $note->setContent(sprintf(
+                "Acción: %s\n\n%s",
+                $this->getStatusLabel($status),
+                $noteContent
+            ));
+            $note->setTicket($ticket);
+            $note->setCreatedBy($this->getUser());
+            
+            $this->em->persist($note);
+            $ticket->addNote($note);
+        }
+
+        // Set the status
+        $ticket->setStatus($status);
+        
+        // If completing the ticket, set the completedBy user and current time
+        if ($status === self::STATUS_COMPLETED) {
+            $ticket->setCompletedBy($this->getUser());
+            $ticket->setUpdatedAt(new \DateTimeImmutable());
+        }
+        
+        $this->em->persist($ticket);
+        $this->em->flush();
+
+        $statusMessage = $this->getStatusLabel($status);
+        $this->addFlash('success', sprintf('El ticket ha sido marcado como %s', $statusMessage));
+        
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/edit-description', name: 'ticket_edit_description', methods: ['POST'])]
+    #[IsGranted('edit', 'ticket')]
+    public function editDescription(Ticket $ticket, Request $request): Response
+    {
+        $description = $request->request->get('description');
+        
+        if (empty(trim($description))) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['success' => false, 'error' => 'La descripción no puede estar vacía']);
+            }
+            $this->addFlash('error', 'La descripción no puede estar vacía');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+        
+        $ticket->setDescription($description);
+        $this->em->persist($ticket);
+        $this->em->flush();
+        
+        if ($request->isXmlHttpRequest()) {
+            return $this->json([
+                'success' => true,
+                'description' => nl2br(htmlspecialchars($description, ENT_QUOTES, 'UTF-8'))
+            ]);
+        }
+        
+        $this->addFlash('success', 'La descripción ha sido actualizada');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
+    #[Route('/tickets/{id}/take', name: 'ticket_take', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function takeTicket(Ticket $ticket, Request $request): Response
+    {
         $user = $this->getUser();
+        
+        // Check if the ticket is already taken
+        if ($ticket->getTakenBy()) {
+            $this->addFlash('warning', 'Este ticket ya ha sido tomado por otro usuario.');
+            return $this->redirectToRoute('homepage');
+        }
+
+        // Set the current user as the taker
+        $ticket->setTakenBy($user);
+        $ticket->setStatus(self::STATUS_IN_PROGRESS);
+        
+        $this->em->persist($ticket);
+        $this->em->flush();
+        
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
+    #[Route('/tickets', name: 'ticket_index')]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function index(Request $request): Response
+    {
+        $page = max(1, $request->query->getInt('page', 1));
+        $limit = 20; // Tickets por página
+        $offset = ($page - 1) * $limit;
+        
+        // Filtros
+        $status = $request->query->get('status');
+        $search = $request->query->get('search');
+        $sortBy = $request->query->get('sort', 'createdAt');
+        $sortOrder = $request->query->get('order', 'DESC');
+        $area = $request->query->get('area');
+        
+        // Construir query base
+        $qb = $this->em->createQueryBuilder();
+        $qb->select('t', 'u', 'ta', 'assignedUser')
+           ->from(Ticket::class, 't')
+           ->leftJoin('t.createdBy', 'u')
+           ->leftJoin('t.ticketAssignments', 'ta')
+           ->leftJoin('ta.user', 'assignedUser');
+        
+        // Aplicar filtros
+        if ($status && $status !== 'all') {
+            $qb->andWhere('t.status = :status')
+               ->setParameter('status', $status);
+        }
+        
+        if ($search) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->like('t.title', ':search'),
+                    $qb->expr()->like('t.description', ':search'),
+                    $qb->expr()->like('t.idSistemaInterno', ':search'),
+                    $qb->expr()->like('u.nombre', ':search'),
+                    $qb->expr()->like('u.apellido', ':search')
+                )
+            )
+            ->setParameter('search', '%' . $search . '%');
+        }
+        
+        if ($area && $area !== 'all') {
+            $qb->andWhere('t.areaOrigen = :area')
+               ->setParameter('area', $area);
+        }
+        
+        // Aplicar ordenamiento
+        $validSortFields = ['createdAt', 'title', 'status', 'areaOrigen'];
+        $sortBy = in_array($sortBy, $validSortFields) ? $sortBy : 'createdAt';
+        $sortOrder = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
+        
+        $qb->orderBy('t.' . $sortBy, $sortOrder);
+        
+        // Mostrar todos los tickets a administradores y auditores
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            // Para usuarios normales, solo mostrar tickets creados por ellos o asignados a ellos
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('t.createdBy', ':currentUser'),
+                    $qb->expr()->eq('assignedUser', ':currentUser')
+                )
+            )
+            ->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Contar total de tickets
+        $countQb = clone $qb;
+        $totalTickets = $countQb->select('COUNT(t.id)')->getQuery()->getSingleScalarResult();
+        
+        // Aplicar paginación
+        $qb->setFirstResult($offset)
+           ->setMaxResults($limit);
+        
+        $tickets = $qb->getQuery()->getResult();
+        
+        // Obtener usuarios para asignación
+        $users = $this->em->getRepository(User::class)->findAll();
+        
+        // Obtener áreas únicas para filtros
+        $areas = $this->em->createQueryBuilder()
+            ->select('DISTINCT t.areaOrigen')
+            ->from(Ticket::class, 't')
+            ->where('t.areaOrigen IS NOT NULL')
+            ->andWhere('t.areaOrigen != :empty')
+            ->setParameter('empty', '')
+            ->orderBy('t.areaOrigen', 'ASC')
+            ->getQuery()
+            ->getResult();
+        
+        $areas = array_column($areas, 'areaOrigen');
+        
+        // Calcular estadísticas
+        $stats = [
+            'total' => $totalTickets,
+            'pending' => $this->em->getRepository(Ticket::class)->count(['status' => 'pending']),
+            'in_progress' => $this->em->getRepository(Ticket::class)->count(['status' => 'in_progress']),
+            'completed' => $this->em->getRepository(Ticket::class)->count(['status' => 'completed']),
+            'rejected' => $this->em->getRepository(Ticket::class)->count(['status' => 'rejected']),
+            'delayed' => $this->em->getRepository(Ticket::class)->count(['status' => 'delayed']),
+        ];
+        
+        // Calcular páginas
+        $totalPages = ceil($totalTickets / $limit);
+        
+        return $this->render('ticket/index.html.twig', [
+            'tickets' => $tickets,
+            'users' => $users,
+            'areas' => $areas,
+            'stats' => $stats,
+            'pagination' => [
+                'current' => $page,
+                'total' => $totalPages,
+                'limit' => $limit,
+                'total_items' => $totalTickets,
+            ],
+            'filters' => [
+                'status' => $status,
+                'search' => $search,
+                'area' => $area,
+                'sort' => $sortBy,
+                'order' => $sortOrder,
+            ],
+        ]);
+    }
+
+    #[Route('/tickets/new', name: 'ticket_new')]
+    public function new(Request $request): Response
+    {
+        // Check if user has AUDITOR role
+        if (!$this->isGranted('ROLE_AUDITOR')) {
+            $this->addFlash('error', 'No tienes permiso para crear tickets. Solo los usuarios con rol AUDITOR pueden crear nuevos tickets.');
+            return $this->redirectToRoute('ticket_index');
+        }
         
         $ticket = new Ticket();
-        $ticket->setCreatedAt(new \DateTimeImmutable());
-        $ticket->setCreatedBy($user);
-
-        $form = $this->createForm(TicketType::class, $ticket);
+        $ticket->setCreatedBy($this->getUser());
+        
+        $form = $this->createForm(TicketType::class, $ticket, [
+            'is_admin' => $this->isGranted('ROLE_ADMIN'),
+        ]);
+        
         $form->handleRequest($request);
-
+        
         if ($form->isSubmitted() && $form->isValid()) {
-            // Check if area is selected
-            if (!$ticket->getArea()) {
-                $this->addFlash('error', 'Por favor seleccione un área de origen.');
-                return $this->render('ticket/nuevo.html.twig', [
-                    'form' => $form->createView(),
-                    'existing_ticket' => null,
-                ]);
-            }
-
-            $existingTicket = $ticketRepository->findOneBy(['ticketId' => $ticket->getTicketId()]);
+            $this->em->persist($ticket);
+            $this->em->flush();
             
-            if ($existingTicket) {
-                if ($existingTicket->isCollaborator($user)) {
-                    $this->addFlash('warning', 'Ya eres colaborador de este ticket.');
-                    return $this->redirectToRoute('ticket_show', ['id' => $existingTicket->getId()]);
-                }
-                
-                // Store ticket ID in session to show the collaboration modal
-                $request->getSession()->set('pending_ticket_id', $existingTicket->getId());
-                return $this->redirectToRoute('ticket_colaborar', ['id' => $existingTicket->getId()]);
-            }
-
-            // Add creator as the first collaborator
-            $collaborator = new TicketCollaborator();
-            $collaborator->setUser($user);
-            $collaborator->setTicket($ticket);
-            $ticket->addCollaborator($collaborator);
-            
-            $em->persist($ticket);
-            $em->persist($collaborator);
-            $em->flush();
-
-            $this->addFlash('success', '✅ Ticket creado correctamente.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+            $this->addFlash('success', 'Ticket creado exitosamente.');
+            return $this->redirectToRoute('ticket_index');
         }
-
-        return $this->render('ticket/nuevo.html.twig', [
+        
+        return $this->render('ticket/new.html.twig', [
             'form' => $form->createView(),
-            'existing_ticket' => null,
         ]);
     }
 
-    #[Route('/mis-tickets', name: 'app_ticket')]
-    public function misTickets(TicketRepository $repo): Response
+    #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
+    #[IsGranted('ROLE_AUDITOR')]
+    public function assign(Request $request): Response
     {
-        return $this->redirectToRoute('ticket_lista');
-    }
-
-    #[Route('/historial-usuario', name: 'ticket_historial_usuario')]
-    public function historialUsuario(
-        Request $request,
-        TicketRepository $ticketRepository
-    ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        $user = $this->getUser();
+        $this->logger->info('=== TICKET ASSIGNMENT START ===');
         
-        $page = max(1, $request->query->getInt('page', 1));
-        
-        // Crear formulario de filtros para el historial
-        $filterForm = $this->createForm(\App\Form\TicketFilterType::class);
-        $filterForm->handleRequest($request);
-
-        $searchData = [
-            'search' => $request->query->get('search'),
-            'estado' => $request->query->get('estado'),
-            'departamento' => $request->query->get('departamento') ? (int)$request->query->get('departamento') : null,
-            'fechaDesde' => $request->query->get('fechaDesde') ? new \DateTime($request->query->get('fechaDesde')) : null,
-            'fechaHasta' => $request->query->get('fechaHasta') ? new \DateTime($request->query->get('fechaHasta')) : null,
-        ];
-
-        if ($filterForm->isSubmitted() && $filterForm->isValid()) {
-            if ($filterForm->get('limpiar')->isClicked()) {
-                return $this->redirectToRoute('ticket_historial_usuario');
+        try {
+            // Log request details
+            $this->logger->info('Request method: ' . $request->getMethod());
+            $this->logger->info('Content-Type: ' . $request->headers->get('Content-Type'));
+            $this->logger->info('Request data: ' . print_r($request->request->all(), true));
+            
+            // Verify CSRF token
+            $token = $request->request->get('_token');
+            if (!$this->isCsrfTokenValid('assign_ticket', $token)) {
+                $this->logger->error('Invalid CSRF token');
+                throw $this->createAccessDeniedException('Token de seguridad inválido');
             }
-
-            $formData = $filterForm->getData();
-            $searchData = [
-                'search' => $formData['search'] ?? null,
-                'estado' => $formData['estado'] ?? null,
-                'departamento' => $formData['departamento'] ? (int)$formData['departamento'] : null,
-                'fechaDesde' => $formData['fechaDesde'] ?? null,
-                'fechaHasta' => $formData['fechaHasta'] ?? null,
-            ];
+            
+            // Get ticket ID and validate
+            $ticketId = $request->request->get('ticket_id');
+            if (!$ticketId) {
+                $this->logger->error('No ticket_id provided in request');
+                throw new \InvalidArgumentException('ID de ticket no proporcionado');
+            }
+            
+            // Get the ticket
+            $ticket = $this->ticketRepository->find($ticketId);
+            if (!$ticket) {
+                $this->logger->error('Ticket not found with ID: ' . $ticketId);
+                throw $this->createNotFoundException('Ticket no encontrado');
+            }
+            
+            // Get user IDs
+            $userIds = $request->request->all('assigned_users');
+            if (empty($userIds)) {
+                $this->logger->warning('No user IDs provided in request');
+                $this->addFlash('warning', 'Debe seleccionar al menos un usuario');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+            }
+            
+            $this->logger->info('Processing assignment for ticket: ' . $ticketId);
+            $this->logger->info('Selected users: ' . print_r($userIds, true));
+            
+            // Process user assignments
+            $assignedUsers = [];
+            foreach ($userIds as $userId) {
+                $user = $this->userRepository->find($userId);
+                if ($user) {
+                    $assignedUsers[] = $user;
+                    
+                    // Create new assignment if it doesn't exist
+                    $assignment = new TicketAssignment();
+                    $assignment->setTicket($ticket);
+                    $assignment->setUser($user);
+                    $assignment->setAssignedAt(new \DateTimeImmutable());
+                    
+                    $this->em->persist($assignment);
+                }
+            }
+            
+            // Update ticket status if needed
+            if (count($assignedUsers) > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
+                $ticket->setStatus(self::STATUS_IN_PROGRESS);
+                $this->em->persist($ticket);
+            }
+            
+            $this->em->flush();
+            
+            $this->logger->info('Successfully assigned users to ticket: ' . $ticketId);
+            $this->addFlash('success', 'Usuarios asignados correctamente al ticket.');
+            
+        } catch (\Exception $e) {
+            $this->logger->error('Error assigning users to ticket: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
         }
-
-        // Parámetros de ordenamiento
-        $sortBy = $request->query->get('sort_by', 'createdAt');
-        $sortOrder = $request->query->get('sort_order', 'DESC');
         
-        // Buscar solo tickets del usuario actual
-        $result = $ticketRepository->search(
-            $searchData['search'],
-            $searchData['estado'],
-            $searchData['departamento'],
-            $searchData['fechaDesde'],
-            $searchData['fechaHasta'],
-            $page,
-            self::ITEMS_PER_PAGE,
-            $sortBy,
-            $sortOrder,
-            $user // Solo tickets del usuario actual
-        );
-        
-        // Estado de ordenamiento para la vista
-        $sortState = [
-            'currentSort' => $sortBy,
-            'currentOrder' => $sortOrder,
-        ];
-
-        // Actualizar formulario con datos de búsqueda actuales
-        $filterForm = $this->createForm(\App\Form\TicketFilterType::class, $searchData);
-
-        return $this->render('ticket/historial_usuario.html.twig', [
-            'tickets' => $result['items'],
-            'filter_form' => $filterForm->createView(),
-            'currentPage' => $result['currentPage'],
-            'totalPages' => $result['totalPages'],
-            'totalItems' => $result['totalItems'],
-            'itemsPerPage' => $result['itemsPerPage'],
-            'searchParams' => array_filter($searchData, function($value) {
-                return $value !== null && $value !== '';
-            }),
-            'sortState' => $sortState,
-            'user' => $user,
+        // Redirect back to the ticket
+        return $this->redirectToRoute('ticket_show', [
+            'id' => $ticketId ?? 0
         ]);
     }
 
-    #[Route('/{id}/colaborar', name: 'ticket_colaborar', methods: ['GET', 'POST'])]
-    public function colaborar(
-        int $id,
-        Request $request,
-        TicketRepository $ticketRepository,
-        TicketCollaboratorRepository $collaboratorRepository,
-        EntityManagerInterface $em
-    ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        $user = $this->getUser();
+    #[Route('/tickets/{id}', name: 'ticket_show', methods: ['GET'])]
+    public function show(Ticket $ticket, UserRepository $userRepository): Response
+    {
+        // Check if user has permission to view this ticket
+        $this->denyAccessUnlessGranted('view', $ticket);
+        // Get all users and filter by role in PHP
+        $allUsers = $userRepository->findAll();
         
-        $ticket = $ticketRepository->find($id);
-        if (!$ticket) {
-            throw $this->createNotFoundException('Ticket no encontrado');
-        }
-
-        // Check if user is already a collaborator
-        if ($ticket->isCollaborator($user)) {
-            $this->addFlash('info', 'Ya eres colaborador de este ticket.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-        }
-
-        if ($request->isMethod('POST')) {
-            $collaborator = new TicketCollaborator();
-            $collaborator->setUser($user);
-            $collaborator->setTicket($ticket);
-            
-            $em->persist($collaborator);
-            $em->flush();
-            
-            $this->addFlash('success', '¡Ahora eres colaborador de este ticket!');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-        }
-
-        return $this->render('ticket/colaborar.html.twig', [
-            'ticket' => $ticket,
-        ]);
-    }
-
-    #[Route('/{id}', name: 'ticket_show', methods: ['GET', 'POST'])]
-    public function show(
-        Request $request, 
-        Ticket $ticket, 
-        EntityManagerInterface $entityManager,
-        TaskRepository $taskRepository
-    ): Response {
-        // Create a new task form
-        $task = new Task();
-        $task->setTicket($ticket);
+        // Get notes ordered by creation date (newest first)
+        $notes = $ticket->getNotes()->toArray();
+        usort($notes, function($a, $b) {
+            return $b->getCreatedAt() <=> $a->getCreatedAt();
+        });
         
-        $taskForm = $this->createForm(TaskType::class, $task);
-        $taskForm->handleRequest($request);
-
-        if ($taskForm->isSubmitted() && $taskForm->isValid()) {
-            $entityManager->persist($task);
-            $entityManager->flush();
-
-            $this->addFlash('success', 'Tarea agregada correctamente.');
-            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        // Filter users by role
+        $filteredUsers = array_filter($allUsers, function($user) {
+            $roles = $user->getRoles();
+            return in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles);
+        });
+        
+        // Sort users by name
+        usort($filteredUsers, function($a, $b) {
+            return strcmp($a->getNombre(), $b->getNombre());
+        });
+        
+        // Check if current user is assigned to this ticket
+        $isAssigned = false;
+        if ($this->getUser()) {
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                if ($assignment->getUser() === $this->getUser()) {
+                    $isAssigned = true;
+                    break;
+                }
+            }
         }
 
         return $this->render('ticket/show.html.twig', [
             'ticket' => $ticket,
-            'task_form' => $taskForm->createView(),
+            'users' => $filteredUsers,
+            'notes' => $notes,
+            'isAssigned' => $isAssigned,
+            'isAdmin' => $this->isGranted('ROLE_ADMIN'),
+            'isAuditor' => $this->isGranted('ROLE_AUDITOR'),
+            'isCreator' => $ticket->getCreatedBy() === $this->getUser(),
         ]);
     }
 
-    /**
-     * @Route("/ticket/task/{id}/toggle", name="task_toggle_complete", methods={"POST"})
-     */
-    public function toggleTaskComplete(
-        int $id,
-        Request $request,
-        TaskRepository $taskRepository,
-        EntityManagerInterface $entityManager
-    ): JsonResponse {
-        $task = $taskRepository->find($id);
-        
-        if (!$task) {
-            return $this->json(['success' => false, 'error' => 'Tarea no encontrada'], 404);
-        }
-        
-        // Ensure the task belongs to a ticket the user can access
-        $this->denyAccessUnlessGranted('view', $task->getTicket());
-        
-        $data = json_decode($request->getContent(), true);
-        $completed = $data['completed'] ?? false;
-        
-        $task->setCompleted($completed);
-        $entityManager->flush();
-        
-        return $this->json([
-            'success' => true,
-            'completed' => $task->isCompleted(),
-            'completedAt' => $task->getCompletedAt() ? $task->getCompletedAt()->format('d/m/Y H:i') : null
-        ]);
-    }
-    
-    /**
-     * @Route("/ticket/task/{id}", name="task_delete", methods={"DELETE"})
-     */
-    public function deleteTask(
-        int $id,
-        TaskRepository $taskRepository,
-        EntityManagerInterface $entityManager
-    ): JsonResponse {
-        $task = $taskRepository->find($id);
-        
-        if (!$task) {
-            return $this->json(['success' => false, 'error' => 'Tarea no encontrada'], 404);
-        }
-        
-        // Ensure the task belongs to a ticket the user can access
-        $this->denyAccessUnlessGranted('edit', $task->getTicket());
-        
-        $entityManager->remove($task);
-        $entityManager->flush();
-        
-        return $this->json(['success' => true]);
-    }
-    
-    /**
-     * @Route("/ticket/{id}/toggle-complete", name="ticket_toggle_complete", methods={"POST"})
-     */
-    public function toggleComplete(Ticket $ticket, EntityManagerInterface $entityManager): Response
+    #[Route('/tickets/{id}/edit', name: 'ticket_edit', methods: ['GET', 'POST'])]
+    #[IsGranted('ROLE_AUDITOR')]
+    public function edit(Request $request, Ticket $ticket): Response
     {
-        $this->denyAccessUnlessGranted('edit', $ticket);
-
-        $ticket->setEstado($ticket->getEstado() === 'completado' ? 'pendiente' : 'completado');
-        $entityManager->flush();
-
-        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-    }
-
-    #[Route('/{id}/editar', name: 'ticket_editar', methods: ['GET', 'POST'])]
-    public function editar(
-        Request $request,
-        int $id,
-        EntityManagerInterface $em,
-        TicketRepository $ticketRepository
-    ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        $ticket = $ticketRepository->find($id);
+        // Create form with the ticket entity directly
+        $form = $this->createForm(TicketType::class, $ticket, [
+            'is_admin' => $this->isGranted('ROLE_ADMIN'),
+        ]);
         
-        if (!$ticket) {
-            throw $this->createNotFoundException('Ticket no encontrado');
-        }
-
-        // Verify user is admin, creator, or collaborator
-        $user = $this->getUser();
-        if (!$this->isGranted('ROLE_ADMIN') && $ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
-            throw $this->createAccessDeniedException('No tienes permiso para editar este ticket');
-        }
-
-        $form = $this->createForm(TicketType::class, $ticket);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Check if area is selected
-            if (!$ticket->getArea()) {
-                $this->addFlash('error', 'Por favor seleccione un área de origen.');
-                return $this->render('ticket/editar.html.twig', [
-                    'form' => $form->createView(),
-                    'ticket' => $ticket,
-                ]);
+            // Get the assigned users from the form
+            $assignedUsers = $form->get('ticketAssignments')->getData();
+            
+            // Clear existing assignments
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                $ticket->removeTicketAssignment($assignment);
+                $this->em->remove($assignment);
             }
             
-            $em->flush();
-            $this->addFlash('success', '✅ Ticket actualizado correctamente.');
+            // Add new assignments
+            $assignedUserIds = $request->request->all('assignedUsers');
+            if (!empty($assignedUserIds)) {
+                foreach ($assignedUserIds as $userId) {
+                    $user = $this->userRepository->find($userId);
+                    if ($user) {
+                        $assignment = new TicketAssignment();
+                        $assignment->setUser($user);
+                        $assignment->setTicket($ticket);
+                        $assignment->setAssignedAt(new \DateTime());
+                        $this->em->persist($assignment);
+                        $ticket->addTicketAssignment($assignment);
+                    }
+                }
+            }
+            
+            $this->em->persist($ticket);
+            $this->em->flush();
+            
+            $this->addFlash('success', 'Ticket actualizado correctamente.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
 
-        return $this->render('ticket/editar.html.twig', [
-            'form' => $form->createView(),
+        return $this->render('ticket/edit.html.twig', [
             'ticket' => $ticket,
+            'form' => $form->createView(),
         ]);
     }
 
-    /**
-     * Obtiene los detalles de un ticket para mostrarlos en el modal de colaboración
-     */
-    #[Route('/{id}/detalles', name: 'ticket_detalles', methods: ['GET'])]
-    public function detalles(int $id, TicketRepository $ticketRepository): JsonResponse
+    #[Route('/tickets/{id}/reject', name: 'ticket_reject', methods: ['POST'])]
+    public function reject(Request $request, Ticket $ticket): Response
     {
-        $ticket = $ticketRepository->find($id);
-        
-        if (!$ticket) {
-            return $this->json([
-                'error' => 'Ticket no encontrado',
-            ], 404);
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
         }
+        $this->denyAccessUnlessGranted('reject', $ticket);
         
-        return $this->json([
-            'id' => $ticket->getId(),
-            'ticketId' => $ticket->getTicketId(),
-            'descripcion' => $ticket->getDescripcion(),
-            'estado' => $ticket->getEstado(),
-            'departamento' => $ticket->getDepartamento(),
-            'creadoPor' => $ticket->getCreatedBy() ? $ticket->getCreatedBy()->getNombre() . ' ' . $ticket->getCreatedBy()->getApellido() : 'Usuario desconocido',
-            'fechaCreacion' => $ticket->getCreatedAt() ? $ticket->getCreatedAt()->format('d/m/Y H:i') : 'Fecha desconocida',
-            'colaboradores' => $ticket->getCollaborators()->count(),
-        ]);
-    }
-    
-    /**
-     * Verifica si un ID de ticket ya existe
-     */
-    #[Route('/check-id', name: 'ticket_check_id', methods: ['GET'])]
-    public function checkTicketId(Request $request, TicketRepository $ticketRepository): JsonResponse
-    {
-        $ticketId = $request->query->get('ticketId');
+        $reason = $request->request->get('reason', '');
+        $noteContent = 'Ticket rechazado por ' . $this->getUser()->getFullName() . ".\n\n";
+        $noteContent .= "Motivo del rechazo:\n" . $reason;
         
-        if (!$ticketId) {
-            return $this->json([
-                'exists' => false,
-                'message' => 'No se proporcionó un ID de ticket'
-            ]);
-        }
+        $this->updateStatus($ticket, self::STATUS_REJECTED, $noteContent);
         
-        $ticket = $ticketRepository->findOneBy(['ticketId' => $ticketId]);
-        
-        return $this->json([
-            'exists' => $ticket !== null,
-            'ticketId' => $ticket ? $ticket->getId() : null
-        ]);
-    }
-    
-    /**
-     * Cambia el estado de un ticket
-     */
-    #[Route('/{id}/estado', name: 'ticket_cambiar_estado', methods: ['POST'])]
-    public function cambiarEstado(
-        int $id, 
-        Request $request, 
-        TicketRepository $repo, 
-        EntityManagerInterface $em
-    ): Response {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        $user = $this->getUser();
-
-        $ticket = $repo->find($id);
-        if (!$ticket) {
-            throw $this->createNotFoundException('Ticket no encontrado');
-        }
-
-        // Verify user is either creator or collaborator
-        if ($ticket->getCreatedBy() !== $user && !$ticket->isCollaborator($user)) {
-            throw $this->createAccessDeniedException('No tienes permiso para cambiar el estado de este ticket');
-        }
-
-        if (!$this->isCsrfTokenValid('cambiar_estado_' . $ticket->getId(), $request->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido');
-        }
-
-        // Validate new state
-        $estado = (string) $request->request->get('estado', '');
-        $validos = ['pendiente', 'en proceso', 'terminado', 'rechazado'];
-        
-        if (!in_array($estado, $validos, true)) {
-            throw new \InvalidArgumentException('Estado inválido');
-        }
-
-        // Check if there are pending tasks when trying to mark as completed
-        if ($estado === 'terminado') {
-            $pendingTasks = $ticket->getTasks()->filter(function($task) {
-                return !$task->isCompleted();
-            });
-
-            if (count($pendingTasks) > 0) {
-                $this->addFlash('error', 'No se puede marcar como terminado. Hay ' . count($pendingTasks) . ' tareas pendientes.');
-                return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-            }
-        }
-
-        $ticket->setEstado($estado);
-        
-        // If marking as completed, set the completedAt date
-        if ($estado === 'terminado') {
-            $ticket->setCompletedAt(new \DateTimeImmutable());
-        }
-        
-        $em->flush();
-
-        $this->addFlash('success', 'Estado actualizado correctamente.');
+        $this->addFlash('success', 'El ticket ha sido rechazado correctamente.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/complete', name: 'ticket_complete', methods: ['POST'])]
+    public function complete(Request $request, Ticket $ticket): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
+        }
+        $this->denyAccessUnlessGranted('complete', $ticket);
+        
+        $notes = $request->request->get('notes', '');
+        
+        // Update the ticket's description with the completion notes
+        $ticket->setDescription($notes);
+        
+        // Create a note to track who completed the ticket
+        $noteContent = 'Ticket marcado como completado por ' . $this->getUser()->getFullName();
+        
+        $this->updateStatus($ticket, self::STATUS_COMPLETED, $noteContent);
+        
+        $this->addFlash('success', 'El ticket ha sido marcado como completado.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+    
+    #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function rejectProposal(Request $request, Ticket $ticket): Response
+    {
+        if (!$ticket->getProposedStatus()) {
+            $this->addFlash('error', 'No hay ninguna propuesta para rechazar.');
+            return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+        }
+
+        $reason = $request->request->get('reason', '');
+        
+        // Create a note about the rejection
+        $note = new Note();
+        $note->setContent(sprintf(
+            'Propuesta de cambio a "%s" rechazada. Razón: %s',
+            $this->getStatusLabel($ticket->getProposedStatus()),
+            $reason ?: 'No se proporcionó una razón.'
+        ));
+        $note->setUser($this->getUser());
+        $ticket->addNote($note);
+
+        // Clear the proposal
+        $ticket->setProposedStatus(null);
+        $ticket->setProposedBy(null);
+        $ticket->setProposedAt(null);
+        $ticket->setProposalNote(null);
+
+        $this->em->persist($note);
+        $this->em->flush();
+
+        $this->addFlash('success', 'La propuesta ha sido rechazada correctamente.');
+        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
+    #[Route('/tickets/{id}', name: 'ticket_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    public function delete(Request $request, Ticket $ticket): Response
+    {
+        if ($this->isCsrfTokenValid('delete'.$ticket->getId(), $request->request->get('_token'))) {
+            $this->em->remove($ticket);
+            $this->em->flush();
+            $this->addFlash('success', 'Ticket eliminado correctamente.');
+        }
+
+        return $this->redirectToRoute('ticket_index');
     }
 }

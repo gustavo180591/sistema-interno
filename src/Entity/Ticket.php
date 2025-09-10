@@ -3,241 +3,520 @@
 namespace App\Entity;
 
 use App\Repository\TicketRepository;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
+use App\Entity\TicketAssignment;
 
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
 class Ticket
 {
+    const STATUS_IN_PROGRESS = 'in_progress';
+    const STATUS_PENDING = 'pending';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_DELAYED = 'delayed';
+    const STATUS_COMPLETED = 'completed';
+
     #[ORM\Id]
-    #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\GeneratedValue(strategy: 'AUTO')]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\Column]
-    private ?\DateTimeImmutable $createdAt = null;
+    #[ORM\Column(length: 255)]
+    private ?string $title = null;
 
-    #[ORM\Column(length: 50, unique: true)]
-    private ?string $ticketId = null;
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $description = null;
 
-    #[ORM\Column(type: 'text')]
-    private ?string $descripcion = null;
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $observation = null;
 
-    #[ORM\Column(type: 'smallint')]
-    private ?int $departamento = null;
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'completed_by_id', referencedColumnName: 'id', nullable: true)]
+    private ?User $completedBy = null;
 
     #[ORM\Column(length: 20)]
-    private ?string $estado = null;
+    private string $status = self::STATUS_PENDING;
 
-    #[ORM\Column(type: 'string', length: 100, nullable: true)]
-    private ?string $pedido = null;
-
-    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $completedAt = null;
+    #[ORM\Column(length: 20)]
+    private string $priority = 'medium';
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $createdBy = null;
 
-    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketCollaborator::class, orphanRemoval: true, cascade: ['persist'])]
-    private Collection $collaborators;
+    /**
+     * @var Collection|TicketAssignment[]
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketAssignment::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $ticketAssignments;
 
-    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: Task::class, orphanRemoval: true, cascade: ['persist'])]
-    #[ORM\OrderBy(['completed' => 'ASC', 'createdAt' => 'DESC'])]
-    private Collection $tasks;
+    /**
+     * @var Collection<int, TicketUpdate>
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: TicketUpdate::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
+    private Collection $updates;
 
-    #[ORM\ManyToOne(targetEntity: Area::class, inversedBy: 'tickets')]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Area $area = null;
+    /**
+     * @var Collection<int, Note>
+     */
+    #[ORM\OneToMany(mappedBy: 'ticket', targetEntity: Note::class, cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['createdAt' => 'DESC'])]
+    private Collection $notes;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $createdAt = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $updatedAt = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $takenBy = null;
+
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $takenAt = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $areaOrigen = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $idSistemaInterno = null;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $dueDate = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $proposedStatus = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $proposalNote = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    private ?User $proposedBy = null;
+
+    /**
+     * @var Collection|User[]
+     */
+    private Collection $formAssignedUsers;
 
     public function __construct()
     {
-        $this->createdAt = new \DateTimeImmutable();
-        $this->estado = 'pendiente'; // default value
-        $this->collaborators = new ArrayCollection();
-        $this->tasks = new ArrayCollection();
-    }
-
-    public function getId(): ?int { return $this->id; }
-
-    public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
-    public function setCreatedAt(\DateTimeImmutable $createdAt): static { $this->createdAt = $createdAt; return $this; }
-
-    public function getTicketId(): ?string { return $this->ticketId; }
-    public function setTicketId(string $ticketId): static { $this->ticketId = $ticketId; return $this; }
-
-    public function getDescripcion(): ?string { return $this->descripcion; }
-    public function setDescripcion(string $descripcion): static { $this->descripcion = $descripcion; return $this; }
-
-    public function getDepartamento(): ?int { return $this->departamento; }
-    public function setDepartamento(int $departamento): static { $this->departamento = $departamento; return $this; }
-
-    public function getEstado(): ?string { return $this->estado; }
-    public function setEstado(string $estado): static { $this->estado = $estado; return $this; }
-
-    public function getPedido(): ?string { return $this->pedido; }
-    public function setPedido(?string $pedido): static { $this->pedido = $pedido; return $this; }
-
-    public function getCompletedAt(): ?\DateTimeImmutable { return $this->completedAt; }
-    public function setCompletedAt(?\DateTimeImmutable $completedAt): static { $this->completedAt = $completedAt; return $this; }
-
-    public function getDepartamentoNombre(): string
-    {
-        $departamentos = [
-            // Presidencia y Secretarías
-            1 => 'Presidencia',
-            2 => 'Secretaría',
-            3 => 'Prosecretaria Legislativa',
-            4 => 'Prosecretaria Administrativa',
-            
-            // Direcciones Generales
-            5 => 'Dirección General de Gestión Financiera y Administrativa',
-            6 => 'Dirección General de Administración y Contabilidad',
-            7 => 'Dirección General de Asuntos Legislativos y Comisiones',
-            
-            // Direcciones Principales
-            8 => 'Dirección de Gestión y TIC',
-            9 => 'Dirección de Desarrollo Humano',
-            10 => 'Dirección de Personal',
-            11 => 'Dirección de RR.HH',
-            12 => 'Dirección de Asuntos Jurídicos',
-            13 => 'Dirección de Contabilidad y Presupuesto',
-            14 => 'Dirección de Liquidación de Sueldos',
-            15 => 'Dirección de Abastecimiento',
-            16 => 'Dirección de Salud Mental',
-            17 => 'Dirección de Obras e Infraestructura',
-            18 => 'Dirección de RR.PP y Ceremonial',
-            19 => 'Dirección de Digesto Jurídico',
-            20 => 'Dirección de Prensa',
-            
-            // Departamentos
-            21 => 'Departamento de Archivos',
-            22 => 'Departamento de Compras y Licitaciones',
-            23 => 'Departamento de Bienes Patrimoniales',
-            24 => 'Departamento de Cómputos',
-            25 => 'Departamento de Reconocimiento Médico',
-            26 => 'Departamento de Asuntos Legislativos',
-            27 => 'Departamento de Comisiones',
-            28 => 'Departamento de Mesa de Entradas y Salidas',
-            29 => 'Departamento de Sumario',
-            
-            // Divisiones
-            30 => 'División Presupuesto y Rendición de Cuentas',
-            31 => 'División Cuota Alimentaria y EMB. JUD.',
-            
-            // Secciones
-            32 => 'Sección Computos',
-            33 => 'Sección Previsional',
-            34 => 'Sección Sumario',
-            35 => 'Sección Liquidación de Sueldos y Jornales',
-            36 => 'Sección Suministro',
-            37 => 'Sección Servicios Generales',
-            38 => 'Sección Legajo y Archivo',
-            39 => 'Sección Seguridad',
-            40 => 'Sección Mantenimiento',
-            41 => 'Sección Cuerpo Taquígrafos',
-            42 => 'Sección Biblioteca',
-            
-            // Áreas Especiales
-            43 => 'Coordinación de Jurídico y Administración',
-            44 => 'Agenda HCD',
-            45 => 'Municipalidad de Posadas',
-            46 => 'Defensora del Pueblo',
-            
-            // Concejalías
-            47 => 'Concejal Dib Jair',
-            48 => 'Concejal Velazquez Pablo',
-            49 => 'Concejal Traid Laura',
-            50 => 'Concejal Scromeda Luciana',
-            51 => 'Concejal Salom Judith',
-            52 => 'Concejal Mazal Malena',
-            53 => 'Concejal Martinez Horacio',
-            54 => 'Concejal Koch Santiago',
-            55 => 'Concejal Jimenez Eva',
-            56 => 'Concejal Gomez Valeria',
-            57 => 'Concejal Cardozo Hector',
-            58 => 'Concejal Argañaraz Pablo',
-            59 => 'Concejal Almiron Samira',
-            60 => 'Concejal Dardo Romero',
-        ];
-
-        return $departamentos[$this->departamento] ?? 'Desconocido';
+        $this->createdAt = new \DateTime();
+        $this->ticketAssignments = new ArrayCollection();
+        $this->updates = new ArrayCollection();
+        $this->notes = new ArrayCollection();
+        $this->formAssignedUsers = new ArrayCollection();
     }
 
     /**
-     * @return Collection<int, Task>
+     * @return Collection|User[]
      */
-    public function getTasks(): Collection
+    public function getFormAssignedUsers(): Collection
     {
-        return $this->tasks;
+        if ($this->formAssignedUsers === null) {
+            $this->formAssignedUsers = new ArrayCollection();
+        }
+        return $this->formAssignedUsers;
     }
 
-    public function addTask(Task $task): self
+    /**
+     * @param User[]|Collection|User|null $assignedUsers
+     */
+    public function setFormAssignedUsers($assignedUsers): self
     {
-        if (!$this->tasks->contains($task)) {
-            $this->tasks[] = $task;
-            $task->setTicket($this);
+        if ($assignedUsers === null) {
+            $assignedUsers = [];
+        } elseif ($assignedUsers instanceof Collection) {
+            $assignedUsers = $assignedUsers->toArray();
+        } elseif (!is_array($assignedUsers)) {
+            $assignedUsers = [$assignedUsers];
+        }
+        
+        // Ensure we only have User objects
+        $assignedUsers = array_filter($assignedUsers, function($user) {
+            return $user instanceof User;
+        });
+        
+        $this->formAssignedUsers = new ArrayCollection($assignedUsers);
+        return $this;
+    }
+
+    public function addFormAssignedUser(User $user): self
+    {
+        if (!$this->getFormAssignedUsers()->contains($user)) {
+            $this->getFormAssignedUsers()->add($user);
+        }
+        return $this;
+    }
+
+    public function removeFormAssignedUser(User $user): self
+    {
+        $this->getFormAssignedUsers()->removeElement($user);
+        return $this;
+    }
+
+    // Getters and Setters
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getTitle(): ?string
+    {
+        return $this->title;
+    }
+
+    public function setTitle(string $title): self
+    {
+        $this->title = $title;
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): self
+    {
+        $this->description = $description;
+        return $this;
+    }
+
+    public function getObservation(): ?string
+    {
+        return $this->observation;
+    }
+
+    public function setObservation(?string $observation): self
+    {
+        $this->observation = $observation;
+        return $this;
+    }
+
+    public function getCompletedBy(): ?User
+    {
+        return $this->completedBy;
+    }
+
+    public function setCompletedBy(?User $completedBy): self
+    {
+        $this->completedBy = $completedBy;
+        return $this;
+    }
+
+    public function getStatus(): string
+    {
+        return $this->status;
+    }
+
+    public function setStatus(string $status): self
+    {
+        if (!in_array($status, [
+            self::STATUS_IN_PROGRESS,
+            self::STATUS_PENDING,
+            self::STATUS_REJECTED,
+            self::STATUS_COMPLETED,
+            self::STATUS_DELAYED
+        ])) {
+            throw new \InvalidArgumentException("Invalid status");
+        }
+        $this->status = $status;
+        return $this;
+    }
+
+    public function getPriority(): string
+    {
+        return $this->priority;
+    }
+
+    public function setPriority(string $priority): self
+    {
+        $this->priority = $priority;
+        return $this;
+    }
+
+    public function getCreatedBy(): ?User
+    {
+        return $this->createdBy;
+    }
+
+    public function setCreatedBy(?User $createdBy): self
+    {
+        $this->createdBy = $createdBy;
+        return $this;
+    }
+
+    /**
+     * @return Collection|User[]
+     */
+    public function getAssignedUsers(): Collection
+    {
+        return $this->ticketAssignments->map(fn(TicketAssignment $assignment) => $assignment->getUser());
+    }
+
+    /**
+     * @return Collection|TicketAssignment[]
+     */
+    public function getTicketAssignments(): Collection
+    {
+        return $this->ticketAssignments;
+    }
+
+    /**
+     * @return Collection|TicketUpdate[]
+     */
+    public function getUpdates(): Collection
+    {
+        return $this->updates;
+    }
+
+    /**
+     * @return Collection<int, Note>
+     */
+    public function getNotes(): Collection
+    {
+        return $this->notes;
+    }
+
+    public function addNote(Note $note): self
+    {
+        if (!$this->notes->contains($note)) {
+            $this->notes[] = $note;
+            $note->setTicket($this);
         }
 
         return $this;
     }
 
-    public function removeTask(Task $task): self
+    public function removeNote(Note $note): self
     {
-        if ($this->tasks->removeElement($task)) {
+        if ($this->notes->removeElement($note)) {
             // set the owning side to null (unless already changed)
-            if ($task->getTicket() === $this) {
-                $task->setTicket(null);
+            if ($note->getTicket() === $this) {
+                $note->setTicket(null);
             }
         }
 
         return $this;
     }
 
-    public function getCreatedBy(): ?User { return $this->createdBy; }
-    public function setCreatedBy(?User $createdBy): static { $this->createdBy = $createdBy; return $this; }
-
-    public function getArea(): ?Area { return $this->area; }
-    public function setArea(?Area $area): static { $this->area = $area; return $this; }
-
-    /**
-     * @return Collection<int, TicketCollaborator>
-     */
-    public function getCollaborators(): Collection
+    public function addAssignedTo(User $user): self
     {
-        return $this->collaborators;
-    }
-
-    public function addCollaborator(TicketCollaborator $collaborator): static
-    {
-        if (!$this->collaborators->contains($collaborator)) {
-            $this->collaborators->add($collaborator);
-            $collaborator->setTicket($this);
+        if (!$this->isAssignedToUser($user)) {
+            $assignment = new TicketAssignment();
+            $assignment->setUser($user);
+            $assignment->setTicket($this);
+            $this->ticketAssignments[] = $assignment;
         }
-
         return $this;
     }
 
-    public function removeCollaborator(TicketCollaborator $collaborator): static
+    public function removeAssignedTo(User $user): self
     {
-        if ($this->collaborators->removeElement($collaborator)) {
-            // set the owning side to null (unless already changed)
-            if ($collaborator->getTicket() === $this) {
-                $collaborator->setTicket(null);
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                $this->ticketAssignments->removeElement($assignment);
+                break;
             }
         }
-
         return $this;
     }
 
-    public function isCollaborator(User $user): bool
+    public function addTicketAssignment(TicketAssignment $assignment): self
     {
-        foreach ($this->collaborators as $collaborator) {
-            if ($collaborator->getUser() === $user) {
+        if (!$this->ticketAssignments->contains($assignment)) {
+            $this->ticketAssignments[] = $assignment;
+            $assignment->setTicket($this);
+        }
+        return $this;
+    }
+
+    public function removeTicketAssignment(TicketAssignment $assignment): self
+    {
+        if ($this->ticketAssignments->removeElement($assignment)) {
+            // set the owning side to null (unless already changed)
+            if ($assignment->getTicket() === $this) {
+                $assignment->setTicket(null);
+            }
+        }
+        return $this;
+    }
+
+    public function isAssignedToUser(User $user): bool
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
                 return true;
             }
         }
         return false;
+    }
+
+    public function getUserAssignmentTime(User $user): ?\DateTimeInterface
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser()->getId() === $user->getId()) {
+                return $assignment->getAssignedAt();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get assignments ordered by assignment date (oldest first)
+     */
+    public function getOrderedAssignments(): Collection
+    {
+        $assignments = $this->ticketAssignments->toArray();
+        usort($assignments, function($a, $b) {
+            return $a->getAssignedAt() <=> $b->getAssignedAt();
+        });
+        return new ArrayCollection($assignments);
+    }
+
+    public function getCreatedAt(): ?\DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function getUpdatedAt(): ?\DateTimeInterface
+    {
+        return $this->updatedAt;
+    }
+
+    public function getAreaOrigen(): ?string
+    {
+        return $this->areaOrigen;
+    }
+
+    public function setAreaOrigen(?string $areaOrigen): self
+    {
+        $this->areaOrigen = $areaOrigen;
+        return $this;
+    }
+
+    public function getIdSistemaInterno(): ?string
+    {
+        return $this->idSistemaInterno;
+    }
+
+    public function setIdSistemaInterno(?string $idSistemaInterno): self
+    {
+        $this->idSistemaInterno = $idSistemaInterno;
+        return $this;
+    }
+
+    public function setUpdatedAt(\DateTimeInterface $updatedAt): self
+    {
+        $this->updatedAt = $updatedAt;
+        return $this;
+    }
+
+    public function getDueDate(): ?\DateTimeInterface
+    {
+        return $this->dueDate;
+    }
+
+    public function getProposedStatus(): ?string
+    {
+        return $this->proposedStatus;
+    }
+
+    public function setProposedStatus(?string $proposedStatus): self
+    {
+        $this->proposedStatus = $proposedStatus;
+        return $this;
+    }
+
+    public function getProposalNote(): ?string
+    {
+        return $this->proposalNote;
+    }
+
+    public function setProposalNote(?string $proposalNote): self
+    {
+        $this->proposalNote = $proposalNote;
+        return $this;
+    }
+
+    public function getProposedBy(): ?User
+    {
+        return $this->proposedBy;
+    }
+
+    public function setProposedBy(?User $proposedBy): self
+    {
+        $this->proposedBy = $proposedBy;
+        return $this;
+    }
+
+    public function setDueDate(?\DateTimeInterface $dueDate): self
+    {
+        $this->dueDate = $dueDate;
+
+        return $this;
+    }
+
+    public function getTakenBy(): ?User
+    {
+        return $this->takenBy;
+    }
+
+    public function setTakenBy(?User $takenBy): self
+    {
+        $this->takenBy = $takenBy;
+        $this->takenAt = $takenBy ? new \DateTimeImmutable() : null;
+        
+        return $this;
+    }
+
+    public function getTakenAt(): ?\DateTimeInterface
+    {
+        return $this->takenAt;
+    }
+
+    public function setTakenAt(\DateTimeInterface $takenAt): self
+    {
+        $this->takenAt = $takenAt;
+        
+        return $this;
+    }
+
+    public function __toString(): string
+    {
+        return sprintf('Ticket #%s - %s', $this->id, $this->title);
+    }
+
+    public function setCreatedAt(\DateTime $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function addUpdate(TicketUpdate $update): static
+    {
+        if (!$this->updates->contains($update)) {
+            $this->updates->add($update);
+            $update->setTicket($this);
+        }
+
+        return $this;
+    }
+
+    public function removeUpdate(TicketUpdate $update): static
+    {
+        if ($this->updates->removeElement($update)) {
+            // set the owning side to null (unless already changed)
+            if ($update->getTicket() === $this) {
+                $update->setTicket(null);
+            }
+        }
+
+        return $this;
     }
 }

@@ -1,0 +1,529 @@
+<!-- Assign Ticket Modal -->
+<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-semibold">
+                    <i class="fas fa-user-plus me-2"></i>
+                    <span id="assignModalTitle">Asignar Usuarios</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+
+            <form action="{{ path('ticket_assign') }}" method="post" id="assignTicketForm" class="needs-validation" novalidate>
+                <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
+                <input type="hidden" name="ticket_id" id="assign_ticket_id">
+                <input type="hidden" name="assigned_users[]" value="" id="assigned_users_hidden">
+                
+                <div class="modal-body p-4">
+                    <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <div>
+                            <strong>Selecciona los usuarios</strong> que trabajarán en este ticket.
+                            <div class="small mt-1">Puedes buscar por nombre o correo electrónico.</div>
+                        </div>
+                    </div>
+
+                    <!-- Search Box -->
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control border-start-0 user-search" 
+                                   placeholder="Buscar usuarios..."
+                                   autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Selected Users -->
+                    <div id="selectedUsers" class="mb-3 d-flex flex-wrap gap-2">
+                        <!-- Selected users will appear here -->
+                        <div class="small text-muted align-self-center" id="noUsersSelected">
+                            Ningún usuario seleccionado
+                        </div>
+                    </div>
+
+                    <!-- User List -->
+                    <div class="border rounded" style="max-height: 300px; overflow-y: auto;">
+                        <div id="userList" class="list-group list-group-flush">
+                            {% for user in users|default([])|sort((a, b) => a.nombre <=> b.nombre) %}
+                                <label class="list-group-item d-flex align-items-center py-3 user-item" 
+                                       data-user-id="{{ user.id }}"
+                                       data-user-name="{{ user.nombre }} {{ user.apellido }}"
+                                       data-email="{{ user.email }}"
+                                       data-role="{{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}">
+                                    <div class="form-check d-flex align-items-center w-100">
+                                        <input class="form-check-input flex-shrink-0 me-3 user-checkbox" 
+                                               type="checkbox" 
+                                               name="assigned_users[]" 
+                                               value="{{ user.id }}" 
+                                               {% if ticket.isAssignedToUser(user) %}checked{% endif %}
+                                               {% if ticket.status in ['completed', 'rejected'] %}disabled{% endif %}>
+                                        <div class="d-flex flex-column flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div class="fw-semibold text-truncate" style="max-width: 200px;">
+                                                    {{ user.nombre }} {{ user.apellido }}
+                                                </div>
+                                                <span class="badge bg-{{ 'ROLE_AUDITOR' in user.roles ? 'info' : 'secondary' }} ms-2">
+                                                    {{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}
+                                                </span>
+                                            </div>
+                                            <small class="text-muted d-block text-truncate" style="max-width: 250px;">
+                                                {{ user.email }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </label>
+                            {% else %}
+                                <div class="text-center p-4 text-muted">
+                                    <i class="fas fa-users-slash fa-2x mb-2"></i>
+                                    <p class="mb-0">No hay usuarios disponibles</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div id="userSelectionError" class="alert alert-danger mt-3 mb-0 d-none" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <span>Debes seleccionar al menos un usuario.</span>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>
+                        <span id="assignButtonText">Asignar Usuarios</span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.user-item {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.user-item:hover {
+    background-color: #f8f9fa;
+}
+.user-item .form-check-input:checked ~ div {
+    opacity: 1;
+}
+.user-checkbox:disabled + div {
+    opacity: 0.6;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.querySelector('.user-search');
+    const userItems = document.querySelectorAll('.user-item');
+    const selectedUsersContainer = document.getElementById('selectedUsers');
+    const noUsersSelected = document.getElementById('noUsersSelected');
+    const assignForm = document.getElementById('assignTicketForm');
+    const assignButton = assignForm.querySelector('button[type="submit"]');
+    const spinner = assignButton.querySelector('.spinner-border');
+    
+    // Initialize selected users from checked checkboxes
+    function updateSelectedUsers() {
+        const selectedUsers = [];
+        document.querySelectorAll('.user-checkbox:checked').forEach(checkbox => {
+            const item = checkbox.closest('.user-item');
+            selectedUsers.push({
+                id: item.dataset.userId,
+                name: item.dataset.userName,
+                email: item.dataset.email,
+                role: item.dataset.role
+            });
+        });
+
+        // Update selected users pills
+        if (selectedUsers.length > 0) {
+            noUsersSelected.classList.add('d-none');
+            selectedUsersContainer.innerHTML = selectedUsers.map(user => `
+                <span class="badge bg-primary-subtle text-primary p-2 d-flex align-items-center">
+                    <i class="fas fa-user-${user.role.toLowerCase()} me-1"></i>
+                    ${user.name}
+                    <button type="button" class="btn-close btn-close-white ms-2" data-user-id="${user.id}" aria-label="Eliminar"></button>
+                </span>
+            `).join('');
+        } else {
+            noUsersSelected.classList.remove('d-none');
+            selectedUsersContainer.innerHTML = '';
+        }
+    }
+
+    // Search functionality
+    searchInput?.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        userItems.forEach(item => {
+            const name = item.dataset.userName.toLowerCase();
+            const email = item.dataset.email.toLowerCase();
+            if (name.includes(searchTerm) || email.includes(searchTerm)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+
+    // Toggle user selection
+    userItems.forEach(item => {
+        const checkbox = item.querySelector('.user-checkbox');
+        
+        // Click anywhere on the item to toggle selection
+        item.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT' && !checkbox.disabled) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+
+        // Update UI when checkbox changes
+        checkbox.addEventListener('change', updateSelectedUsers);
+    });
+
+    // Remove user from selection
+    selectedUsersContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('btn-close')) {
+            const userId = e.target.dataset.userId;
+            const checkbox = document.querySelector(`.user-checkbox[value="${userId}"]`);
+            if (checkbox) {
+                checkbox.checked = false;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        }
+    });
+
+    // Form submission
+    assignForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const checkboxes = Array.from(document.querySelectorAll('.user-checkbox:checked'));
+        const errorElement = document.getElementById('userSelectionError');
+        
+        if (checkboxes.length === 0) {
+            errorElement.classList.remove('d-none');
+            return;
+        }
+        
+        // Update the hidden input with the selected user IDs
+        const userIds = checkboxes.map(checkbox => checkbox.value);
+        document.getElementById('assigned_users_hidden').value = userIds.join(',');
+        
+        errorElement.classList.add('d-none');
+        assignButton.disabled = true;
+        spinner.classList.remove('d-none');
+        assignButton.querySelector('span:not(.spinner-border)').classList.add('d-none');
+        
+        // Get the ticket ID from the form
+        const ticketId = document.getElementById('assign_ticket_id').value;
+        console.log('Ticket ID from form:', ticketId);
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('_token', '{{ csrf_token('assign_ticket') }}');
+        formData.append('ticket_id', ticketId);
+        
+        // Add each user ID
+        userIds.forEach(userId => {
+            formData.append('assigned_users[]', userId);
+        });
+        
+        // Log the form data being sent
+        console.log('Form data being sent:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+        
+        // Submit the form with the proper data
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.redirected) {
+                // Ensure we have a valid ticket ID for the redirect
+                if (ticketId) {
+                    window.location.href = response.url.split('?')[0] + '?id=' + encodeURIComponent(ticketId);
+                } else {
+                    window.location.href = response.url;
+                }
+            } else {
+                return response.text().then(text => {
+                    throw new Error('Error en la asignación: ' + text);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            errorElement.textContent = 'Error al asignar usuarios: ' + error.message;
+            errorElement.classList.remove('d-none');
+            assignButton.disabled = false;
+            spinner.classList.add('d-none');
+            assignButton.querySelector('span:not(.spinner-border)').classList.remove('d-none');
+        });
+    });
+    
+    // Initialize modal with ticket ID
+    const assignModal = document.getElementById('assignTicketModal');
+    if (assignModal) {
+        assignModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const ticketId = button.getAttribute('data-ticket-id');
+            console.log('Setting ticket ID in modal:', ticketId);
+            
+            // Set the ticket ID in the form
+            const ticketIdInput = document.getElementById('assign_ticket_id');
+            if (ticketIdInput) {
+                ticketIdInput.value = ticketId;
+                console.log('Ticket ID set in input:', ticketIdInput.value);
+            } else {
+                console.error('Could not find assign_ticket_id input');
+            }
+            
+            // Update modal title
+            const modalTitle = assignModal.querySelector('.modal-title');
+            if (modalTitle) {
+                modalTitle.textContent = 'Asignar Usuarios - Ticket #' + ticketId;
+            }
+        });
+        
+        // Add debug event listener for form submission
+        const form = assignModal.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                console.log('Form submitted with ticket ID:', document.getElementById('assign_ticket_id').value);
+            });
+        }
+    }
+});
+</script>
+
+<!-- Sugerencia de Rechazo Modal -->
+<div class="modal fade" id="suggestRejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_suggest_rejection', {'id': ticket.id}) }}" method="post">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-ban me-2"></i>Sugerir Rechazo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('suggest_rejection_' ~ ticket.id) }}">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Estás sugiriendo el rechazo de este ticket. Por favor, proporciona una explicación clara.
+                    </div>
+                    <div class="mb-3">
+                        <label for="suggestion" class="form-label fw-bold">Motivo del rechazo:</label>
+                        <textarea class="form-control" id="suggestion" name="suggestion" rows="4" 
+                                  placeholder="Describe detalladamente por qué se sugiere rechazar este ticket..." required></textarea>
+                        <div class="form-text">Esta información será visible para el equipo de auditoría.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-paper-plane me-1"></i> Enviar Sugerencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Sugerencia de En Progreso Modal -->
+<div class="modal fade" id="suggestInProgressModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_suggest_status', {'id': ticket.id, 'statusType': 'en_progreso'}) }}" method="post">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-play-circle me-2"></i>Sugerir Cambio a En Progreso</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('suggest_status_' ~ ticket.id) }}">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Estás sugiriendo marcar este ticket como 'En Progreso'. Proporciona los detalles necesarios.
+                    </div>
+                    <div class="mb-3">
+                        <label for="suggestionInProgress" class="form-label fw-bold">Descripción del progreso:</label>
+                        <textarea class="form-control" id="suggestionInProgress" name="suggestion" rows="4"
+                                  placeholder="Describe el progreso realizado o la razón para marcar como 'En Progreso'..." required></textarea>
+                        <div class="form-text">Esta información será revisada por el equipo de auditoría.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i> Enviar Sugerencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Sugerencia de Completado Modal -->
+<div class="modal fade" id="suggestCompleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_suggest_status', {'id': ticket.id, 'statusType': 'completado'}) }}" method="post">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Sugerir Completar Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('suggest_status_' ~ ticket.id) }}">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Estás sugiriendo marcar este ticket como 'Completado'. Por favor, proporciona los detalles finales.
+                    </div>
+                    <div class="mb-3">
+                        <label for="suggestionComplete" class="form-label fw-bold">Resumen de la solución:</label>
+                        <textarea class="form-control" id="suggestionComplete" name="suggestion" rows="4"
+                                  placeholder="Describe la solución implementada o el motivo para marcar como 'Completado'..." required></textarea>
+                        <div class="form-text">Esta información será revisada por el equipo de auditoría.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Enviar Sugerencia</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Auditor Reject Modal -->
+<div class="modal fade" id="auditorRejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_auditor_action', {'id': ticket.id}) }}" method="post">
+                <input type="hidden" name="action" value="rechazar">
+                <input type="hidden" name="_token" value="{{ csrf_token('auditor_action_' ~ ticket.id) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-ban me-2"></i>Rechazar Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Acción importante:</strong> Estás a punto de rechazar este ticket. Esta acción no se puede deshacer.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="rejectDescription" class="form-label fw-bold">Motivo del Rechazo:</label>
+                        <textarea class="form-control" id="rejectDescription" name="description" rows="4" 
+                                  placeholder="Describe detalladamente el motivo del rechazo..." required></textarea>
+                        <div class="form-text">Esta información quedará registrada en el historial del ticket.</div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmReject" required>
+                        <label class="form-check-label" for="confirmReject">
+                            Confirmo que he revisado la información y deseo rechazar este ticket
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban me-1"></i> Rechazar Ticket
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Auditor Complete Modal -->
+<div class="modal fade" id="auditorCompleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_auditor_action', {'id': ticket.id}) }}" method="post">
+                <input type="hidden" name="action" value="finalizar">
+                <input type="hidden" name="_token" value="{{ csrf_token('auditor_action_' ~ ticket.id) }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-flag-checkered me-2"></i>Finalizar Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>¡Excelente trabajo!</strong> Estás a punto de marcar este ticket como completado.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="completeDescription" class="form-label fw-bold">Resumen de la solución:</label>
+                        <textarea class="form-control" id="completeDescription" name="description" rows="4"
+                                  placeholder="Describe la solución implementada o el trabajo realizado..." required></textarea>
+                        <div class="form-text">Esta información quedará registrada como la descripción final del ticket.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="additionalNotes" class="form-label fw-bold">Notas adicionales (opcional):</label>
+                        <textarea class="form-control" id="additionalNotes" name="additional_notes" rows="2"
+                                  placeholder="Cualquier detalle adicional que quieras incluir..."></textarea>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="confirmComplete" required>
+                        <label class="form-check-label" for="confirmComplete">
+                            Confirmo que el trabajo ha sido completado según lo requerido
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-1"></i> Finalizar Ticket
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Proposal Modal -->
+<div class="modal fade" id="rejectProposalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ path('ticket_reject_proposal', {'id': ticket.id}) }}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rechazar Propuesta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('reject_proposal_' ~ ticket.id) }}">
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label">Razón del rechazo:</label>
+                        <textarea class="form-control" name="reject_reason" id="rejectReason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Rechazar Propuesta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div> 

@@ -1,0 +1,679 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ticket #{{ '%04d'|format(ticket.id) }} - {{ ticket.title }}{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <!-- Header with Breadcrumb -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-transparent p-0 mb-3">
+                    <li class="breadcrumb-item"><a href="{{ path('ticket_index') }}" class="text-decoration-none"><i class="fas fa-ticket-alt me-1"></i> Tickets</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">#{{ '%04d'|format(ticket.id) }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 d-flex align-items-center">
+                    <span class="me-3">{{ ticket.title }}</span>
+                    <span class="badge rounded-pill bg-{{ 
+                        ticket.status == 'in_progress' ? 'warning' : 
+                        (ticket.status == 'pending' ? 'info' : 
+                        (ticket.status == 'rejected' ? 'danger' : 
+                        (ticket.status == 'completed' ? 'success' : 'secondary'))) 
+                    }} fs-6">
+                        {{ ({
+                            'in_progress': 'En progreso',
+                            'pending': 'Pendiente',
+                            'rejected': 'Rechazado',
+                            'completed': 'Terminado'
+                        })[ticket.status] }}
+                    </span>
+                </h1>
+                <div class="btn-group">
+                    <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Volver
+                    </a>
+                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit me-1"></i> Editar
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Detalles del Ticket</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Descripción</h6>
+                        <div class="p-3 bg-light rounded-3">
+                            {{ ticket.description|nl2br }}
+                        </div>
+                    </div>
+                    
+                    {% if ticket.observation %}
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
+                        <div class="p-3 bg-light rounded-3">
+                            {{ ticket.observation|nl2br }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Notes Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-comments text-primary me-2"></i>Notas</h5>
+                </div>
+                <div class="card-body p-0" id="notes-container">
+                    {% if notes|length > 0 %}
+                        <div class="list-group list-group-flush">
+                            {% for note in notes %}
+                            <div class="list-group-item border-0 py-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <div>
+                                                <strong>{{ note.createdBy.username }}</strong>
+                                                <small class="text-muted ms-2">{{ note.createdAt|date('d/m/Y H:i') }}</small>
+                                            </div>
+                                            {% if is_granted('ROLE_ADMIN') or note.createdBy.id == app.user.id %}
+                                            <div>
+                                                <a href="#" class="text-muted delete-note" data-note-id="{{ note.id }}" title="Eliminar nota">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="note-content">
+                                            {{ note.content|nl2br }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="far fa-comment-dots text-muted" style="font-size: 2.5rem;"></i>
+                            </div>
+                            <p class="text-muted">No hay notas para este ticket</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                {% if is_granted('ROLE_USER') and (isAssigned or is_granted('ROLE_AUDITOR')) %}
+                <div class="card-footer bg-white border-top-0 pt-0">
+                    <form id="add-note-form" action="{{ path('note_add', {'ticketId': ticket.id}) }}" method="POST" class="mt-3">
+                        <div class="input-group">
+                            <input type="text" 
+                                   name="content" 
+                                   class="form-control border-end-0" 
+                                   placeholder="Escribe una nota..." 
+                                   required
+                                   autocomplete="off">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                <span class="d-none d-sm-inline ms-1">Enviar</span>
+                            </button>
+                        </div>
+                        <input type="hidden" name="_token" value="{{ csrf_token('add-note' ~ ticket.id) }}">
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Información Adicional</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Detalles</h6>
+                        <dl class="mb-0">
+                            <div class="d-flex justify-content-between py-2 border-bottom">
+                                <dt class="text-muted">ID Ticket:</dt>
+                                <dd class="mb-0">#{{ '%04d'|format(ticket.id) }}</dd>
+                            </div>
+                            {% if ticket.idSistemaInterno %}
+                            <div class="d-flex justify-content-between py-2 border-bottom">
+                                <dt class="text-muted">ID Externo:</dt>
+                                <dd class="mb-0">{{ ticket.idSistemaInterno }}</dd>
+                            </div>
+                            {% endif %}
+                            <div class="d-flex justify-content-between py-2 border-bottom">
+                                <dt class="text-muted">Área de Origen:</dt>
+                                <dd class="mb-0">{{ ticket.areaOrigen ?? 'No especificada' }}</dd>
+                            </div>
+                            <div class="d-flex justify-content-between py-2 border-bottom">
+                                <dt class="text-muted">Estado:</dt>
+                                <dd class="mb-0">
+                                    <span class="badge bg-{{ 
+                                        ticket.status == 'in_progress' ? 'warning' : 
+                                        (ticket.status == 'pending' ? 'info' : 
+                                        (ticket.status == 'rejected' ? 'danger' : 
+                                        (ticket.status == 'completed' ? 'success' : 'secondary'))) 
+                                    }}">
+                                        {{ ({
+                                            'in_progress': 'En progreso',
+                                            'pending': 'Pendiente',
+                                            'rejected': 'Rechazado',
+                                            'completed': 'Terminado'
+                                        })[ticket.status] }}
+                                    </span>
+                                </dd>
+                            </div>
+                            <div class="d-flex justify-content-between py-2 border-bottom">
+                                <dt class="text-muted">Creado el:</dt>
+                                <dd class="mb-0">{{ ticket.createdAt|date('d/m/Y H:i') }}</dd>
+                            </div>
+                            {% if ticket.updatedAt and ticket.updatedAt != ticket.createdAt %}
+                            <div class="d-flex justify-content-between py-2">
+                                <dt class="text-muted">Actualizado:</dt>
+                                <dd class="mb-0">{{ ticket.updatedAt|date('d/m/Y H:i') }}</dd>
+                            </div>
+                            {% endif %}
+                        </dl>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-muted text-uppercase small mb-0">Asignado a</h6>
+                            {% if isAdmin %}
+                                <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="{{ ticket.id }}">
+                                    <i class="fas fa-user-edit me-1"></i> {{ ticket.getAssignedUsers()|length > 0 ? 'Cambiar' : 'Asignar' }}
+                                </a>
+                            {% endif %}
+                        </div>
+                        
+                        {% if ticket.getAssignedUsers()|length > 0 %}
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for user in ticket.getAssignedUsers() %}
+                                    <div class="d-flex align-items-center bg-light rounded-pill px-3 py-1">
+                                        <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 28px; height: 28px;">
+                                            <i class="fas fa-user text-primary" style="font-size: 0.8rem;"></i>
+                                        </div>
+                                        <span class="small">{{ user.username }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-3 bg-light rounded-3">
+                                <i class="fas fa-user-slash text-muted mb-2" style="font-size: 1.5rem;"></i>
+                                <p class="text-muted small mb-0">No hay usuarios asignados</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        {% if is_granted('ROLE_ADMIN') %}
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteTicketModal">
+                            <i class="fas fa-trash-alt me-1"></i> Eliminar Ticket
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Assign Ticket Modal -->
+    <div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="assignTicketForm" action="{{ path('ticket_assign', {'id': ticket.id}) }}" method="post">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title" id="assignTicketModalLabel">
+                            <i class="fas fa-user-plus me-2"></i>
+                            {{ ticket.getAssignedUsers()|length > 0 ? 'Reasignar' : 'Asignar' }} Ticket
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="userSelectionError" class="alert alert-danger d-none">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Por favor selecciona al menos un usuario.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-medium mb-3">Seleccionar Usuarios:</label>
+                            <div class="list-group list-group-flush rounded border">
+                                {% for user in users %}
+                                    <label class="list-group-item d-flex align-items-center py-2">
+                                        <input class="form-check-input me-3" 
+                                               type="checkbox" 
+                                               name="assigned_users[]" 
+                                               value="{{ user.id }}" 
+                                               id="user_{{ user.id }}"
+                                               {% for assignedUser in ticket.getAssignedUsers() %}
+                                                   {% if assignedUser.id == user.id %}checked{% endif %}
+                                               {% endfor %}>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 36px; height: 36px;">
+                                                <i class="fas fa-user text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-medium">{{ user.username }}</div>
+                                                <small class="text-muted">{{ user.email }}</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Ticket Modal -->
+    <div class="modal fade" id="deleteTicketModal" tabindex="-1" aria-labelledby="deleteTicketModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteTicketModalLabel">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex align-items-start">
+                        <div class="me-3 text-danger">
+                            <i class="fas fa-exclamation-circle fa-2x"></i>
+                        </div>
+                        <div>
+                            <h5>¿Estás seguro de eliminar este ticket?</h5>
+                            <p class="mb-0">Esta acción no se puede deshacer. Se eliminarán todos los datos asociados, incluyendo notas y registros relacionados.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </button>
+                    <form action="{{ path('ticket_delete', {'id': ticket.id}) }}" method="post" class="d-inline">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ ticket.id) }}">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-1"></i> Sí, eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 11"></div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle note submission via AJAX with loading state
+    const noteForm = document.getElementById('add-note-form');
+    if (noteForm) {
+        const submitBtn = noteForm.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        
+        noteForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const contentInput = this.querySelector('input[name="content"]');
+            if (!contentInput.value.trim()) return;
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Enviando...';
+            
+            try {
+                const formData = new FormData(this);
+                const response = await fetch(this.action, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Clear input
+                    contentInput.value = '';
+                    // Reload to show new note
+                    window.location.reload();
+                } else {
+                    showToast('Error', data.error || 'Error al agregar la nota', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error', 'No se pudo agregar la nota. Intenta de nuevo.', 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        });
+    }
+    
+    // Handle note deletion with confirmation
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.delete-note')) {
+            e.preventDefault();
+            const button = e.target.closest('.delete-note');
+            
+            // Show confirmation dialog
+            const confirmed = await showConfirmation(
+                'Eliminar nota',
+                '¿Estás seguro de que quieres eliminar esta nota?',
+                'warning',
+                'Sí, eliminar',
+                'Cancelar'
+            );
+            
+            if (confirmed) {
+                const noteId = button.getAttribute('data-note-id');
+                const noteElement = button.closest('.list-group-item');
+                
+                try {
+                    const response = await fetch(`/note/${noteId}/delete`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': '{{ csrf_token('delete-note') }}',
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Fade out and remove the note
+                        noteElement.style.transition = 'opacity 0.3s';
+                        noteElement.style.opacity = '0';
+                        setTimeout(() => noteElement.remove(), 300);
+                        
+                        // Show success message
+                        showToast('Éxito', 'La nota ha sido eliminada', 'success');
+                    } else {
+                        throw new Error(data.error || 'Error desconocido');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Error', 'No se pudo eliminar la nota', 'danger');
+                }
+            }
+        }
+    });
+    
+    // Handle assign ticket form submission
+    const assignForm = document.getElementById('assignTicketForm');
+    if (assignForm) {
+        assignForm.addEventListener('submit', function(e) {
+            const checkboxes = this.querySelectorAll('input[type="checkbox"]:checked');
+            const errorDiv = document.getElementById('userSelectionError');
+            
+            if (checkboxes.length === 0) {
+                e.preventDefault();
+                errorDiv.classList.remove('d-none');
+            } else {
+                errorDiv.classList.add('d-none');
+                // Show loading state
+                const submitBtn = this.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Asignando...';
+            }
+        });
+    }
+    
+    // Helper function to show toast notifications
+    function showToast(title, message, type = 'info') {
+        const toastId = 'toast-' + Math.random().toString(36).substr(2, 9);
+        const toast = document.createElement('div');
+        toast.className = `toast show align-items-center text-white bg-${type} border-0`;
+        toast.role = 'alert';
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.id = toastId;
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <strong>${title}</strong><br>${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        document.querySelector('.toast-container').appendChild(toast);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            const toastElement = document.getElementById(toastId);
+            if (toastElement) {
+                toastElement.classList.remove('show');
+                setTimeout(() => toastElement.remove(), 300);
+            }
+        }, 5000);
+    }
+    
+    // Helper function to show confirmation dialog
+    function showConfirmation(title, message, type = 'warning', confirmText = 'Confirmar', cancelText = 'Cancelar') {
+        return new Promise((resolve) => {
+            const modalId = 'confirmModal' + Math.random().toString(36).substr(2, 9);
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = modalId;
+            modal.tabIndex = '-1';
+            modal.setAttribute('aria-hidden', 'true');
+            
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${message}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">${cancelText}</button>
+                            <button type="button" class="btn btn-${type}" id="confirmButton">${confirmText}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+            
+            // Handle confirm button click
+            const confirmButton = modal.querySelector('#confirmButton');
+            confirmButton.addEventListener('click', () => {
+                resolve(true);
+                modalInstance.hide();
+            });
+            
+            // Handle modal hidden event
+            modal.addEventListener('hidden.bs.modal', () => {
+                resolve(false);
+                modal.remove();
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
+
+            <div class="d-flex justify-content-between mb-4">
+                <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Volver al listado
+                </a>
+                
+                {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                <div class="btn-group">
+                    <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-1"></i> Editar
+                    </a>
+                    {% if is_granted('ROLE_ADMIN') %}
+                    <form action="{{ path('ticket_delete', {'id': ticket.id}) }}" method="post" class="d-inline" onsubmit="return confirm('¿Estás seguro de que quieres eliminar este ticket? Esta acción no se puede deshacer.');">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ ticket.id) }}">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="fas fa-trash me-1"></i> Eliminar
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Ticket Modal -->
+<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="assignTicketForm" action="{{ path('ticket_assign', {'id': ticket.id}) }}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="userSelectionError" class="alert alert-danger d-none">
+                        Por favor selecciona al menos un usuario.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Usuarios:</label>
+                        {% for user in users %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="assigned_users[]" value="{{ user.id }}" id="user_{{ user.id }}">
+                                <label class="form-check-label" for="user_{{ user.id }}">
+                                    {{ user.username }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Asignar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle note submission via AJAX
+    const noteForm = document.getElementById('add-note-form');
+    if (noteForm) {
+        noteForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const url = this.getAttribute('action');
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reload the page to show the new note
+                    window.location.reload();
+                } else {
+                    alert('Error al agregar la nota: ' + (data.error || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al procesar la solicitud');
+            });
+        });
+    }
+    
+    // Handle note deletion
+    document.querySelectorAll('.delete-note').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
+                const noteId = this.getAttribute('data-note-id');
+                const url = '/note/' + noteId + '/delete';
+                
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': '{{ csrf_token('delete-note') }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Remove the note element from the DOM
+                        this.closest('.card').remove();
+                    } else {
+                        alert('Error al eliminar la nota: ' + (data.error || 'Error desconocido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al procesar la solicitud');
+                });
+            }
+        });
+    });
+    
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

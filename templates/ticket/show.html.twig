@@ -1,577 +1,492 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Ticket #{{ ticket.id }} - {{ ticket.descripcion|u.truncate(30, '...') }}{% endblock %}
+{% block title %}Ticket #{{ '%04d'|format(ticket.id) }} - {{ ticket.title }}{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">
-            <a href="{{ path('ticket_lista') }}" class="text-decoration-none text-dark">
-                <i class="bi bi-arrow-left"></i>
-            </a>
-            Ticket #{{ ticket.ticketId }}
-        </h1>
-        <div class="d-flex gap-2">
-            <a href="{{ path('ticket_editar', {'id': ticket.id}) }}" class="btn btn-outline-primary">
-                <i class="bi bi-pencil"></i> Editar
-            </a>
+<div class="container py-4">
+    <!-- Header with Breadcrumb -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb bg-transparent p-0 mb-3">
+                    <li class="breadcrumb-item"><a href="{{ path('ticket_index') }}" class="text-decoration-none"><i class="fas fa-ticket-alt me-1"></i> Tickets</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">#{{ '%04d'|format(ticket.id) }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 d-flex align-items-center">
+                    <span class="me-3">{{ ticket.title }}</span>
+                    <span class="badge rounded-pill bg-{{ 
+                        ticket.status == 'in_progress' ? 'warning' : 
+                        (ticket.status == 'pending' ? 'info' : 
+                        (ticket.status == 'rejected' ? 'danger' : 
+                        (ticket.status == 'completed' ? 'success' : 'secondary'))) 
+                    }} fs-6">
+                        {{ ({
+                            'in_progress': 'En progreso',
+                            'pending': 'Pendiente',
+                            'rejected': 'Rechazado',
+                            'completed': 'Terminado'
+                        })[ticket.status] }}
+                    </span>
+                </h1>
+                <div class="btn-group">
+                    <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Volver
+                    </a>
+                    {% if is_granted('edit', ticket) %}
+                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit me-1"></i> Editar
+                        </a>
+                    {% endif %}
+                    
+                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                        {% if ticket.status != 'rejected' and ticket.status != 'completed' %}
+                            <button type="button" class="btn btn-outline-danger btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#rejectTicketModal">
+                                <i class="fas fa-times me-1"></i> Rechazar
+                            </button>
+                            
+                            <button type="button" class="btn btn-outline-success btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#completeTicketModal">
+                                <i class="fas fa-check me-1"></i> Completar
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-md-8">
-            <div class="card mb-4">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Detalles del Ticket</h5>
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-info-circle text-primary me-2"></i>Detalles del Ticket</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
+                        <div class="p-3 bg-light rounded-3">
+                            {{ ticket.description|nl2br }}
+                        </div>
+                    </div>
+                    
+                    {% if ticket.observation %}
+                    <div class="mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
+                        <div class="p-3 bg-light rounded-3">
+                            {{ ticket.observation|nl2br }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Notes Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0"><i class="fas fa-comments text-primary me-2"></i>Notas</h5>
+                </div>
+                <div class="card-body p-0" id="notes-container">
+                    {% if notes|length > 0 %}
+                        <div class="list-group list-group-flush">
+                            {% for note in notes %}
+                            <div class="list-group-item border-0 py-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <div>
+                                                <strong>{{ note.createdBy.username }}</strong>
+                                                <small class="text-muted ms-2">{{ note.createdAt|date('d/m/Y H:i') }}</small>
+                                            </div>
+                                            {% if is_granted('ROLE_ADMIN') or note.createdBy.id == app.user.id %}
+                                            <div>
+                                                <a href="#" class="text-muted delete-note" data-note-id="{{ note.id }}" title="Eliminar nota">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </a>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="note-content">
+                                            {{ note.content|nl2br }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted">
+                            <i class="fas fa-comment-slash fa-2x mb-2"></i>
+                            <p class="mb-0">No hay notas para este ticket</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Add Note Form -->
+                {% if is_granted('ROLE_USER') and ticket.status not in ['completed', 'rejected'] %}
+                <div class="card-footer bg-white">
+                    <form id="add-note-form" class="mb-0">
+                        <div class="input-group">
+                            <textarea class="form-control" id="note-content" name="content" rows="2" placeholder="Agregar una nota..." required></textarea>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Ticket Info -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0"><i class="fas fa-info text-primary me-2"></i>Información del Ticket</h6>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <h6 class="text-muted mb-1">Descripción</h6>
-                        <p class="mb-0">{{ ticket.descripcion }}</p>
+                        <small class="text-muted text-uppercase">Estado</small>
+                        <div class="fw-bold">{{ ({
+                            'in_progress': 'En progreso',
+                            'pending': 'Pendiente',
+                            'rejected': 'Rechazado',
+                            'completed': 'Terminado'
+                        })[ticket.status] }}</div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-1">Estado</h6>
-                            <span class="badge bg-{{ ticket.estado == 'completado' ? 'success' : (ticket.estado == 'en_progreso' ? 'primary' : 'warning') }}">
-                                {{ ticket.estado|replace({'_': ' '})|title }}
-                            </span>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-1">Departamento</h6>
-                            <p class="mb-0">{{ ticket.departamentoNombre }}</p>
+                    {% if ticket.takenBy %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Tarea realizada por</small>
+                        <div class="fw-bold">
+                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
+                            {% if ticket.takenAt %}
+                                <small class="text-muted d-block">el {{ ticket.takenAt|date('d/m/Y') }} a las {{ ticket.takenAt|date('H:i') }}</small>
+                            {% endif %}
                         </div>
                     </div>
-                    
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-1">Área de Origen</h6>
-                            <p class="mb-0">
-                                {% if ticket.area %}
-                                    <span class="badge bg-info bg-opacity-10 text-info">
-                                        <i class="bi bi-diagram-3 me-1"></i>{{ ticket.area.nombre }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-muted fst-italic">No especificado</span>
-                                {% endif %}
-                            </p>
+                    {% endif %}
+
+                    {% if ticket.status == 'completed' and ticket.completedBy %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Ticket cerrado por</small>
+                        <div class="fw-bold">
+                            {{ ticket.completedBy.nombre ?? ticket.completedBy.username }}
+                            {% if ticket.updatedAt %}
+                                <small class="text-muted d-block">el {{ ticket.updatedAt|date('d/m/Y') }} a las {{ ticket.updatedAt|date('H:i') }}</small>
+                            {% endif %}
                         </div>
                     </div>
+                    {% endif %}
                     
-                    {% if ticket.pedido %}
-                    <div class="mt-3">
-                        <h6 class="text-muted mb-1">Pedido</h6>
-                        <p class="mb-0">{{ ticket.pedido }}</p>
+
+                    
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Área</small>
+                        <div class="fw-bold">{{ ticket.areaOrigen|default('No especificada') }}</div>
+                    </div>
+                    
+                    {% if ticket.takenBy %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Tomado por</small>
+                        <div class="fw-bold">
+                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
+                            {% if ticket.takenAt %}
+                                <small class="text-muted d-block">
+                                    {{ ticket.takenAt|date('d/m/Y H:i') }}
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if ticket.dueDate %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Fecha límite</small>
+                        <div class="fw-bold">
+                            {{ ticket.dueDate|date('d/m/Y') }}
+                            {% if ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
+                                <span class="badge bg-danger ms-2">Vencido</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Creado</small>
+                        <div class="fw-bold">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
+                    </div>
+                    
+                    {% if ticket.updatedAt and ticket.updatedAt != ticket.createdAt %}
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Última actualización</small>
+                        <div class="fw-bold">{{ ticket.updatedAt|date('d/m/Y H:i') }}</div>
                     </div>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Tareas Pendientes -->
-            <div class="card">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Tareas Pendientes</h5>
+            <!-- Assigned Users -->
+            {% if not is_granted('ROLE_USER') or is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                {# Create an array to store unique user assignments with their latest date #}
+                {% set uniqueAssignments = {} %}
+                
+                {# First, sort all assignments by assignedAt date (newest first) #}
+                {% set sortedAssignments = ticket.ticketAssignments|sort((a, b) => b.assignedAt <=> a.assignedAt) %}
+                
+                {# Then add to uniqueAssignments, which will automatically keep only the first (newest) entry for each user #}
+                {% for assignment in sortedAssignments %}
+                    {% if assignment.user.id not in uniqueAssignments|keys %}
+                        {% set uniqueAssignments = uniqueAssignments|merge({ (assignment.user.id) : assignment }) %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if uniqueAssignments|length > 0 %}
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white py-3">
+                        <h6 class="mb-0"><i class="fas fa-users text-primary me-2"></i>Asignado a</h6>
+                    </div>
+                    <div class="card-body">
+                        {% for assignment in uniqueAssignments %}
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                <i class="fas fa-user text-muted small"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">{{ assignment.user.nombre ?? assignment.user.username }}</div>
+                                <small class="text-muted">Asignado el {{ assignment.assignedAt|date('d/m/Y H:i') }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            <!-- Ticket History -->
+            {% if ticket.updates|length > 0 %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0"><i class="fas fa-history text-primary me-2"></i>Historial</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
-                        {% for task in ticket.tasks %}
-                            <div class="list-group-item">
-                                <div class="form-check d-flex align-items-center">
-                                    <input class="form-check-input me-3 task-checkbox" 
-                                           type="checkbox" 
-                                           data-task-id="{{ task.id }}"
-                                           {{ task.completed ? 'checked' : '' }}
-                                           style="width: 1.2rem; height: 1.2rem;">
-                                    <label class="form-check-label flex-grow-1 {{ task.completed ? 'text-muted' : '' }}">
-                                        {{ task.description }}
-                                        <small class="d-block text-muted">
-                                            Creado el {{ task.createdAt|date('d/m/Y H:i') }}
-                                            {% if task.completedAt %}
-                                                <span class="task-completed-at">• Completado el {{ task.completedAt|date('d/m/Y H:i') }}</span>
-                                            {% endif %}
-                                        </small>
-                                    </label>
-                                    <button class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                        {% for update in ticket.updates|slice(0, 5) %}
+                        <div class="list-group-item border-0 py-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px;">
+                                    <i class="fas fa-{{ update.type == 'status_change' ? 'exchange-alt' : 'edit' }} text-muted small"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="small">{{ update.description }}</div>
+                                    <small class="text-muted">{{ update.createdAt|date('d/m/Y H:i') }}</small>
                                 </div>
                             </div>
-                        {% else %}
-                            <div class="text-center p-4 text-muted">
-                                No hay tareas pendientes. ¡Agrega una nueva tarea!
-                            </div>
+                        </div>
                         {% endfor %}
                     </div>
-                    
-                    <div class="p-3 border-top">
-                        {{ form_start(task_form, {'attr': {'class': 'task-form', 'id': 'task_form'}}) }}
-                            <div class="mb-3">
-                                {{ form_widget(task_form.taskType, {
-                                    'attr': { 
-                                        'class': 'form-select', 
-                                        'id': 'task_type_select' 
-                                    }
-                                }) }}
-                            </div>
-
-                            <div class="d-flex align-items-start gap-2">
-                                <div class="flex-grow-1" id="custom_task_container" style="display:none">
-                                    {{ form_widget(task_form.description, {
-                                        'attr': { 
-                                            'class': 'form-control', 
-                                            'id': 'task_description', 
-                                            'placeholder': 'Escribe aquí la tarea personalizada...' 
-                                        }
-                                    }) }}
-                                </div>
-
-                                <div>
-                                    <button type="submit" class="btn btn-primary" id="add_task_btn" disabled>
-                                        <i class="bi bi-plus-lg"></i> Agregar
-                                    </button>
-                                </div>
-                            </div>
-                        {{ form_end(task_form) }}
-                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Información del Ticket</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <h6 class="text-muted mb-1">Creado por</h6>
-                        <p class="mb-0">
-                            {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }}
-                        </p>
-                    </div>
-                    <div class="mb-3">
-                        <h6 class="text-muted mb-1">Fecha de creación</h6>
-                        <p class="mb-0">{{ ticket.createdAt|date('d/m/Y H:i') }}</p>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-1">ID del ticket</h6>
-                        <p class="mb-0">{{ ticket.ticketId }}</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Colaboradores</h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-unstyled mb-0">
-                        {# Use a set to track displayed user IDs #}
-                        {% set displayed_users = [] %}
-                        
-                        {# Add creator first #}
-                        {% if ticket.createdBy %}
-                            {% set creator_id = ticket.createdBy.id %}
-                            {% set displayed_users = displayed_users|merge([creator_id]) %}
-                            <li class="mb-2">
-                                <i class="bi bi-person-fill me-2"></i>
-                                {{ ticket.createdBy.nombre }} {{ ticket.createdBy.apellido }} (Creador)
-                            </li>
-                        {% endif %}
-                        
-                        {# Add collaborators, skipping duplicates #}
-                        {% for collaborator in ticket.collaborators %}
-                            {% if collaborator.user and collaborator.user.id not in displayed_users %}
-                                {% set displayed_users = displayed_users|merge([collaborator.user.id]) %}
-                                <li class="mb-2">
-                                    <i class="bi bi-person me-2"></i>
-                                    {{ collaborator.user.nombre }} {{ collaborator.user.apellido }}
-                                    {% if collaborator.user.id == ticket.createdBy.id %}(Creador){% endif %}
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Toast Container -->
-<div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container">
-    <div id="toast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body"></div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Task Modal -->
-<div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-hidden="true">
+<!-- Reject Ticket Modal -->
+<div class="modal fade" id="rejectTicketModal" tabindex="-1" aria-labelledby="rejectTicketModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Eliminar tarea</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="rejectTicketModalLabel"><i class="fas fa-times-circle me-2"></i>Rechazar Ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
-            <div class="modal-body">
-                ¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteTask">Eliminar</button>
-            </div>
+            <form method="post" action="{{ path('ticket_reject', {'id': ticket.id}) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('reject' ~ ticket.id) }}">
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label fw-bold">Motivo del rechazo</label>
+                        <textarea class="form-control" id="rejectReason" name="reason" rows="4" required placeholder="Por favor, describe el motivo del rechazo del ticket..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-    <!-- Delete Task Modal -->
-    <div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
+<!-- Complete Ticket Modal -->
+<div class="modal fade" id="completeTicketModal" tabindex="-1" aria-labelledby="completeTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="completeTicketModalLabel"><i class="fas fa-check-circle me-2"></i>Completar Ticket</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form method="post" action="{{ path('ticket_complete', {'id': ticket.id}) }}">
+                <div class="modal-body">
+                    <input type="hidden" name="_token" value="{{ csrf_token('complete' ~ ticket.id) }}">
+                    <div class="mb-3">
+                        <label for="completionNotes" class="form-label fw-bold">Notas de finalización</label>
+                        <textarea class="form-control" id="completionNotes" name="notes" rows="4" required placeholder="Por favor, proporciona detalles sobre la resolución del ticket..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Marcar como Completado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Ticket Modal -->
+<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="assignTicketForm" action="{{ path('ticket_assign', {'id': ticket.id}) }}" method="post">
                 <div class="modal-header">
-                    <h5 class="modal-title">Eliminar tarea</h5>
+                    <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    ¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.
+                    <div id="userSelectionError" class="alert alert-danger d-none">
+                        Por favor selecciona al menos un usuario.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Usuarios:</label>
+                        {% for user in users %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="assigned_users[]" value="{{ user.id }}" id="user_{{ user.id }}">
+                                <label class="form-check-label" for="user_{{ user.id }}">
+                                    {{ user.username }}
+                                </label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteTask">Eliminar</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Asignar</button>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
-    {% endblock %}
+</div>
 
-    {% block javascripts %}
-    {{ parent() }}
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('task_form');
-      const typeSel = document.getElementById('task_type_select');
-      const descInp = document.getElementById('task_description');
-      const customBox = document.getElementById('custom_task_container');
-      const addBtn = document.getElementById('add_task_btn');
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+<!-- Include Modals -->
+{% include 'ticket/_modals.html.twig' %}
 
-      function updateUI() {
-        const val = (typeSel?.value || '').trim();
+{% endblock %}
 
-        if (val === '') {
-          // Nada seleccionado
-          customBox.style.display = 'none';
-          if (descInp) descInp.required = false;
-          if (addBtn) addBtn.disabled = true;
-          return;
-        }
-
-        if (val === 'other') {
-          // Mostrar input y habilitar botón solo si hay texto
-          if (customBox) customBox.style.display = 'block';
-          if (descInp) {
-            descInp.required = true;
-            descInp.focus();
-          }
-          if (addBtn) addBtn.disabled = !(descInp?.value.trim());
-        } else {
-          // Opción predefinida -> ocultar input y enviar
-          if (customBox) customBox.style.display = 'none';
-          if (descInp) descInp.required = false;
-          if (addBtn) addBtn.disabled = false;
-          
-          // Enviar el formulario automáticamente
-          if (form) {
-            const formData = new FormData(form);
-            formData.set('task[taskType]', val);
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add Note Form Handler
+    const addNoteForm = document.getElementById('add-note-form');
+    if (addNoteForm) {
+        addNoteForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             
-            fetch(form.action, {
-              method: 'POST',
-              body: formData,
-              headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-Token': csrfToken || ''
-              }
-            }).then(response => {
-              if (response.redirected) {
-                window.location.href = response.url;
-              }
-            }).catch(error => {
-              console.error('Error:', error);
-              showToast('Error al agregar la tarea', 'danger');
-            });
-          }
-        }
-      }
-
-      if (typeSel) {
-        typeSel.addEventListener('change', updateUI);
-      }
-      
-      if (descInp) {
-        descInp.addEventListener('input', () => {
-          if (typeSel && typeSel.value === 'other' && addBtn) {
-            addBtn.disabled = (descInp.value.trim() === '');
-          }
-        });
-      }
-
-      // Estado inicial
-      updateUI();
-
-        // Task completion toggle
-        document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', async function() {
-                const taskId = this.dataset.taskId;
-                const isCompleted = this.checked;
-                const taskItem = this.closest('.list-group-item');
-                const label = taskItem.querySelector('.form-check-label');
-                const completedAtElement = taskItem.querySelector('.task-completed-at');
-                
-                try {
-                    const url = '{{ path("task_toggle", {"id": "TASK_ID"}) }}'.replace('TASK_ID', taskId);
-                    
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-Token': csrfToken,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
-                            completed: isCompleted,
-                            _token: csrfToken
-                        })
-                    });
-
-                    if (!response.ok) {
-                        const error = await response.json().catch(() => ({}));
-                        throw new Error(error.error || 'Error en el servidor');
-                    }
-                    
-                    const data = await response.json();
-                    
-                    if (!data.ok) {
-                        throw new Error(data.error || 'Error al actualizar la tarea');
-                    }
-                    
-                    // Update UI on success
-                    if (data.completed) {
-                        label.classList.add('text-muted');
-                        if (data.completedAt && !completedAtElement) {
-                            const completedAt = document.createElement('small');
-                            completedAt.className = 'd-block text-muted task-completed-at';
-                            completedAt.textContent = `• Completado el ${data.completedAt}`;
-                            label.appendChild(completedAt);
-                        }
-                    } else {
-                        label.classList.remove('text-muted');
-                        if (completedAtElement) {
-                            completedAtElement.remove();
-                        }
-                    }
-                    
-                    // Show success message
-                    showToast(data.completed ? '✅ Tarea completada' : '🔄 Tarea marcada como pendiente');
-                    
-                } catch (error) {
-                    console.error('Error:', error);
-                    this.checked = !isCompleted; // Revert checkbox state
-                    showToast('Error al actualizar la tarea: ' + (error.message || 'Error desconocido'), 'danger');
-                }
-            });
-        });
-        
-        // Helper function to show toast messages
-        function showToast(message, type = 'success') {
-            const toastEl = document.getElementById('toast');
-            if (!toastEl) return;
-            
-            const toastBody = toastEl.querySelector('.toast-body');
-            const toast = new bootstrap.Toast(toastEl);
-            
-            // Update toast appearance based on message type
-            if (type === 'danger') {
-                toastEl.classList.add('bg-danger', 'text-white');
-                toastEl.classList.remove('bg-success');
-            } else {
-                toastEl.classList.add('bg-success', 'text-white');
-                toastEl.classList.remove('bg-danger');
-            }
-            
-            if (toastBody) {
-                toastBody.textContent = message;
-                toast.show();
-            }
-        }
-        
-        // Delete task
-        let taskToDelete = null;
-        const deleteButtons = document.querySelectorAll('.delete-task');
-        const deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
-        
-        // Get CSRF token from meta tag
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                taskToDelete = this.dataset.taskId;
-                deleteModal.show();
-            });
-        });
-        
-        document.getElementById('confirmDeleteTask')?.addEventListener('click', async function() {
-            if (!taskToDelete) return;
-            const taskItem = this.closest('.list-group-item');
-            const label = taskItem.querySelector('.form-check-label');
-            const completedAtElement = taskItem.querySelector('.task-completed-at');
+            const content = document.getElementById('note-content').value.trim();
+            if (!content) return;
             
             try {
-                const url = '{{ path("task_toggle", {"id": "TASK_ID"}) }}'.replace('TASK_ID', taskId);
-                
-                const response = await fetch(url, {
+                const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
                     method: 'POST',
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-Token': csrfToken,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ 
-                        completed: isCompleted,
-                        _token: csrfToken
-                    })
+                    body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
                 });
-
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.error || 'Error en el servidor');
-                }
                 
-                const data = await response.json();
-                
-                if (!data.ok) {
-                    throw new Error(data.error || 'Error al actualizar la tarea');
-                }
-                
-                // Update UI on success
-                if (data.completed) {
-                    label.classList.add('text-muted');
-                    if (data.completedAt && !completedAtElement) {
-                        const completedAt = document.createElement('small');
-                        completedAt.className = 'd-block text-muted task-completed-at';
-                        completedAt.textContent = `• Completado el ${data.completedAt}`;
-                        label.appendChild(completedAt);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload the page to show the new note
+                        window.location.reload();
+                    } else {
+                        alert('Error al agregar la nota: ' + (data.error || 'Error desconocido'));
                     }
                 } else {
-                    label.classList.remove('text-muted');
-                    if (completedAtElement) {
-                        completedAtElement.remove();
-                    }
+                    throw new Error('Error en la respuesta del servidor');
                 }
-                
-                // Show success message
-                showToast(data.completed ? '✅ Tarea completada' : '🔄 Tarea marcada como pendiente');
-                
             } catch (error) {
                 console.error('Error:', error);
-                this.checked = !isCompleted; // Revert checkbox state
-                showToast('Error al actualizar la tarea: ' + (error.message || 'Error desconocido'), 'danger');
+                alert('Error al agregar la nota. Por favor, inténtalo de nuevo.');
             }
         });
-    });
-    
-    // Helper function to show toast messages
-    function showToast(message, type = 'success') {
-        const toastEl = document.getElementById('toast');
-        if (!toastEl) return;
-        
-        const toastBody = toastEl.querySelector('.toast-body');
-        const toast = new bootstrap.Toast(toastEl);
-        
-        // Update toast appearance based on message type
-        if (type === 'danger') {
-            toastEl.classList.add('bg-danger', 'text-white');
-            toastEl.classList.remove('bg-success');
-        } else {
-            toastEl.classList.add('bg-success', 'text-white');
-            toastEl.classList.remove('bg-danger');
-        }
-        
-        if (toastBody) {
-            toastBody.textContent = message;
-            toast.show();
-        }
     }
     
-    // Delete task
-    let taskToDelete = null;
-    const deleteButtons = document.querySelectorAll('.delete-task');
-    const deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
-    
-    // Get CSRF token from meta tag
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            taskToDelete = this.dataset.taskId;
-            deleteModal.show();
-        });
-    });
-    
-    document.getElementById('confirmDeleteTask')?.addEventListener('click', async function() {
-        if (!taskToDelete) return;
-        
-        try {
-            const response = await fetch(`/task/${taskToDelete}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-Token': csrfToken,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    _token: csrfToken,
-                    _method: 'DELETE'
-                })
-            });
+    // Delete Note Handler
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.delete-note')) {
+            const button = e.target.closest('.delete-note');
+            const noteId = button.dataset.noteId;
             
-            const data = await response.json();
-            
-            if (data.ok) {
-                // Remove the task from the UI
-                document.querySelector(`.delete-task[data-task-id="${taskToDelete}"]`).closest('.list-group-item').remove();
-                
-                // Show success message
-                showToast('Tarea eliminada correctamente');
-                
-                // If no tasks left, show the empty state
-                const taskList = document.querySelector('.list-group');
-                if (taskList.children.length === 1) { // Only the empty state message remains
-                    taskList.innerHTML = `
-                        <div class="text-center p-4 text-muted">
-                            No hay tareas pendientes. ¡Agrega una nueva tarea!
-                        </div>
-                    `;
-                }
-            } else {
-                throw new Error(data.error || 'Error al eliminar la tarea');
+            if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
+                return;
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('Error al eliminar la tarea: ' + (error.message || 'Error desconocido'), 'danger');
-        } finally {
-            deleteModal.hide();
-            taskToDelete = null;
+            
+            try {
+                const response = await fetch(`/notes/delete/${noteId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `_token={{ csrf_token('delete_note') }}`
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Reload the page to reflect the deletion
+                        window.location.reload();
+                    } else {
+                        alert('Error al eliminar la nota: ' + (data.error || 'Error desconocido'));
+                    }
+                } else {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar la nota. Por favor, inténtalo de nuevo.');
+            }
         }
     });
     
-    // Initialize Bootstrap tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
+    // Assign Ticket Form Handler
+    const assignTicketForm = document.getElementById('assignTicketForm');
+    if (assignTicketForm) {
+        assignTicketForm.addEventListener('submit', function(e) {
+            const selectedUsers = assignTicketForm.querySelectorAll('input[name="assigned_users[]"]:checked');
+            const errorDiv = document.getElementById('userSelectionError');
+            
+            if (selectedUsers.length === 0) {
+                e.preventDefault();
+                errorDiv.classList.remove('d-none');
+                return false;
+            } else {
+                errorDiv.classList.add('d-none');
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

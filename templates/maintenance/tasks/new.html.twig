@@ -1,0 +1,368 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}Mantenimiento Preventivo{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver al listado
+    </a>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-screwdriver-wrench me-1 text-primary"></i>
+            Nueva Tarea de Mantenimiento
+        </h5>
+
+        {# Progreso del checklist #}
+        <div class="d-flex align-items-center gap-2">
+            <span class="small text-muted">Checklist</span>
+            <div class="progress" style="width: 160px; height: 8px;">
+                <div id="checklist-progress" class="progress-bar" role="progressbar" style="width: 0%;"
+                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+            <span class="small" id="checklist-counter">0 / 0</span>
+        </div>
+    </div>
+
+    <div class="card-body">
+        {{ form_start(form, { attr: { id: 'maintenanceTaskForm' } }) }}
+        <div class="row g-4">
+            {# ------- Columna principal ------- #}
+            <div class="col-lg-8">
+                <div class="card border-0 mb-4">
+                    <div class="card-body">
+                        {{ form_row(form.title, {
+                            'label': 'Título',
+                            'attr': { 'placeholder': 'Ej: Revisión mensual equipo Oficina 3', 'class': 'form-control-lg' }
+                        }) }}
+
+                        {{ form_row(form.description, {
+                            'label': 'Descripción',
+                            'attr': { 'rows': 4, 'placeholder': 'Detalle de tareas, contexto, observaciones…' }
+                        }) }}
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form_row(form.category, {
+                                    'label': 'Categoría',
+                                    'placeholder': 'Seleccione una categoría'
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.assignedTo, {
+                                    'label': 'Asignar a',
+                                    'placeholder': 'Seleccione un usuario',
+                                    'required': false
+                                }) }}
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                {{ form_row(form.status, {
+                                    'label': 'Estado',
+                                    'placeholder': 'Seleccione un estado'
+                                }) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.scheduledDate, {
+                                    'label': 'Fecha Programada',
+                                    'attr': {
+                                        'class': 'js-datetime-picker',
+                                        'data-enable-time': 'true',
+                                        'data-date-format': 'Y-m-d H:i',
+                                        'data-alt-input': 'true',
+                                        'data-alt-format': 'd/m/Y H:i',
+                                        'data-time_24hr': 'true',
+                                        'data-min-date': 'today'
+                                    }
+                                }) }}
+                            </div>
+                        </div>
+
+                        {# Extras no mapeados: prioridad + duración #}
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Prioridad</label>
+                                <select class="form-select" name="priority" required>
+                                    <option value="normal" selected>Normal</option>
+                                    <option value="alta">Alta</option>
+                                    <option value="critica">Crítica</option>
+                                </select>
+                                <div class="form-text">Define urgencia para ordenar el trabajo.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Duración estimada</label>
+                                <div class="input-group">
+                                    <input type="number" min="5" step="5" class="form-control" name="estimatedDuration" placeholder="Ej: 60">
+                                    <span class="input-group-text">min</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Adjuntos simples (opcional) #}
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">Adjuntos (opcional)</label>
+                            <input type="file" class="form-control" name="attachments[]" multiple>
+                            <div class="form-text">Podés adjuntar capturas, reportes SMART, planillas, etc.</div>
+                        </div>
+                    </div>
+                </div>
+
+                {# ------- Checklist Preventivo ------- #}
+                <div class="card border-0">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-list-check me-1 text-success"></i>
+                            Checklist de Mantenimiento Preventivo
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3" id="checklist-container">
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="cln" name="checklist[limpieza]" value="1">
+                                    <label class="form-check-label fw-semibold" for="cln">Limpieza física</label>
+                                    <div class="small text-muted mt-1">
+                                        Limpieza de polvo en gabinete, ventiladores y filtros. Revisión de flujo de aire.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="osup" name="checklist[os_updates]" value="1">
+                                    <label class="form-check-label fw-semibold" for="osup">Actualizaciones del sistema</label>
+                                    <div class="small text-muted mt-1">
+                                        Verificar y aplicar actualizaciones críticas/seguridad del sistema operativo.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="av" name="checklist[antivirus]" value="1">
+                                    <label class="form-check-label fw-semibold" for="av">Antivirus / Antimalware</label>
+                                    <div class="small text-muted mt-1">
+                                        Base de firmas al día, análisis rápido, licencias vigentes.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="smart" name="checklist[smart]" value="1">
+                                    <label class="form-check-label fw-semibold" for="smart">Chequeo de disco (S.M.A.R.T.)</label>
+                                    <div class="small text-muted mt-1">
+                                        Revisar estado de salud del/los discos (HDD/SSD/NVMe) y temperatura.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="ram" name="checklist[memtest]" value="1">
+                                    <label class="form-check-label fw-semibold" for="ram">Memoria RAM</label>
+                                    <div class="small text-muted mt-1">
+                                        Validar módulos (tipo/capacidad) y pruebas básicas si corresponde.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="bk" name="checklist[backup]" value="1">
+                                    <label class="form-check-label fw-semibold" for="bk">Respaldo verificado</label>
+                                    <div class="small text-muted mt-1">
+                                        Comprobar que existe copia y que puede restaurarse.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="drv" name="checklist[drivers]" value="1">
+                                    <label class="form-check-label fw-semibold" for="drv">Drivers / Firmware</label>
+                                    <div class="small text-muted mt-1">
+                                        Verificar versiones de drivers, BIOS/UEFI y firmware de discos.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check border rounded p-3 h-100">
+                                    <input class="form-check-input checklist-item" type="checkbox" id="net" name="checklist[network]" value="1">
+                                    <label class="form-check-label fw-semibold" for="net">Conectividad de red</label>
+                                    <div class="small text-muted mt-1">
+                                        Test de red básica (ping, DNS, velocidad si aplica) y puertos.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 d-flex align-items-center gap-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="complete-required" checked>
+                                <label class="form-check-label" for="complete-required">
+                                    Requerir completar checklist para guardar
+                                </label>
+                            </div>
+                            <span class="text-muted small">(podés desactivarlo para tareas rápidas)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ------- Columna lateral ------- #}
+            <div class="col-lg-4">
+                <div class="card border-0 bg-light mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3">
+                            <i class="fas fa-circle-info me-1"></i> Información
+                        </h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-2"><strong>Estado inicial:</strong> se recomienda "Pendiente".</li>
+                            <li class="mb-2"><strong>Asignación:</strong> podés elegir un responsable ahora o dejarlo vacío.</li>
+                            <li class="mb-2"><strong>Programación:</strong> fijá fecha y hora para organizar la agenda.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                {# Resumen de máquina si el controller la pasa como "machine" #}
+                {% if machine is defined and machine %}
+                <div class="card border-0 mb-4">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0"><i class="fas fa-desktop me-1"></i> Equipo seleccionado</h6>
+                    </div>
+                    <div class="card-body small">
+                        <div class="mb-2"><strong>Oficina:</strong> {{ machine.office.name ?? '—' }}</div>
+                        <div class="mb-2"><strong>Inventario:</strong> {{ machine.inventoryNumber ?? '—' }}</div>
+                        <div class="mb-2"><strong>RAM:</strong> {{ machine.ramGb ?? '—' }} GB {{ machine.ramType ?? '' }}</div>
+                        <div class="mb-2"><strong>Disco:</strong> {{ machine.diskType ?? '—' }}</div>
+                        <div class="mb-2"><strong>OS:</strong> {{ machine.os ?? '—' }}</div>
+                        <input type="hidden" name="machine_id" value="{{ machine.id }}">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i> Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Crear Tarea
+                    </button>
+                </div>
+            </div>
+        </div>
+        {{ form_end(form) }}
+    </div>
+</div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        .form-check-input:checked {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .form-check-input:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .progress {
+            overflow: visible;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar datepickers
+            document.querySelectorAll('.js-datetime-picker').forEach(function(picker) {
+                flatpickr(picker, {
+                    enableTime: true,
+                    dateFormat: "Y-m-d H:i",
+                    time_24hr: true,
+                    minDate: "today",
+                    locale: "es",
+                    minuteIncrement: 15,
+                    altInput: true,
+                    altFormat: "d/m/Y H:i",
+                });
+            });
+
+            // Manejo del checklist
+            const container = document.getElementById('checklist-container');
+            const items = container ? container.querySelectorAll('.checklist-item') : [];
+            const progressBar = document.getElementById('checklist-progress');
+            const counter = document.getElementById('checklist-counter');
+            const requireComplete = document.getElementById('complete-required');
+            const submitBtn = document.getElementById('submitBtn');
+            const form = document.getElementById('maintenanceTaskForm');
+
+            // Actualizar barra de progreso
+            function updateProgress() {
+                if (!items.length || !progressBar || !counter) return;
+
+                const total = items.length;
+                const checked = Array.from(items).filter(i => i.checked).length;
+                const pct = Math.round((checked / total) * 100);
+
+                progressBar.style.width = pct + '%';
+                progressBar.setAttribute('aria-valuenow', pct);
+
+                // Actualizar clases de estilo
+                progressBar.classList.remove('bg-success', 'bg-warning');
+                progressBar.classList.add(pct === 100 ? 'bg-success' : 'bg-warning');
+
+                // Actualizar contador
+                counter.textContent = `${checked} / ${total}`;
+
+                // Manejar estado del botón de envío
+                if (requireComplete && submitBtn) {
+                    submitBtn.disabled = requireComplete.checked && checked < total;
+                }
+            }
+
+            // Event listeners
+            if (items.length) {
+                items.forEach(item => {
+                    item.addEventListener('change', updateProgress);
+                });
+            }
+
+            if (requireComplete) {
+                requireComplete.addEventListener('change', updateProgress);
+            }
+
+            // Mostrar spinner al enviar el formulario
+            if (form && submitBtn) {
+                form.addEventListener('submit', function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Creando...';
+                });
+            }
+
+            // Inicializar progreso
+            updateProgress();
+        });
+    </script>
+{% endblock %}

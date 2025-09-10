@@ -6,12 +6,11 @@ use App\Entity\User;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\Email;
 
 class ProfileType extends AbstractType
 {
@@ -19,36 +18,32 @@ class ProfileType extends AbstractType
     {
         $builder
             ->add('email', EmailType::class, [
-                'label' => 'Correo electrónico',
-                'constraints' => [
-                    new NotBlank(['message' => 'Por favor ingresa un correo electrónico']),
-                    new Email(['message' => 'Por favor ingresa un correo electrónico válido']),
-                ],
-                'attr' => [
-                    'class' => 'form-control',
-                    'placeholder' => 'tucorreo@ejemplo.com'
-                ]
+                'label' => 'Email',
+                'attr' => ['class' => 'form-control'],
+                'disabled' => true, // Email shouldn't be changed
+            ])
+            ->add('username', TextType::class, [
+                'label' => 'Nombre de usuario',
+                'attr' => ['class' => 'form-control'],
             ])
             ->add('nombre', TextType::class, [
                 'label' => 'Nombre',
                 'required' => false,
-                'attr' => [
-                    'class' => 'form-control',
-                    'placeholder' => 'Tu nombre'
-                ]
+                'attr' => ['class' => 'form-control'],
             ])
             ->add('apellido', TextType::class, [
                 'label' => 'Apellido',
                 'required' => false,
-                'attr' => [
-                    'class' => 'form-control',
-                    'placeholder' => 'Tu apellido'
-                ]
+                'attr' => ['class' => 'form-control'],
             ])
             ->add('plainPassword', PasswordType::class, [
                 'label' => 'Nueva contraseña (dejar en blanco para no cambiar)',
-                'required' => false,
                 'mapped' => false,
+                'required' => false,
+                'attr' => [
+                    'class' => 'form-control',
+                    'autocomplete' => 'new-password',
+                ],
                 'constraints' => [
                     new Length([
                         'min' => 6,
@@ -56,11 +51,6 @@ class ProfileType extends AbstractType
                         'max' => 4096,
                     ]),
                 ],
-                'attr' => [
-                    'class' => 'form-control',
-                    'autocomplete' => 'new-password',
-                    'placeholder' => '••••••'
-                ]
             ]);
     }
 

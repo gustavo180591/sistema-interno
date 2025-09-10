@@ -1,0 +1,357 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}{{ task.title }}{% endblock %}
+
+{% block page_actions %}
+    <div class="btn-group">
+        <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-edit me-1"></i> Editar
+        </a>
+        {% if task.status != 'completed' %}
+            <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="fas fa-check me-1"></i> Marcar como Completada
+                </button>
+            </form>
+        {% endif %}
+        <a href="{{ path('maintenance_maintenance_tasks') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al listado
+        </a>
+    </div>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <!-- Task Details -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Detalles de la Tarea</h5>
+                    <div>
+                        <span class="badge bg-{{ task.statusClass }}">
+                            {{ task.status|trans }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h4 class="mb-3">{{ task.title }}</h4>
+                    
+                    {% if task.description %}
+                        <div class="mb-4">
+                            <h6>Descripción</h6>
+                            <div class="border rounded p-3 bg-light">
+                                {{ task.description|nl2br }}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6>Categoría</h6>
+                                <p class="mb-0">
+                                    <span class="badge bg-secondary">{{ task.category }}</span>
+                                </p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h6>Fecha de Creación</h6>
+                                <p class="mb-0">{{ task.createdAt|date('d/m/Y H:i') }}</p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h6>Fecha Programada</h6>
+                                <p class="mb-0">
+                                    {{ task.scheduledDate|date('d/m/Y H:i') }}
+                                    {% if task.isOverdue() %}
+                                        <span class="badge bg-danger">Atrasada</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6>Asignada a</h6>
+                                <p class="mb-0">
+                                    {% if task.assignedTo %}
+                                        <i class="fas fa-user me-1"></i> {{ task.assignedTo.username }}
+                                    {% else %}
+                                        <span class="text-muted">Sin asignar</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            
+                            {% if task.completedAt %}
+                                <div class="mb-3">
+                                    <h6>Completada el</h6>
+                                    <p class="mb-0">
+                                        {{ task.completedAt|date('d/m/Y H:i') }}
+                                        {% if task.completedBy %}
+                                            <br>
+                                            <small class="text-muted">
+                                                Por: {{ task.completedBy.username }}
+                                            </small>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="mb-3">
+                                <h6>Duración</h6>
+                                <p class="mb-0">
+                                    {% if task.estimatedDuration %}
+                                        Estimada: {{ task.estimatedDuration }} minutos<br>
+                                    {% endif %}
+                                    {% if task.actualDuration %}
+                                        Real: {{ task.actualDuration }} minutos
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if task.notes %}
+                        <div class="mt-4">
+                            <h6>Notas Adicionales</h6>
+                            <div class="border rounded p-3 bg-light">
+                                {{ task.notes|nl2br }}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Activity Log -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Registro de Actividad</h5>
+                </div>
+                <div class="card-body">
+                    {% if logs|length > 0 %}
+                        <div class="timeline">
+                            {% for log in logs %}
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-{{ log.badgeClass }}"></div>
+                                    <div class="timeline-content">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ log.user.username }}</strong>
+                                            <small class="text-muted">
+                                                {{ log.createdAt|date('d/m/Y H:i') }}
+                                            </small>
+                                        </div>
+                                        <p class="mb-0">
+                                            <i class="fas fa-{{ log.icon }} me-1"></i>
+                                            {{ log.getFormattedMessage() }}
+                                        </p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-history fa-3x mb-3"></i>
+                            <p class="mb-0">No hay actividad registrada para esta tarea.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Add Comment Form -->
+                <div class="card-footer bg-white">
+                    <form action="{{ path('maintenance_maintenance_task_comment', {id: task.id}) }}" method="post">
+                        <div class="input-group">
+                            <input type="text" name="comment" class="form-control" placeholder="Agregar un comentario..." required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Task Actions -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Acciones</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ path('maintenance_maintenance_task_edit', {id: task.id}) }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-edit me-2"></i> Editar Tarea
+                    </a>
+                    {% if task.status != 'completed' %}
+                        <form action="{{ path('maintenance_maintenance_task_complete', {id: task.id}) }}" method="post" class="list-group-item p-0">
+                            <button type="submit" class="btn btn-link text-start w-100 text-decoration-none ps-3">
+                                <i class="fas fa-check me-2"></i> Marcar como Completada
+                            </button>
+                        </form>
+                    {% else %}
+                        <a href="#" class="list-group-item list-group-item-action"
+                           data-bs-toggle="modal" data-bs-target="#reopenTaskModal">
+                            <i class="fas fa-redo me-2"></i> Reabrir Tarea
+                        </a>
+                    {% endif %}
+                    <a href="#" class="list-group-item list-group-item-action text-danger"
+                       data-bs-toggle="modal" data-bs-target="#deleteTaskModal">
+                        <i class="fas fa-trash me-2"></i> Eliminar Tarea
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Related Tasks -->
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Tareas Relacionadas</h5>
+                </div>
+                <div class="card-body">
+                    {% if task.category.tasks|length > 1 %}
+                        <div class="list-group list-group-flush">
+                            {% for relatedTask in task.category.tasks|filter(t => t.id != task.id)|slice(0, 5) %}
+                                <a href="{{ path('maintenance_maintenance_task_show', {id: relatedTask.id}) }}" 
+                                   class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ relatedTask.title }}</h6>
+                                        <small class="text-muted">{{ relatedTask.scheduledDate|date('d/m/Y') }}</small>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-{{ relatedTask.statusClass }} me-2">
+                                            {{ relatedTask.status|trans }}
+                                        </span>
+                                        {% if relatedTask.assignedTo %}
+                                            <small class="text-muted">{{ relatedTask.assignedTo.username }}</small>
+                                        {% endif %}
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <div class="text-center mt-2">
+                            <a href="{{ path('maintenance_maintenance_tasks', {category: task.category.id}) }}" class="btn btn-sm btn-outline-primary">
+                                Ver todas las tareas de {{ task.category }}
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            No hay otras tareas en esta categoría.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Task Modal -->
+    <div class="modal fade" id="deleteTaskModal" tabindex="-1" aria-labelledby="deleteTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteTaskModalLabel">Confirmar eliminación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que deseas eliminar esta tarea? Esta acción no se puede deshacer.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form action="{{ path('maintenance_maintenance_task_delete', {id: task.id}) }}" method="post" class="d-inline">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ task.id) }}">
+                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reopen Task Modal -->
+    <div class="modal fade" id="reopenTaskModal" tabindex="-1" aria-labelledby="reopenTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reopenTaskModalLabel">Reabrir Tarea</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form action="{{ path('maintenance_maintenance_task_reopen', {id: task.id}) }}" method="post">
+                    <div class="modal-body">
+                        <p>¿Estás seguro de que deseas reabrir esta tarea?</p>
+                        <div class="mb-3">
+                            <label for="newStatus" class="form-label">Nuevo estado</label>
+                            <select name="status" id="newStatus" class="form-select" required>
+                                <option value="pending">Pendiente</option>
+                                <option value="in_progress">En Progreso</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newDate" class="form-label">Nueva fecha programada</label>
+                            <input type="datetime-local" name="scheduledDate" id="newDate" 
+                                   class="form-control" required
+                                   value="{{ 'now'|date('Y-m-d\TH:i') }}">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Reabrir Tarea</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .timeline {
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+            padding-left: 1.5rem;
+            border-left: 2px solid #e9ecef;
+        }
+        
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            left: -0.5rem;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            text-align: center;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            top: 0.25rem;
+        }
+        
+        .timeline-content {
+            padding: 0.5rem 0;
+        }
+    </style>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Initialize modals
+            var deleteModal = new bootstrap.Modal(document.getElementById('deleteTaskModal'));
+            var reopenModal = new bootstrap.Modal(document.getElementById('reopenTaskModal'));
+        });
+    </script>
+{% endblock %}

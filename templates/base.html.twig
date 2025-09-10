@@ -4,198 +4,178 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{% block title %}Sistema Interno{% endblock %}</title>
-        <meta name="csrf-token" content="{{ csrf_token('app') }}">
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>SI</text></svg>">
 
-        <!-- Bootstrap CSS -->
+        {# Bootstrap CSS #}
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-        <style>
-            /* Estilos para los badges de estado */
-            .badge {
-                font-weight: 500;
-                letter-spacing: 0.5px;
-                padding: 0.4em 0.8em;
-            }
-
-            .badge.bg-warning {
-                background-color: #ffc107 !important;
-                color: #000;
-            }
-
-            .badge.bg-primary {
-                background-color: #0d6efd !important;
-            }
-
-            .badge.bg-success {
-                background-color: #198754 !important;
-            }
-
-            .badge.bg-danger {
-                background-color: #dc3545 !important;
-            }
-
-            /* Estilos para el modal de colaboración */
-            .modal-content {
-                border: none;
-                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-                border-radius: 0.5rem;
-                overflow: hidden;
-            }
-
-            .modal-header {
-                border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-                padding: 1.25rem 1.5rem;
-            }
-
-            .modal-body {
-                padding: 1.5rem;
-            }
-
-            .modal-footer {
-                border-top: 1px solid rgba(0, 0, 0, 0.1);
-                padding: 1rem 1.5rem;
-            }
-
-            /* Estilos para los mensajes de validación */
-            .is-invalid {
-                border-color: #dc3545 !important;
-                padding-right: calc(1.5em + 0.75rem);
-                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
-                background-repeat: no-repeat;
-                background-position: right calc(0.375em + 0.1875rem) center;
-                background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
-            }
-
-            .is-valid {
-                border-color: #198754 !important;
-                padding-right: calc(1.5em + 0.75rem);
-                background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
-                background-repeat: no-repeat;
-                background-position: right calc(0.375em + 0.1875rem) center;
-                background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
-            }
-
-            .invalid-feedback {
-                display: none;
-                width: 100%;
-                margin-top: 0.25rem;
-                font-size: 0.875em;
-                color: #dc3545;
-            }
-
-            .was-validated .form-control:invalid ~ .invalid-feedback,
-            .was-validated .form-control:invalid ~ .invalid-tooltip,
-            .form-control.is-invalid ~ .invalid-feedback,
-            .form-control.is-invalid ~ .invalid-tooltip {
-                display: block;
-            }
-
-            /* Estilos para el timeline en la vista de ticket */
-            .timeline {
-                position: relative;
-                padding-left: 1.5rem;
-                margin: 0 0 0 1rem;
-                border-left: 2px solid #e9ecef;
-            }
-
-            .timeline-item {
-                position: relative;
-                padding-bottom: 1.5rem;
-                padding-left: 1.5rem;
-            }
-
-            .timeline-item:last-child {
-                padding-bottom: 0;
-            }
-
-            .timeline-badge {
-                position: absolute;
-                left: -0.5rem;
-                width: 1rem;
-                height: 1rem;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-size: 0.5rem;
-            }
-
-            .timeline-content {
-                padding: 0.5rem 0 0 0.5rem;
-            }
-
-            .timeline-content h6 {
-                margin: 0;
-                font-weight: 600;
-            }
-
-            .timeline-content p {
-                margin: 0.25rem 0 0 0;
-                font-size: 0.875rem;
-            }
-        </style>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
         {% block stylesheets %}
             {{ encore_entry_link_tags('app') }}
         {% endblock %}
 
+{% block javascripts %}
+    {# Bootstrap 5 bundle (incluye Popper y todos los plugins) #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+
+    {# Socket.IO Client - Temporarily Disabled #}
+    {# <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script> #}
+
+    {# Global WebSocket Connection - Temporarily Disabled #}
+    {# <script>
+        // WebSocket functionality temporarily disabled
+        // To re-enable, uncomment this section and ensure the Socket.IO server is running on localhost:3000
+    </script> #}
+
+    <script>
+        // Show notification function
+        function showNotification(title, message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+            notification.role = 'alert';
+            notification.setAttribute('aria-live', 'assertive');
+            notification.setAttribute('aria-atomic', 'true');
+            notification.style.zIndex = '1100';
+
+            notification.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <strong>${title}</strong><br>${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+            const toast = new bootstrap.Toast(notification, { autohide: true, delay: 5000 });
+            toast.show();
+
+            // Remove the toast after it's hidden
+            notification.addEventListener('hidden.bs.toast', function() {
+                notification.remove();
+            });
+        }
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize dropdowns
+            var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+            var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                return new bootstrap.Dropdown(dropdownToggleEl);
+            });
+
+            // Enable dropdowns on hover for desktop
+            if (window.innerWidth > 992) { // lg breakpoint
+                document.querySelectorAll('.nav-item.dropdown').forEach(function(dropdown) {
+                    dropdown.addEventListener('mouseenter', function() {
+                        var dropdownMenu = this.querySelector('.dropdown-menu');
+                        if (dropdownMenu) {
+                            var dropdownInstance = bootstrap.Dropdown.getInstance(this.querySelector('.dropdown-toggle'));
+                            if (!dropdownInstance) {
+                                dropdownInstance = new bootstrap.Dropdown(this.querySelector('.dropdown-toggle'));
+                            }
+                            dropdownInstance.show();
+                        }
+                    });
+
+                    dropdown.addEventListener('mouseleave', function() {
+                        var dropdownMenu = this.querySelector('.dropdown-menu');
+                        if (dropdownMenu) {
+                            var dropdownInstance = bootstrap.Dropdown.getInstance(this.querySelector('.dropdown-toggle'));
+                            if (dropdownInstance) {
+                                dropdownInstance.hide();
+                            }
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+{% endblock %}
     </head>
-    <body class="d-flex flex-column min-vh-100">
-        <!-- Navigation -->
+    <body>
+        {# Flash messages #}
+        <div class="flash-messages">
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ type }} alert-dismissible fade show mb-0 rounded-0" role="alert">
+                        <div class="container">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
                 <a class="navbar-brand" href="{{ path('app_home') }}">Sistema Interno</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMainContent" aria-controls="navbarMainContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
+                <div class="collapse navbar-collapse" id="navbarMainContent">
+                    <ul class="navbar-nav me-auto">
+                        {% if is_granted('ROLE_USER') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('ticket_index') }}">
+                                <i class="fas fa-ticket-alt me-1"></i> Tickets
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
+                                <i class="far fa-calendar-alt me-1"></i> Calendario
+                            </a>
+                        </li>
+
+                        {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('admin_user_index') }}">
+                                <i class="fas fa-users me-1"></i> Usuarios
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('admin_dashboard') }}">
+                                <i class="fas fa-chart-line me-1"></i> Rendimiento
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if is_granted('ROLE_USER') %}
+                        <li class="nav-item">
+                            <a class="nav-link {{ app.request.get('_route') starts with 'office_office_' ? 'active' : '' }}" 
+                               href="{{ path('office_office_index') }}">
+                                <i class="fas fa-tools me-1"></i> Mantenimiento
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                    <ul class="navbar-nav">
                         {% if app.user %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('ticket_lista') }}">
-                                    {% if is_granted('ROLE_ADMIN') %}Tickets{% else %}Mis Tickets{% endif %}
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-user-circle me-1"></i> {{ app.user.nombre ?? app.user.username }}
                                 </a>
-                            </li>
-                            {% if is_granted('ROLE_ADMIN') %}
-                                <li class="nav-item dropdown me-2">
-                                    <a class="btn btn-outline-light btn-sm mt-1 dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-gear-fill me-1"></i> Panel
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
-                                        <li>
-                                            <a class="dropdown-item" href="{{ path('admin_user_index') }}">
-                                                <i class="bi bi-people-fill me-2"></i>Usuarios
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item" href="{{ path('admin_role_index') }}">
-                                                <i class="bi bi-shield-lock me-2"></i>Roles y Permisos
-                                            </a>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a class="dropdown-item" href="{{ path('admin_area_index') }}">
-                                                <i class="bi bi-diagram-3 me-2"></i>Áreas de Origen
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            {% endif %}
-                            <li class="nav-item">
-                                <a class="nav-link fw-bold" href="{{ path('app_profile') }}">
-                                    <i class="bi bi-person-circle me-1"></i>
-                                    <span class="d-inline d-md-none">Mi Perfil</span>
-                                    <span class="d-none d-md-inline">{{ app.user.nombre ?? 'Mi' }} {{ app.user.apellido ?? 'Perfil' }}</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_logout') }}">Cerrar Sesión</a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li><a class="dropdown-item" href="{{ path('app_profile_show') }}">Perfil</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ path('app_logout') }}">Cerrar sesión</a></li>
+                                </ul>
                             </li>
                         {% else %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ path('app_login') }}">Iniciar Sesión</a>
+                                <a class="nav-link" href="{{ path('app_login') }}">Iniciar sesión</a>
                             </li>
                         {% endif %}
                     </ul>
@@ -203,43 +183,26 @@
             </div>
         </nav>
 
-        <!-- Main Content -->
-        <main class="flex-grow-1">
-            <div class="container mt-3">
-                {% for label, messages in app.flashes %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'info') }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endfor %}
-            </div>
+        <div class="container mt-4">
+            {% for message in app.flashes('success') %}
+                <div class="alert alert-success">
+                    {{ message }}
+                </div>
+            {% endfor %}
+
+            {% for message in app.flashes('error') %}
+                <div class="alert alert-danger">
+                    {{ message }}
+                </div>
+            {% endfor %}
 
             {% block body %}{% endblock %}
-        </main>
-
-        <!-- Footer -->
-        <footer class="bg-light mt-auto py-3">
-            <div class="container text-center">
-                <span class="text-muted">© {{ "now"|date("Y") }} Sistema Interno. Todos los derechos reservados.</span>
-            </div>
-        </footer>
-
-        <!-- Toast Container -->
-        <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
-            <!-- Toast messages will be inserted here by JavaScript -->
         </div>
 
-        <!-- Bootstrap Bundle with Popper -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-        {% block javascripts %}
-            {{ encore_entry_script_tags('app') }}
-            <script src="{{ asset('assets/app.js') }}"></script>
-        {% endblock %}
-        {# Incluir el modal de colaboración #}
-        {% if app.request.attributes.get('_route') == 'ticket_nuevo' %}
-            {{ include('ticket/_colaborar_modal.html.twig') }}
-        {% endif %}
+        <footer class="bg-light text-center text-lg-start mt-5">
+            <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
+                © {{ "now"|date("Y") }} Sistema Interno
+            </div>
+        </footer>
     </body>
 </html>

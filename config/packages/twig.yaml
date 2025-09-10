@@ -1,8 +1,18 @@
 twig:
-    default_path: '%kernel.project_dir%/templates'
     file_name_pattern: '*.twig'
-    form_themes:
-        - 'bootstrap_5_layout.html.twig'
+    default_path: '%kernel.project_dir%/templates'
+    form_themes: ['bootstrap_5_layout.html.twig']
+    date:
+        format: 'd/m/Y H:i'
+        interval_format: '%%d days'
+        timezone: 'America/Argentina/Buenos_Aires'
+    number_format:
+        thousands_separator: '.'
+        decimal_point: ','
+    globals:
+        app_name: 'Sistema Interno'
+    auto_reload: true
+    debug: '%kernel.debug%'
 
 when@test:
     twig:

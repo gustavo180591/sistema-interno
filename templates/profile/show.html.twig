@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mi Perfil{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h1 class="h4 mb-0">Mi Perfil</h1>
+                    <a href="{{ path('app_profile_edit') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-edit"></i> Editar
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3 text-center">
+                            <div class="mb-3">
+                                <i class="fas fa-user-circle fa-5x text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <h2 class="h4">{{ user.nombreCompleto }}</h2>
+                            <p class="text-muted mb-1">{{ user.email }}</p>
+                            <p class="mb-1">
+                                <strong>Usuario:</strong> {{ user.username }}
+                            </p>
+                            <p class="mb-0">
+                                <strong>Roles:</strong>
+                                {% for role in user.roleDisplayNamesForTwig %}
+                                    <span class="badge bg-primary">{{ role }}</span>
+                                {% endfor %}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Información de la cuenta</h5>
+                                </div>
+                                <div class="card-body">
+                                    <dl class="mb-0">
+                                        <dt>Estado</dt>
+                                        <dd>
+                                            <span class="badge {{ user.isActive ? 'bg-success' : 'bg-secondary' }}">
+                                                {{ user.isActive ? 'Activo' : 'Inactivo' }}
+                                            </span>
+                                        </dd>
+                                        <dt>Fecha de registro</dt>
+                                        <dd>{{ user.createdAt|date('d/m/Y H:i') }}</dd>
+                                        <dt>Última actualización</dt>
+                                        <dd>{{ user.updatedAt ? user.updatedAt|date('d/m/Y H:i') : 'Nunca' }}</dd>
+                                        <dt>Último inicio de sesión</dt>
+                                        <dd>{{ user.lastLoginAt ? user.lastLoginAt|date('d/m/Y H:i') : 'Nunca' }}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">Acciones</h5>
+                                </div>
+                                <div class="card-body">
+                                    <a href="{{ path('app_profile_edit') }}" class="btn btn-primary w-100 mb-2">
+                                        <i class="fas fa-edit me-1"></i> Editar perfil
+                                    </a>
+                                    <a href="{{ path('app_change_password') }}" class="btn btn-outline-secondary w-100 mb-2">
+                                        <i class="fas fa-key me-1"></i> Cambiar contraseña
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

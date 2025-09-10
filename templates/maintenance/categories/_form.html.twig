@@ -1,0 +1,450 @@
+{% extends 'maintenance/base.html.twig' %}
+
+{% block page_title %}{{ form.vars.value.id ? 'Editar' : 'Nueva' }} Categoría de Mantenimiento{% endblock %}
+
+{% block page_actions %}
+    <a href="{{ path('maintenance_categories') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver al listado
+    </a>
+{% endblock %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas {{ form.vars.value.id ? 'fa-edit' : 'fa-plus-circle' }} me-1"></i>
+                        {{ form.vars.value.id ? 'Editar Categoría' : 'Nueva Categoría' }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {{ form_start(form) }}
+                        <div class="row">
+                            <div class="col-md-8">
+                                {{ form_row(form.name, {
+                                    'label': 'Nombre de la Categoría',
+                                    'attr': {
+                                        'placeholder': 'Ej: Mantenimiento de Equipos',
+                                        'class': 'form-control-lg'
+                                    }
+                                }) }}
+                                
+                                {{ form_row(form.description, {
+                                    'label': 'Descripción',
+                                    'attr': {
+                                        'rows': 3,
+                                        'placeholder': 'Describa el propósito de esta categoría...'
+                                    }
+                                }) }}
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="text-center mb-3">
+                                    <div class="category-icon-preview mb-2" style="font-size: 3rem; color: {{ form.vars.value.color|default('#6c757d') }};">
+                                        <i class="fas {{ form.vars.value.icon|default('fa-tag') }}" id="iconPreview"></i>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#iconModal">
+                                        <i class="fas fa-icons me-1"></i> Cambiar ícono
+                                    </button>
+                                </div>
+                                
+                                {{ form_row(form.color, {
+                                    'label': 'Color',
+                                    'attr': {
+                                        'class': 'form-control form-control-color',
+                                        'title': 'Seleccione un color',
+                                        'value': form.vars.value.color|default('#6c757d')
+                                    }
+                                }) }}
+                                
+                                {{ form_row(form.isActive, {
+                                    'label': 'Categoría activa',
+                                    'label_attr': {'class': 'form-check-label'},
+                                    'attr': {
+                                        'class': 'form-check-input',
+                                        'role': 'switch'
+                                    }
+                                }) }}
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                {{ form_row(form.frequency, {
+                                    'label': 'Frecuencia de Mantenimiento',
+                                    'attr': {
+                                        'class': 'form-select frequency-select',
+                                        'data-controller': 'frequency-selector'
+                                    }
+                                }) }}
+                                
+                                <div id="customFrequencyContainer" class="mt-2" style="display: none;">
+                                    {{ form_row(form.frequencyValue, {
+                                        'label': 'Cada cuántos días',
+                                        'attr': {
+                                            'min': 1,
+                                            'placeholder': 'Ej: 30',
+                                            'class': 'form-control',
+                                            'data-frequency-selector-target': 'customInput'
+                                        }
+                                    }) }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.icon, {
+                                    'label': 'Ícono',
+                                    'attr': {
+                                        'class': 'd-none',
+                                        'data-icon-target': 'input'
+                                    }
+                                }) }}
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h5 class="mb-3">
+                                <i class="fas fa-clipboard-list me-2"></i> Instrucciones Estándar
+                            </h5>
+                            {{ form_row(form.instructions, {
+                                'label': false,
+                                'attr': {
+                                    'rows': 6,
+                                    'class': 'form-control',
+                                    'placeholder': 'Proporcione instrucciones detalladas para las tareas de esta categoría. Puede usar formato Markdown.'
+                                }
+                            }) }}
+                            <div class="form-text">
+                                <small>
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Estas instrucciones aparecerán como plantilla al crear nuevas tareas en esta categoría.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i> {{ button_label|default('Guardar') }}
+                                </button>
+                                <a href="{{ path('maintenance_categories') }}" class="btn btn-outline-secondary ms-2">
+                                    <i class="fas fa-times me-1"></i> Cancelar
+                                </a>
+                            </div>
+                            
+                            {% if form.vars.value.id %}
+                                <button type="button" 
+                                        class="btn btn-outline-danger"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal">
+                                    <i class="fas fa-trash me-1"></i> Eliminar
+                                </button>
+                            {% endif %}
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-1"></i> Información
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>¿Qué es una categoría de mantenimiento?</h6>
+                    <p class="small text-muted">
+                        Las categorías de mantenimiento le permiten organizar y agrupar tareas relacionadas. 
+                        Cada categoría puede tener su propia frecuencia de mantenimiento e instrucciones estándar.
+                    </p>
+                    
+                    <h6 class="mt-4">Frecuencias recomendadas</h6>
+                    <ul class="small text-muted">
+                        <li><strong>Diaria:</strong> Tareas que deben realizarse cada día.</li>
+                        <li><strong>Semanal:</strong> Tareas que deben realizarse cada semana.</li>
+                        <li><strong>Mensual:</strong> Tareas que deben realizarse cada mes.</li>
+                        <li><strong>Trimestral:</strong> Tareas que deben realizarse cada 3 meses.</li>
+                        <li><strong>Semestral:</strong> Tareas que deben realizarse cada 6 meses.</li>
+                        <li><strong>Anual:</strong> Tareas que deben realizarse una vez al año.</li>
+                        <li><strong>Personalizada:</strong> Establezca un intervalo personalizado en días.</li>
+                    </ul>
+                    
+                    {% if form.vars.value.id %}
+                        <hr>
+                        <div class="small">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Creada el:</span>
+                                <span>{{ form.vars.value.createdAt ? form.vars.value.createdAt|date('d/m/Y H:i') : 'N/A' }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Última actualización:</span>
+                                <span>{{ form.vars.value.updatedAt ? form.vars.value.updatedAt|date('d/m/Y H:i') : 'Nunca' }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Tareas asociadas:</span>
+                                <a href="{{ path('maintenance_tasks', {category: form.vars.value.id}) }}" class="text-decoration-none">
+                                    {{ form.vars.value.tasks|length }} tareas
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Icon Picker Modal -->
+    <div class="modal fade" id="iconModal" tabindex="-1" aria-labelledby="iconModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="iconModalLabel">Seleccionar Ícono</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <input type="text" id="iconSearch" class="form-control mb-3" placeholder="Buscar ícono...">
+                    </div>
+                    <div class="icon-grid" style="max-height: 400px; overflow-y: auto;">
+                        {% set icons = [
+                            'fa-tools', 'fa-wrench', 'fa-screwdriver', 'fa-hammer', 'fa-toolbox',
+                            'fa-cog', 'fa-cogs', 'fa-sliders-h', 'fa-tachometer-alt', 'fa-cube',
+                            'fa-server', 'fa-desktop', 'fa-laptop', 'fa-print', 'fa-keyboard',
+                            'fa-mouse', 'fa-hdd', 'fa-memory', 'fa-microchip', 'fa-bolt',
+                            'fa-plug', 'fa-battery-full', 'fa-battery-three-quarters', 'fa-battery-half', 'fa-battery-quarter',
+                            'fa-battery-empty', 'fa-solar-panel', 'fa-fan', 'fa-thermometer-half', 'fa-fire-extinguisher',
+                            'fa-shield-alt', 'fa-lock', 'fa-unlock', 'fa-key', 'fa-user-shield',
+                            'fa-user-cog', 'fa-user-tie', 'fa-user-hard-hat', 'fa-hard-hat', 'fa-helmet-safety',
+                            'fa-exclamation-triangle', 'fa-exclamation-circle', 'fa-question-circle', 'fa-info-circle', 'fa-check-circle',
+                            'fa-times-circle', 'fa-calendar-alt', 'fa-calendar-check', 'fa-calendar-day', 'fa-calendar-week',
+                            'fa-calendar-plus', 'fa-calendar-minus', 'fa-calendar-times', 'fa-clock', 'fa-stopwatch',
+                            'fa-hourglass', 'fa-hourglass-start', 'fa-hourglass-half', 'fa-hourglass-end', 'fa-hourglass-empty'
+                        ] %}
+                        
+                        <div class="row">
+                            {% for icon in icons %}
+                                <div class="col-2 text-center p-2 icon-item" data-icon="{{ icon }}">
+                                    <div class="p-2 border rounded">
+                                        <i class="fas {{ icon }} fa-2x mb-2"></i>
+                                        <div class="small text-truncate">{{ icon|replace({'fa-': ''}) }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Cerrar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="selectIconBtn" disabled>
+                        <i class="fas fa-check me-1"></i> Seleccionar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    {% if form.vars.value.id %}
+        <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel">Confirmar eliminación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Está seguro de que desea eliminar la categoría <strong>{{ form.vars.value.name }}</strong>?</p>
+                        {% if form.vars.value.tasks|length > 0 %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Esta categoría tiene {{ form.vars.value.tasks|length }} tareas asociadas. 
+                                Al eliminar la categoría, estas tareas no se eliminarán, 
+                                pero ya no estarán asociadas a ninguna categoría.
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </button>
+                        <form action="{{ path('maintenance_category_delete', {id: form.vars.value.id}) }}" method="post" class="d-inline">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ form.vars.value.id) }}">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash me-1"></i> Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+            // Handle icon selection
+            const iconInput = document.querySelector('input[name$="[icon]"]');
+            const iconPreview = document.getElementById('iconPreview');
+            const colorInput = document.querySelector('input[type="color"]');
+            const iconItems = document.querySelectorAll('.icon-item');
+            const selectIconBtn = document.getElementById('selectIconBtn');
+            const iconSearch = document.getElementById('iconSearch');
+            
+            let selectedIcon = null;
+            
+            // Handle icon selection
+            iconItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all items
+                    iconItems.forEach(i => i.classList.remove('border-primary', 'bg-light'));
+                    
+                    // Add active class to selected item
+                    this.classList.add('border-primary', 'bg-light');
+                    
+                    // Set selected icon
+                    selectedIcon = this.dataset.icon;
+                    selectIconBtn.disabled = false;
+                });
+            });
+            
+            // Handle select icon button click
+            selectIconBtn.addEventListener('click', function() {
+                if (selectedIcon) {
+                    // Update hidden input
+                    iconInput.value = selectedIcon;
+                    
+                    // Update preview
+                    const iconClass = iconPreview.className.split(' ')[0]; // Get the base class (fas or fab)
+                    iconPreview.className = `${iconClass} ${selectedIcon}`;
+                    
+                    // Update color
+                    iconPreview.style.color = colorInput.value;
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('iconModal'));
+                    modal.hide();
+                }
+            });
+            
+            // Handle color change
+            colorInput.addEventListener('input', function() {
+                iconPreview.style.color = this.value;
+            });
+            
+            // Handle icon search
+            iconSearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                iconItems.forEach(item => {
+                    const iconName = item.dataset.icon.toLowerCase();
+                    if (iconName.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Handle frequency selection
+            const frequencySelect = document.querySelector('.frequency-select');
+            const customFrequencyContainer = document.getElementById('customFrequencyContainer');
+            
+            if (frequencySelect) {
+                // Show/hide custom frequency input
+                function toggleCustomFrequency() {
+                    if (frequencySelect.value === 'custom') {
+                        customFrequencyContainer.style.display = 'block';
+                    } else {
+                        customFrequencyContainer.style.display = 'none';
+                    }
+                }
+                
+                // Initial check
+                toggleCustomFrequency();
+                
+                // Add event listener
+                frequencySelect.addEventListener('change', toggleCustomFrequency);
+            }
+            
+            // Initialize modals
+            if (document.getElementById('deleteModal')) {
+                var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            }
+            
+            if (document.getElementById('iconModal')) {
+                var iconModal = new bootstrap.Modal(document.getElementById('iconModal'));
+            }
+        });
+    </script>
+    
+    <style>
+        .icon-item {
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        
+        .icon-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .icon-item .border {
+            height: 100%;
+            transition: all 0.2s;
+        }
+        
+        .icon-item:hover .border {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        
+        .icon-item.active .border {
+            border-color: #0d6efd !important;
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        
+        /* Style for form controls */
+        .form-control:focus, .form-select:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        
+        /* Style for form labels */
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+        }
+        
+        /* Style for form text */
+        .form-text {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        /* Style for form sections */
+        .form-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        /* Style for form actions */
+        .form-actions {
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            margin-top: 1.5rem;
+        }
+    </style>
+{% endblock %}

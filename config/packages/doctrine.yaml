@@ -1,6 +1,12 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        server_version: '13'
+        types:
+            datetime_immutable: 'Doctrine\DBAL\Types\DateTimeImmutableType'
+        default_table_options:
+            charset: utf8mb4
+            collate: utf8mb4_unicode_ci
 
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
@@ -9,6 +15,9 @@ doctrine:
         profiling_collect_backtrace: '%kernel.debug%'
         use_savepoints: true
     orm:
+        dql:
+            datetime_functions:
+                NOW: DoctrineExtensions\Query\Mysql\Now
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true
         report_fields_where_declared: true

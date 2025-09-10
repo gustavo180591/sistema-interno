@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Recurso no encontrado{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <div class="error-template">
+                <h1 class="display-1 text-danger">404</h1>
+                <h2 class="display-4">Recurso no encontrado</h2>
+                <div class="error-details mb-4">
+                    <p class="lead">{{ message|default('El recurso solicitado no existe o ha sido eliminado.') }}</p>
+                </div>
+                <div class="error-actions">
+                    <a href="{{ path('app_home') }}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-home me-2"></i>Ir al Inicio
+                    </a>
+                    <a href="{{ path('ticket_index') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-ticket-alt me-2"></i>Ver Tickets
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

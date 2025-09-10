@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  database:
+    image: mysql:8.0
+    container_name: sistema-interno-db
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345678
+      MYSQL_DATABASE: sistema-interno
+      MYSQL_USER: gustavo
+      MYSQL_PASSWORD: 12345678
+    ports:
+      - "3313:3306"  # Map host port 3313 to container port 3306
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+    networks:
+      - sistema-interno
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sistema-interno-php
+    volumes:
+      - .:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - /var/www/vendor
+    depends_on:
+      - database
+    networks:
+      - sistema-interno
+    environment:
+      DATABASE_URL: "mysql://gustavo:12345678@database:3306/sistema-interno?serverVersion=8.0.37&charset=utf8mb4"
+
+  nginx:
+    image: nginx:alpine
+    container_name: sistema-interno-nginx
+    ports:
+      - "2000:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+    networks:
+      - sistema-interno
+
+  socket-server:
+    build:
+      context: ./socket-server
+      dockerfile: Dockerfile
+    container_name: sistema-interno-socket
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./socket-server:/app
+      - /app/node_modules
+    networks:
+      - sistema-interno
+
+volumes:
+  db_data:
+
+networks:
+  sistema-interno:
+    driver: bridge

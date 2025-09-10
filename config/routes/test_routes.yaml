@@ -1,0 +1,14 @@
+# Test route to verify routing is working
+test_route:
+    path: /test-route
+    controller: App\Controller\TestController::test
+    methods: [GET]
+    defaults:
+        _format: html
+
+test_calendar:
+    path: /test/calendar
+    controller: App\Controller\TestController::testCalendar
+    methods: [GET]
+    defaults:
+        _format: html

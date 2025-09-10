@@ -3,278 +3,92 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
-#[ORM\UniqueConstraint(name: 'UNIQ_USERNAME', fields: ['username'])]
-#[UniqueEntity(fields: ['email'], message: 'Este correo electrónico ya está en uso.')]
+#[ORM\Table(name: '`user`')]
+#[UniqueEntity(fields: ['email'], message: 'Este email ya está registrado.')]
 #[UniqueEntity(fields: ['username'], message: 'Este nombre de usuario ya está en uso.')]
+#[ORM\HasLifecycleCallbacks]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
-    #[ORM\Column]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
+    // Nombre(s) y apellido(s) – opcional pero útil para tu UI
+    #[ORM\Column(length: 100, nullable: true)]
+    #[Assert\Length(max: 100)]
+    public ?string $nombre = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    #[Assert\Length(max: 100)]
+    public ?string $apellido = null;
+
     #[ORM\Column(length: 180, unique: true)]
+    #[Assert\NotBlank(message: 'El email es obligatorio.')]
+    #[Assert\Email(message: 'Email inválido.')]
     private ?string $email = null;
 
+    #[ORM\Column(length: 60, unique: true)]
+    #[Assert\NotBlank(message: 'El nombre de usuario es obligatorio.')]
+    #[Assert\Length(min: 3, max: 60)]
+    private ?string $username = null;
+
     /**
-     * @var string[] The user roles (for security)
+     * Roles en JSON. Ej: ["ROLE_ADMIN"], ["ROLE_AUDITOR"], ["ROLE_USER"]
      */
     #[ORM\Column(type: 'json')]
     private array $roles = [];
 
     /**
-     * @var Collection<int, Role>
-     */
-    #[ORM\ManyToMany(targetEntity: Role::class, inversedBy: 'users')]
-    #[ORM\JoinTable(name: 'user_roles')]
-    private Collection $userRoles;
-
-    /**
-     * @var string The hashed password
+     * Hash de contraseña (no guardes plano).
      */
     #[ORM\Column]
+    #[Assert\NotBlank(message: 'La contraseña es obligatoria.', groups: ['registration'])]
+    #[Assert\Length(min: 6, minMessage: 'La contraseña debe tener al menos {{ limit }} caracteres.', groups: ['registration'])]
     private ?string $password = null;
 
-    #[ORM\Column]
-    private bool $isVerified = false;
+    #[ORM\Column(type: 'boolean')]
+    private bool $isActive = true;
 
-    #[ORM\Column(length: 100)]
-    private ?string $nombre = null;
+    #[ORM\Column(type: 'datetime_immutable')]
+    private \DateTimeImmutable $createdAt;
 
-    #[ORM\Column(length: 100)]
-    private ?string $apellido = null;
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\Column(length: 50, unique: true)]
-    private ?string $username = null;
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
+    private ?string $resetToken = null;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTime $lastLoginAt = null;
+
+    /**
+     * @var Collection|TicketAssignment[]
+     */
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: TicketAssignment::class)]
+    private Collection $ticketAssignments;
 
     public function __construct()
     {
-        $this->userRoles = new ArrayCollection();
+        $this->createdAt = new \DateTimeImmutable('now');
+        $this->isActive = true;
+        $this->ticketAssignments = new ArrayCollection();
     }
 
-    /**
-     * Get role display names
-     *
-     * @return array
-     */
-    public function getRoleDisplayNames(): array
-    {
-        $roleMap = [
-            'ROLE_ADMIN'   => 'Administrador',
-            'ROLE_USER'    => 'Usuario',
-            'ROLE_AUDITOR' => 'Auditor',
-            // Add more role mappings as needed
-        ];
-
-        $displayNames = [];
-        
-        // Add roles from $this->roles
-        foreach ($this->roles as $role) {
-            if (isset($roleMap[$role])) {
-                $displayNames[] = $roleMap[$role];
-            }
-        }
-        
-        // Add roles from userRoles relationship
-        if ($this->userRoles instanceof Collection) {
-            foreach ($this->userRoles as $role) {
-                if (method_exists($role, 'getRoleName')) {
-                    $roleName = $role->getRoleName();
-                    if (isset($roleMap[$roleName]) && !in_array($roleMap[$roleName], $displayNames, true)) {
-                        $displayNames[] = $roleMap[$roleName];
-                    }
-                }
-            }
-        }
-        
-        // If no roles found, add default ROLE_USER
-        if (empty($displayNames)) {
-            $displayNames[] = $roleMap['ROLE_USER'] ?? 'Usuario';
-        }
-
-        return array_values(array_unique($displayNames));
-    }
-
-    /**
-     * Get role display names for Twig templates
-     *
-     * @return array
-     */
-    public function getRoleDisplayNamesForTwig(): array
-    {
-        return $this->getRoleDisplayNames();
-    }
+    // ====== Getters/Setters ======
 
     public function getId(): ?int
     {
         return $this->id;
-    }
-
-    public function getEmail(): ?string
-    {
-        return $this->email;
-    }
-
-    public function setEmail(string $email): static
-    {
-        $this->email = $email;
-        return $this;
-    }
-
-    public function getUsername(): ?string
-    {
-        return $this->username;
-    }
-
-    public function setUsername(string $username): static
-    {
-        $this->username = $username;
-        return $this;
-    }
-
-    public function getUserIdentifier(): string
-    {
-        return (string) $this->email;
-    }
-
-    /**
-     * @return string[]
-     */
-    public function getRoles(): array
-    {
-        $roles = $this->roles;
-
-        // Add roles from userRoles relationship
-        if ($this->userRoles instanceof Collection) {
-            foreach ($this->userRoles as $role) {
-                if (method_exists($role, 'getRoleName')) {
-                    $roleName = $role->getRoleName();
-                    if (!in_array($roleName, $roles, true)) {
-                        $roles[] = $roleName;
-                    }
-                }
-            }
-        }
-
-        // Ensure we always have at least ROLE_USER
-        $roles[] = 'ROLE_USER';
-
-        return array_values(array_unique($roles));
-    }
-
-    /**
-     * @param string[] $roles
-     */
-    public function setRoles(array $roles): static
-    {
-        // Clear current roles
-        $this->roles = [];
-        
-        // Normalize and add all provided roles
-        foreach ($roles as $role) {
-            $role = strtoupper(trim($role));
-            if ($role && !in_array($role, $this->roles, true)) {
-                $this->roles[] = $role;
-            }
-        }
-        
-        // If no roles were provided or ROLE_USER was not included, add it
-        if (!in_array('ROLE_USER', $this->roles, true)) {
-            $this->roles[] = 'ROLE_USER';
-        }
-        
-        // Ensure roles are unique
-        $this->roles = array_values(array_unique($this->roles));
-        
-        return $this;
-    }
-
-    public function addRole(string $role): static
-    {
-        $role = strtoupper($role);
-        if (!in_array($role, $this->roles, true)) {
-            $this->roles[] = $role;
-        }
-        return $this;
-    }
-
-    public function removeRole(string $role): static
-    {
-        $role = strtoupper($role);
-        $key = array_search($role, $this->roles, true);
-        if ($key !== false) {
-            unset($this->roles[$key]);
-        }
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, Role>
-     */
-    public function getUserRoles(): Collection
-    {
-        return $this->userRoles;
-    }
-
-    public function addUserRole(Role $role): static
-    {
-        if (!$this->userRoles->contains($role)) {
-            $this->userRoles[] = $role;
-        }
-        return $this;
-    }
-
-    public function removeUserRole(Role $role): static
-    {
-        $this->userRoles->removeElement($role);
-        return $this;
-    }
-
-    public function hasRole(string $role): bool
-    {
-        return in_array(strtoupper($role), $this->getRoles(), true);
-    }
-
-    public function getPassword(): string
-    {
-        return $this->password;
-    }
-
-    public function setPassword(string $password): static
-    {
-        $this->password = $password;
-        return $this;
-    }
-
-    public function eraseCredentials(): void
-    {
-        // If you store any temporary, sensitive data on the user, clear it here
-    }
-
-    public function getSalt(): ?string
-    {
-        // Not needed when using the "bcrypt" algorithm in security.yaml
-        return null;
-    }
-
-    public function isVerified(): bool
-    {
-        return $this->isVerified;
-    }
-
-    public function setIsVerified(bool $isVerified): static
-    {
-        $this->isVerified = $isVerified;
-        return $this;
     }
 
     public function getNombre(): ?string
@@ -282,7 +96,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->nombre;
     }
 
-    public function setNombre(string $nombre): static
+    public function setNombre(?string $nombre): self
     {
         $this->nombre = $nombre;
         return $this;
@@ -293,29 +107,225 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->apellido;
     }
 
-    public function setApellido(string $apellido): static
+    public function setApellido(?string $apellido): self
     {
         $this->apellido = $apellido;
         return $this;
     }
 
-    public function __serialize(): array
+    public function getEmail(): ?string
     {
-        return [
-            'id' => $this->id,
-            'email' => $this->email,
-            'password' => $this->password,
-            'is_verified' => $this->isVerified,
-            'roles' => $this->roles,
-        ];
+        return $this->email;
     }
 
-    public function __unserialize(array $data): void
+    public function setEmail(string $email): self
     {
-        $this->id = $data['id'] ?? null;
-        $this->email = $data['email'] ?? null;
-        $this->password = $data['password'] ?? null;
-        $this->isVerified = $data['is_verified'] ?? false;
-        $this->roles = $data['roles'] ?? [];
+        $this->email = strtolower($email);
+        return $this;
+    }
+
+    public function getUsername(): string
+    {
+        return (string) $this->username;
+    }
+
+    public function getFullName(): string
+    {
+        return trim(sprintf('%s %s', 
+            $this->nombre ?? '', 
+            $this->apellido ?? ''
+        )) ?: $this->getUsername();
+    }
+
+    public function setUsername(string $username): self
+    {
+        $this->username = strtolower($username);
+        return $this;
+    }
+
+    /**
+     * Identificador visual para Security (puede ser email).
+     */
+    public function getUserIdentifier(): string
+    {
+        return (string) ($this->email ?? $this->username ?? '');
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getRoles(): array
+    {
+        $roles = $this->roles;
+
+        // Garantizamos al menos ROLE_USER
+        if (!in_array('ROLE_USER', $roles, true)) {
+            $roles[] = 'ROLE_USER';
+        }
+
+        return array_values(array_unique($roles));
+    }
+
+    /**
+     * @param string[] $roles
+     */
+    public function setRoles(array $roles): self
+    {
+        // normalizamos (mayúsculas, sin espacios)
+        $roles = array_map(fn($r) => strtoupper(trim($r)), $roles);
+        $this->roles = $roles;
+        return $this;
+    }
+
+    /**
+     * Helper para renderizar bonito en Twig (Administrador, Auditor, Usuario)
+     */
+    public function getRoleDisplayNamesForTwig(): array
+    {
+        $map = [
+            'ROLE_ADMIN'   => 'Administrador',
+            'ROLE_AUDITOR' => 'Auditor',
+            'ROLE_USER'    => 'Usuario',
+        ];
+
+        $out = [];
+        foreach ($this->getRoles() as $code) {
+            $out[] = $map[$code] ?? $code;
+        }
+        // orden opcional: Admin → Auditor → Usuario
+        $order = ['Administrador', 'Auditor', 'Usuario'];
+        usort($out, fn($a, $b) => array_search($a, $order) <=> array_search($b, $order));
+
+        return $out;
+    }
+
+    public function getPassword(): ?string
+    {
+        return $this->password;
+    }
+
+    /**
+     * Sets the user's password (hashed)
+     */
+    public function setPassword(string $hashed): self
+    {
+        $this->password = $hashed;
+        return $this;
+    }
+    
+    /**
+     * Sets a plain password (to be hashed by the UserPasswordHasher)
+     */
+    public function setPlainPassword(string $plainPassword): self
+    {
+        // This is just a setter, the actual hashing will be done by the UserPasswordHasher
+        $this->password = $plainPassword;
+        return $this;
+    }
+
+    public function eraseCredentials(): void
+    {
+        // Si guardás un plainPassword temporal, limpiarlo acá.
+    }
+
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setIsActive(bool $isActive): self
+    {
+        $this->isActive = $isActive;
+        return $this;
+    }
+
+    public function getCreatedAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    #[ORM\PreUpdate]
+    public function onPreUpdate(): void
+    {
+        $this->updatedAt = new \DateTimeImmutable('now');
+    }
+
+    public function getUpdatedAt(): ?\DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    public function getLastLoginAt(): ?\DateTime
+    {
+        return $this->lastLoginAt;
+    }
+
+    public function setLastLoginAt(?\DateTime $lastLoginAt): self
+    {
+        $this->lastLoginAt = $lastLoginAt;
+        return $this;
+    }
+
+    // ===== Conveniencias para la UI =====
+
+    public function getNombreCompleto(): string
+    {
+        return trim(($this->nombre ?? '') . ' ' . ($this->apellido ?? '')) ?: ($this->username ?? '');
+    }
+
+    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    {
+        $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static
+    {
+        $this->updatedAt = $updatedAt;
+
+        return $this;
+    }
+
+    public function getResetToken(): ?string
+    {
+        return $this->resetToken;
+    }
+
+    public function setResetToken(?string $resetToken): static
+    {
+        $this->resetToken = $resetToken;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, TicketAssignment>
+     */
+    public function getTicketAssignments(): Collection
+    {
+        return $this->ticketAssignments;
+    }
+
+    public function addTicketAssignment(TicketAssignment $ticketAssignment): static
+    {
+        if (!$this->ticketAssignments->contains($ticketAssignment)) {
+            $this->ticketAssignments->add($ticketAssignment);
+            $ticketAssignment->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeTicketAssignment(TicketAssignment $ticketAssignment): static
+    {
+        if ($this->ticketAssignments->removeElement($ticketAssignment)) {
+            // set the owning side to null (unless already changed)
+            if ($ticketAssignment->getUser() === $this) {
+                $ticketAssignment->setUser(null);
+            }
+        }
+
+        return $this;
     }
 }

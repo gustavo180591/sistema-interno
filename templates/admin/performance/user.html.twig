@@ -1,0 +1,497 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Rendimiento de {{ user.nombre }} {{ user.apellido }}{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Task Status Chart
+            if (document.getElementById('taskStatusChart') && {{ status_distribution is defined ? 'true' : 'false' }}) {
+                const statusData = {{ status_distribution|json_encode|raw }};
+                
+                // Function to update chart type
+                function updateChartType(chart, type) {
+                    if (type === 'donut') {
+                        chart.updateOptions({
+                            chart: { type: 'donut' },
+                            plotOptions: {
+                                pie: {
+                                    donut: {
+                                        size: '65%',
+                                        labels: {
+                                            show: true,
+                                            total: {
+                                                show: true,
+                                                label: 'Total',
+                                                formatter: function(w) {
+                                                    return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            dataLabels: { enabled: false },
+                            legend: { position: 'right' },
+                            xaxis: { type: 'category' },
+                            yaxis: { show: false },
+                            grid: { padding: { top: 0, right: 0, bottom: 0, left: 0 } }
+                        }, false, false, true);
+                    } else {
+                        chart.updateOptions({
+                            chart: { type: 'bar' },
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 8,
+                                    horizontal: false,
+                                    columnWidth: '45%',
+                                    dataLabels: { position: 'top' }
+                                }
+                            },
+                            dataLabels: {
+                                enabled: true,
+                                formatter: function(val) { return val > 0 ? val : ''; },
+                                offsetY: -20,
+                                style: { fontSize: '12px', colors: ['#6c757d'] }
+                            },
+                            legend: { show: false },
+                            xaxis: { 
+                                categories: statusData.labels,
+                                labels: { style: { fontSize: '12px', fontWeight: 600 } }
+                            },
+                            yaxis: { 
+                                labels: { 
+                                    formatter: function(val) { return Math.floor(val) === val ? val : ''; },
+                                    style: { colors: ['#6c757d'], fontSize: '12px' }
+                                }
+                            },
+                            grid: { 
+                                borderColor: '#f8f9fa',
+                                strokeDashArray: 5,
+                                padding: { top: 0, right: 30, bottom: 0, left: 30 }
+                            }
+                        }, false, false, true);
+                    }
+                }
+
+                // Initialize chart with donut as default
+                const options = {
+                    series: statusData.data,
+                    chart: {
+                        type: 'donut',
+                        height: 350,
+                        fontFamily: 'Nunito, sans-serif',
+                        toolbar: {
+                            show: true,
+                            tools: {
+                                download: true,
+                                selection: false,
+                                zoom: false,
+                                zoomin: false,
+                                zoomout: false,
+                                pan: false,
+                                reset: false
+                            }
+                        },
+                        animations: {
+                            enabled: true,
+                            easing: 'easeinout',
+                            speed: 800,
+                            animateGradually: { enabled: true, delay: 150 },
+                            dynamicAnimation: { enabled: true, speed: 350 }
+                        },
+                        events: {
+                            mounted: function(chartContext, config) {
+                                updateLegend(chartContext, config);
+                            },
+                            updated: function(chartContext, config) {
+                                updateLegend(chartContext, config);
+                            }
+                        }
+                    },
+                    colors: statusData.colors,
+                    labels: statusData.labels,
+                    dataLabels: { enabled: false },
+                    legend: {
+                        position: 'right',
+                        offsetY: 0,
+                        height: 230,
+                        formatter: function(seriesName, opts) {
+                            return [
+                                seriesName,
+                                ' - ',
+                                opts.w.globals.series[opts.seriesIndex],
+                                ' (' + opts.w.globals.seriesPercent[opts.seriesIndex].toFixed(1) + '%)'
+                            ].join('');
+                        }
+                    },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '65%',
+                                labels: {
+                                    show: true,
+                                    name: {
+                                        show: true,
+                                        fontSize: '14px',
+                                        fontFamily: 'Nunito, sans-serif',
+                                        color: '#6c757d',
+                                        offsetY: 10
+                                    },
+                                    value: {
+                                        show: true,
+                                        fontSize: '24px',
+                                        fontFamily: 'Nunito, sans-serif',
+                                        color: '#4e73df',
+                                        offsetY: -10,
+                                        formatter: function (val) { return val; }
+                                    },
+                                    total: {
+                                        show: true,
+                                        showAlways: true,
+                                        label: 'Total',
+                                        color: '#6c757d',
+                                        formatter: function (w) {
+                                            return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    stroke: { show: false },
+                    tooltip: {
+                        fillSeriesColor: false,
+                        y: {
+                            formatter: function(val) { return val + ' tarea' + (val !== 1 ? 's' : ''); },
+                            title: { formatter: function(seriesName) { return seriesName + ':'; } }
+                        }
+                    },
+                    responsive: [{
+                        breakpoint: 768,
+                        options: {
+                            chart: { height: 300 },
+                            legend: { position: 'bottom' }
+                        }
+                    }]
+                };
+
+                // Function to update legend
+                function updateLegend(chartContext, config) {
+                    const legendContainer = document.querySelector('#taskStatusChart + .chart-legend');
+                    const total = config.config.series.reduce((a, b) => a + b, 0);
+                    
+                    if (total > 0) {
+                        let legendHtml = '<div class="d-flex flex-wrap justify-content-center gap-3">';
+                        
+                        config.config.labels.forEach((label, index) => {
+                            const value = config.config.series[index];
+                            if (value > 0) {
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                legendHtml += `
+                                    <div class="legend-item">
+                                        <span class="legend-color" style="background-color: ${config.config.colors[index]};"></span>
+                                        <span class="me-2 fw-medium">${label}:</span>
+                                        <span class="text-muted">${value} (${percentage}%)</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        legendHtml += '</div>';
+                        legendContainer.innerHTML = legendHtml;
+                    } else {
+                        legendContainer.innerHTML = '<p class="text-muted text-center mb-0">No hay datos disponibles para el período seleccionado</p>';
+                    }
+                }
+
+                // Initialize chart
+                const chart = new ApexCharts(document.querySelector("#taskStatusChart"), options);
+                chart.render();
+
+                // Add event listeners for chart type buttons
+                document.querySelectorAll('.chart-type-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        updateChartType(chart, this.dataset.type);
+                    });
+                });
+            }
+        });
+    </script>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .kpi-card { transition: all 0.3s ease; }
+        .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); }
+        .kpi-value { font-size: 1.5rem; font-weight: 600; }
+        .kpi-label { font-size: 0.875rem; color: #6c757d; }
+        .status-badge { font-size: 0.75rem; padding: 0.35em 0.65em; }
+        .table th { font-weight: 600; }
+        .chart-container { min-height: 300px; }
+        .chart-legend { margin-top: 1rem; }
+        .chart-legend .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .chart-legend .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">
+        <a href="{{ path('admin_dashboard') }}" class="text-decoration-none text-muted me-2">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        Rendimiento de {{ user.nombre }} {{ user.apellido }}
+    </h1>
+    <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver al Resumen
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <input type="hidden" name="id" value="{{ user.id }}">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Desde</label>
+                <input type="date" class="form-control" name="from" value="{{ from|date('Y-m-d') }}" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Hasta</label>
+                <input type="date" class="form-control" name="to" value="{{ to|date('Y-m-d') }}" required>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i>Filtrar
+                </button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ path('admin_performance_user', {'id': user.id}) }}" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-sync-alt me-1"></i>Restablecer
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Task Status Distribution Chart -->
+<div class="card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-pie me-2 text-primary"></i>
+            Distribución de Tareas
+        </h5>
+        <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-secondary chart-type-btn active" data-type="donut">
+                <i class="fas fa-chart-pie"></i>
+            </button>
+            <button type="button" class="btn btn-outline-secondary chart-type-btn" data-type="bar">
+                <i class="fas fa-chart-bar"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="taskStatusChart" class="chart-container"></div>
+        <div class="chart-legend text-center"></div>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card kpi-card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="kpi-value text-primary">
+                    {{ detail|filter(t => t.status == 'completed')|length }}
+                </div>
+                <div class="kpi-label">Tareas Completadas</div>
+                <div class="small text-muted mt-1">
+                    <i class="fas fa-check-circle text-success me-1"></i>
+                    {{ (detail|length > 0 ? ((detail|filter(t => t.status == 'completed')|length / detail|length) * 100)|number_format(1) : 0) }}% de efectividad
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="kpi-value text-info">
+                    {% set completedTasks = detail|filter(t => t.status == 'completed' and t.durationMin is not null) %}
+                    {{ completedTasks|length > 0 ? (completedTasks|reduce((sum, t) => sum + t.durationMin, 0) / completedTasks|length)|number_format(1, ',', '.') : '-' }}
+                </div>
+                <div class="kpi-label">Promedio por tarea (min)</div>
+                <div class="small text-muted mt-1">
+                    <i class="fas fa-clock me-1"></i>
+                    Basado en {{ completedTasks|length }} tareas completadas
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card kpi-card h-100 border-0 shadow-sm">
+            <div class="card-body text-center">
+                <div class="kpi-value text-warning">
+                    {{ detail|filter(t => t.status == 'in_progress')|length }}
+                </div>
+                <div class="kpi-label">En Progreso</div>
+                <div class="small text-muted mt-1">
+                    <i class="fas fa-spinner me-1"></i>
+                    {{ detail|filter(t => t.status == 'pending')|length }} pendientes
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tasks Table -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-tasks me-2 text-primary"></i>
+            Detalle de Tareas ({{ detail|length }})
+        </h5>
+        <div class="small">
+            <span class="badge bg-success bg-opacity-10 text-success me-2">
+                {{ detail|filter(t => t.status == 'completed')|length }} Completadas
+            </span>
+            <span class="badge bg-primary bg-opacity-10 text-primary me-2">
+                {{ detail|filter(t => t.status == 'in_progress')|length }} En Progreso
+            </span>
+            <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                {{ detail|filter(t => t.status == 'pending')|length }} Pendientes
+            </span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Descripción</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Creación</th>
+                    <th class="text-center">Inicio</th>
+                    <th class="text-center">Completada</th>
+                    <th class="text-center">Duración (min)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if detail|length > 0 %}
+                    {% for task in detail %}
+                        <tr>
+                            <td class="fw-medium">#{{ task.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-grow-1">
+                                        <div class="fw-medium">{{ task.description|u.truncate(50, '...') }}</div>
+                                        {% if task.category is defined and task.category %}
+                                            <small class="text-muted">{{ task.category.name }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="status-badge badge bg-{{ 
+                                    task.status == 'completed' ? 'success' : 
+                                    (task.status == 'in_progress' ? 'primary' : 'secondary') 
+                                }}">
+                                    {{ task.status|replace({'_': ' '})|title }}
+                                </span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <div>{{ task.createdAt|date('d/m/Y') }}</div>
+                                <small class="text-muted">{{ task.createdAt|date('H:i') }}</small>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                {% if task.startedAt %}
+                                    <div>{{ task.startedAt|date('d/m/Y') }}</div>
+                                    <small class="text-muted">{{ task.startedAt|date('H:i') }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-nowrap">
+                                {% if task.completedAt %}
+                                    <div>{{ task.completedAt|date('d/m/Y') }}</div>
+                                    <small class="text-muted">{{ task.completedAt|date('H:i') }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-medium">
+                                {% if task.durationMin is not null %}
+                                    {{ task.durationMin|number_format(0, ',', '.') }}
+                                    <div class="progress mt-1" style="height: 4px;">
+                                        {% set progress = (task.durationMin / 480) * 100 %}
+                                        <div class="progress-bar bg-{{ progress > 100 ? 'danger' : 'success' }}" 
+                                             role="progressbar" 
+                                             style="width: {{ progress|min(100) }}%" 
+                                             aria-valuenow="{{ progress }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ (task.durationMin / 60)|number_format(1, ',', '.') }} horas</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <div class="mb-2">
+                                <i class="fas fa-inbox fa-3x opacity-25 mb-3"></i>
+                            </div>
+                            <h6 class="mb-1">No hay tareas registradas</h6>
+                            <p class="small mb-0">No se encontraron tareas para el rango de fechas seleccionado.</p>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 text-center">
+                <div class="h5 text-muted mb-1">Tareas Completadas</div>
+                <div class="h3">{{ detail|filter(t => t.status == 'completed')|length }}</div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="h5 text-muted mb-1">Tiempo Promedio</div>
+                <div class="h3">
+                    {% set completedTasks = detail|filter(t => t.status == 'completed' and t.durationMin is not null) %}
+                    {% if completedTasks|length > 0 %}
+                        {{ (completedTasks|reduce((sum, t) => sum + t.durationMin, 0) / completedTasks|length)|number_format(1, ',', '.') }} min
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="h5 text-muted mb-1">Tareas en Progreso</div>
+                <div class="h3">{{ detail|filter(t => t.status == 'in_progress')|length }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

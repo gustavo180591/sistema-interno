@@ -1,0 +1,12 @@
+# Admin routes
+app_admin_user:
+    resource: '../../src/Controller/Admin/UserController.php'
+    type: attribute
+    prefix: /admin
+    name_prefix: admin_
+
+app_admin_performance:
+    resource: '../../src/Controller/Admin/PerformanceController.php'
+    type: attribute
+    prefix: /admin
+    name_prefix: admin_
