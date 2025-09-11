@@ -3,46 +3,99 @@
 {% block title %}Tickets - Sistema Interno{% endblock %}
 
 {% block body %}
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1><i class="fas fa-ticket-alt me-2"></i> Tickets</h1>
-                {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
-                    <a href="{{ path('ticket_new') }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>Nuevo Ticket
-                    </a>
-                {% endif %}
-            </div>
-
-            {% if tickets is empty %}
-                <div class="card">
-                    <div class="card-body text-center py-5">
-                        <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
-                        <h3 class="h5">No hay tickets disponibles</h3>
-                        <p class="text-muted">
-                            {% if is_granted('ROLE_AUDITOR') %}
-                                Crea tu primer ticket para comenzar
-                            {% else %}
-                                No tienes tickets asignados actualmente
-                                {% if not is_granted('ROLE_AUDITOR') %}
-                                    <br><small class="text-muted">Solo los auditores pueden crear nuevos tickets</small>
-                                {% endif %}
-                            {% endif %}
-                        </p>
-                        {% if is_granted('ROLE_AUDITOR') %}
-                            <a href="{{ path('ticket_new') }}" class="btn btn-primary mt-3">
-                                <i class="fas fa-plus me-2"></i>Crear primer ticket
-                            </a>
-                        {% endif %}
-                    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1><i class="fas fa-ticket-alt me-2"></i> Tickets</h1>
+                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                        <a href="{{ path('ticket_new') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Nuevo Ticket
+                        </a>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="card">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
+
+                {% if tickets is empty %}
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
+                            <h3 class="h5">No hay tickets disponibles</h3>
+                            <p class="text-muted">
+                                {% if is_granted('ROLE_AUDITOR') %}
+                                    Crea tu primer ticket para comenzar
+                                {% else %}
+                                    No tienes tickets asignados actualmente
+                                    {% if not is_granted('ROLE_AUDITOR') %}
+                                        <br><small class="text-muted">Solo los auditores pueden crear nuevos
+                                        tickets</small>
+                                    {% endif %}
+                                {% endif %}
+                            </p>
+                            {% if is_granted('ROLE_AUDITOR') %}
+                                <a href="{{ path('ticket_new') }}" class="btn btn-primary mt-3">
+                                    <i class="fas fa-plus me-2"></i>Crear primer ticket
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+
+                                <div class="row">
+                                    <div class="col-6">
+                                        {# TODO reemplazar por knp paginator #}
+                                        {% if pagination.total > 1 %}
+                                            <nav aria-label="Page navigation example" class="mt-3 ps-3">
+                                                <ul class="pagination">
+                                                    <li class="page-item">
+                                                        <a class="page-link {% if pagination.current == 1 %}disabled{% endif %}"
+                                                           href="{{ path('ticket_index', {'page': pagination.current - 1}) }}"
+                                                           aria-label="Previous">
+                                                            <span aria-hidden="true">&laquo;</span>
+                                                        </a>
+                                                    </li>
+                                                    {% for page in 1..pagination.total %}
+                                                        <li class="page-item {% if pagination.current == page %}active{% endif %}">
+                                                            <a class="page-link"
+                                                               href="{{ path('ticket_index', {'page': page}) }}">{{ page }}</a>
+                                                        </li>
+                                                    {% endfor %}
+                                                    <li class="page-item">
+                                                        <a class="page-link {% if pagination.current == pagination.total %}disabled{% endif %}"
+                                                           href="{{ path('ticket_index', {'page': pagination.current + 1}) }}"
+                                                           aria-label="Next">
+                                                            <span aria-hidden="true">&raquo;</span>
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-6 d-flex align-items-center">
+                                        {% if pagination.total > 10 %}
+                                            <div class="row g-3 align-items-center">
+                                                <div class="col-auto">
+                                                    <label for="paginator-select" class="col-form-label">Registros por
+                                                        página:</label>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <select id="perPageSelect" name="per_page" class="form-select" aria-label="paginator-select">
+                                                        <option value="10" {{ pagination.per_page == 10 ? 'selected' }}>10</option>
+                                                        <option value="25" {{ pagination.per_page == 25 ? 'selected' }}>25</option>
+                                                        <option value="50" {{ pagination.per_page == 50 ? 'selected' }}>50</option>
+                                                        <option value="100" {{ pagination.per_page == 100 ? 'selected' }}>100</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
                                     <tr>
                                         <th>ID</th>
                                         <th>ID Ticket Externo</th>
@@ -54,14 +107,15 @@
                                         <th>Observación</th>
                                         <th>Acción</th>
                                     </tr>
-                                </thead>
-                                <tbody>
+                                    </thead>
+                                    <tbody>
                                     {% for ticket in tickets %}
                                         <tr>
                                             <td>#{{ '%04d'|format(ticket.id) }}</td>
                                             <td>{{ ticket.idSistemaInterno ?? 'N/A' }}</td>
                                             <td>
-                                                <a href="#" class="text-decoration-none" title="{{ ticket.title }}">
+                                                <a href="{{ path('ticket_show', {'id': ticket.id}) }}"
+                                                   class="text-decoration-none" title="{{ ticket.title }}">
                                                     {{ ticket.title|length > 40 ? ticket.title|slice(0, 40) ~ '...' : ticket.title }}
                                                 </a>
                                             </td>
@@ -69,7 +123,8 @@
                                             <td>
                                                 {% if ticket.ticketAssignments|length > 0 %}
                                                     {% for assignment in ticket.ticketAssignments %}
-                                                        <span class="badge bg-primary">{{ assignment.user.username }}</span>
+                                                        <span
+                                                            class="badge bg-primary">{{ assignment.user.username }}</span>
                                                     {% endfor %}
                                                 {% else %}
                                                     <span class="text-muted">Sin asignar</span>
@@ -117,14 +172,21 @@
 
                                                 {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
                                                     <div class="dropdown d-inline-block">
-                                                        <button class="btn btn-sm {{ statusConfig.class }} dropdown-toggle d-flex align-items-center" type="button" id="statusDropdown{{ ticket.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        <button
+                                                            class="btn btn-sm {{ statusConfig.class }} dropdown-toggle d-flex align-items-center"
+                                                            type="button" id="statusDropdown{{ ticket.id }}"
+                                                            data-bs-toggle="dropdown" aria-expanded="false">
                                                             <i class="fas {{ statusConfig.icon }} me-1"></i>
                                                             <span>{{ statusConfig.text }}</span>
                                                         </button>
-                                                        <ul class="dropdown-menu" aria-labelledby="statusDropdown{{ ticket.id }}">
+                                                        <ul class="dropdown-menu"
+                                                            aria-labelledby="statusDropdown{{ ticket.id }}">
                                                             <li>
-                                                                <form action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}" method="post" id="statusForm{{ ticket.id }}">
-                                                                    <input type="hidden" name="_token" value="{{ csrf_token('update_status_' ~ ticket.id) }}">
+                                                                <form
+                                                                    action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}"
+                                                                    method="post" id="statusForm{{ ticket.id }}">
+                                                                    <input type="hidden" name="_token"
+                                                                           value="{{ csrf_token('update_status_' ~ ticket.id) }}">
                                                                     {% for status, config in {
                                                                         'pending': {'icon': 'fa-clock', 'text': 'Pendiente'},
                                                                         'in_progress': {'icon': 'fa-spinner', 'text': 'En progreso'},
@@ -132,16 +194,14 @@
                                                                         'rejected': {'icon': 'fa-times-circle', 'text': 'Rechazado'},
                                                                         'delayed': {'icon': 'fa-clock', 'text': 'Demorado'}
                                                                     } %}
-                                                                        <button type="button" 
+                                                                        <button type="button"
                                                                                 class="dropdown-item d-flex align-items-center {{ ticket.status == status ? 'active' : '' }}"
                                                                                 onclick="document.getElementById('statusForm{{ ticket.id }}').elements['status'].value='{{ status }}'; this.form.submit();">
-                                                                            <i class="fas {{ config.icon }} me-2 text-{{ 
-                                                                                status == 'in_progress' ? 'warning' : 
-                                                                                (status == 'pending' ? 'info' : 
-                                                                                (status == 'rejected' ? 'danger' : 
-                                                                                (status == 'completed' ? 'success' : 
-                                                                                (status == 'delayed' ? 'warning' : 'secondary')))) 
-                                                                            }}"></i>
+                                                                            <i class="fas {{ config.icon }} me-2 text-{{ status == 'in_progress' ? 'warning' :
+                                                                            (status == 'pending' ? 'info' :
+                                                                            (status == 'rejected' ? 'danger' :
+                                                                            (status == 'completed' ? 'success' :
+                                                                            (status == 'delayed' ? 'warning' : 'secondary')))) }}"></i>
                                                                             {{ config.text }}
                                                                         </button>
                                                                     {% endfor %}
@@ -151,7 +211,10 @@
                                                         </ul>
                                                     </div>
                                                 {% else %}
-                                                    <span class="badge {{ statusConfig.class }} d-inline-flex align-items-center" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ statusConfig.description }}">
+                                                    <span
+                                                        class="badge {{ statusConfig.class }} d-inline-flex align-items-center"
+                                                        data-bs-toggle="tooltip" data-bs-placement="top"
+                                                        title="{{ statusConfig.description }}">
                                                         <i class="fas {{ statusConfig.icon }} me-1"></i>
                                                         {{ statusConfig.text }}
                                                     </span>
@@ -161,7 +224,8 @@
                                                 {% set observation = ticket.getObservation() %}
                                                 {% if observation is not empty %}
                                                     <div class="d-flex align-items-center">
-                                                        <span class="me-2"><i class="fas fa-info-circle text-primary"></i></span>
+                                                        <span class="me-2"><i
+                                                                class="fas fa-info-circle text-primary"></i></span>
                                                         <span title="{{ observation }}" data-bs-toggle="tooltip">
                                                             {{ observation|length > 50 ? observation|slice(0, 50) ~ '...' : observation }}
                                                         </span>
@@ -173,36 +237,42 @@
                                             <td>
                                                 <div class="btn-group">
                                                     <!-- Ver -->
-                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-primary" title="Ver">
+                                                    <a href="{{ path('ticket_show', {'id': ticket.id}) }}"
+                                                       class="btn btn-sm btn-outline-primary" title="Ver">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    
+
                                                     <!-- Editar -->
                                                     {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
-                                                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                                        <a href="{{ path('ticket_edit', {'id': ticket.id}) }}"
+                                                           class="btn btn-sm btn-outline-secondary" title="Editar">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
                                                     {% endif %}
-                                                    
+
                                                     <!-- Asignar/Reasignar - Solo para Auditores -->
                                                     {% if is_granted('ROLE_AUDITOR') %}
-                                                        <button type="button" 
-                                                                class="btn btn-sm {{ ticket.takenBy ? 'btn-warning' : 'btn-outline-info' }}" 
-                                                                title="{{ ticket.takenBy ? 'Reasignar' : 'Asignar' }}" 
-                                                                data-bs-toggle="modal" 
-                                                                data-bs-target="#assignTicketModal" 
+                                                        <button type="button"
+                                                                class="btn btn-sm {{ ticket.takenBy ? 'btn-warning' : 'btn-outline-info' }}"
+                                                                title="{{ ticket.takenBy ? 'Reasignar' : 'Asignar' }}"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#assignTicketModal"
                                                                 data-ticket-id="{{ ticket.id }}"
                                                                 data-current-user-id="{{ ticket.takenBy ? ticket.takenBy.id : '' }}">
                                                             <i class="fas {{ ticket.takenBy ? 'fa-user-edit' : 'fa-user-plus' }}"></i>
                                                         </button>
                                                     {% endif %}
-                                                    
+
                                                     <!-- Eliminar -->
                                                     {% if is_granted('ROLE_ADMIN') %}
-                                                        <form action="{{ path('ticket_delete', {'id': ticket.id}) }}" method="post" class="d-inline" onsubmit="return confirm('¿Está seguro que desea eliminar este ticket?');">
+                                                        <form action="{{ path('ticket_delete', {'id': ticket.id}) }}"
+                                                              method="post" class="d-inline"
+                                                              onsubmit="return confirm('¿Está seguro que desea eliminar este ticket?');">
                                                             <input type="hidden" name="_method" value="DELETE">
-                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ ticket.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                                            <input type="hidden" name="_token"
+                                                                   value="{{ csrf_token('delete' ~ ticket.id) }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                    title="Eliminar">
                                                                 <i class="fas fa-trash"></i>
                                                             </button>
                                                         </form>
@@ -211,197 +281,213 @@
                                             </td>
                                         </tr>
                                     {% endfor %}
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Assign Ticket Modal -->
-<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
+    <!-- Assign Ticket Modal -->
+    <div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel"
+         aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignTicketModalLabel">Asignar Ticket</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
 
-      <form action="{{ path('ticket_assign') }}" method="post" id="assignTicketForm">
-        <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
-        <input type="hidden" name="ticket_id" id="assign_ticket_id">
-        <input type="hidden" name="is_reassignment" id="is_reassignment" value="0">
-        <input type="hidden" name="previous_assignee" id="previous_assignee" value="">
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label mb-3">Seleccionar usuarios para asignar:</label>
-            <div class="list-group mb-3" style="max-height: 250px; overflow-y: auto;" id="userList">
-              {% for user in users|default([]) %}
-                <label class="list-group-item d-flex align-items-center">
-                  <input class="form-check-input me-2" 
-                         type="checkbox" 
-                         name="assigned_users[]" 
-                         value="{{ user.id }}"
-                         data-ticket-id="{{ ticket.id|default('') }}">
-                  <div>
-                    <div class="fw-bold">{{ user.nombre }} {{ user.apellido }}</div>
-                    <small class="text-muted">{{ user.email }}</small>
-                    <span class="badge bg-{{ 'ROLE_AUDITOR' in user.roles ? 'info' : 'secondary' }} ms-2">
+                <form action="{{ path('ticket_assign') }}" method="post" id="assignTicketForm">
+                    <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
+                    <input type="hidden" name="ticket_id" id="assign_ticket_id">
+                    <input type="hidden" name="is_reassignment" id="is_reassignment" value="0">
+                    <input type="hidden" name="previous_assignee" id="previous_assignee" value="">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label mb-3">Seleccionar usuarios para asignar:</label>
+                            <div class="list-group mb-3" style="max-height: 250px; overflow-y: auto;" id="userList">
+                                {% for user in users|default([]) %}
+                                    <label class="list-group-item d-flex align-items-center">
+                                        <input class="form-check-input me-2"
+                                               type="checkbox"
+                                               name="assigned_users[]"
+                                               value="{{ user.id }}"
+                                               data-ticket-id="{{ ticket.id|default('') }}">
+                                        <div>
+                                            <div class="fw-bold">{{ user.nombre }} {{ user.apellido }}</div>
+                                            <small class="text-muted">{{ user.email }}</small>
+                                            <span
+                                                class="badge bg-{{ 'ROLE_AUDITOR' in user.roles ? 'info' : 'secondary' }} ms-2">
                       {{ 'ROLE_AUDITOR' in user.roles ? 'Auditor' : 'Usuario' }}
                     </span>
-                  </div>
-                </label>
-              {% endfor %}
-            </div>
-            <div id="userSelectionError" class="invalid-feedback d-none">
-              Por favor seleccione al menos un usuario.
-            </div>
-            
-            <!-- Reason for reassignment (initially hidden) -->
-            <div id="reassignmentReasonContainer" class="mt-3 d-none">
-              <label for="reassignment_reason" class="form-label">Motivo de la reasignación:</label>
-              <textarea class="form-control" id="reassignment_reason" name="reassignment_reason" 
-                        rows="3" placeholder="Explique por qué está reasignando este ticket"></textarea>
-              <div id="reassignmentReasonError" class="invalid-feedback">
-                Por favor proporcione un motivo para la reasignación.
-              </div>
-            </div>
-          </div>
-        </div>
+                                        </div>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                            <div id="userSelectionError" class="invalid-feedback d-none">
+                                Por favor seleccione al menos un usuario.
+                            </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Asignar</button>
+                            <!-- Reason for reassignment (initially hidden) -->
+                            <div id="reassignmentReasonContainer" class="mt-3 d-none">
+                                <label for="reassignment_reason" class="form-label">Motivo de la reasignación:</label>
+                                <textarea class="form-control" id="reassignment_reason" name="reassignment_reason"
+                                          rows="3"
+                                          placeholder="Explique por qué está reasignando este ticket"></textarea>
+                                <div id="reassignmentReasonError" class="invalid-feedback">
+                                    Por favor proporcione un motivo para la reasignación.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">Asignar</button>
+                    </div>
+                </form>
+            </div>
         </div>
-      </form>
     </div>
-  </div>
-</div>
 
-{% block javascripts %}
-  {{ parent() }}
-  <script>
-    // Initialize tooltips and other UI elements
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize Bootstrap tooltips
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl, {
-                trigger: 'hover',
-                placement: 'top',
-                container: 'body'
+    {% block javascripts %}
+        {{ parent() }}
+        <script>
+            // Initialize tooltips and other UI elements
+            document.addEventListener('DOMContentLoaded', function () {
+                // Initialize Bootstrap tooltips
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl, {
+                        trigger: 'hover',
+                        placement: 'top',
+                        container: 'body'
+                    });
+                });
+                var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
             });
-        });
-      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-      var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-      });
-    });
-    document.addEventListener('DOMContentLoaded', function () {
-      var assignModal = document.getElementById('assignTicketModal');
-      var assignForm = document.getElementById('assignTicketForm');
-      var errorDiv = document.getElementById('userSelectionError');
-      var reassignmentReasonContainer = document.getElementById('reassignmentReasonContainer');
-      var reassignmentReason = document.getElementById('reassignment_reason');
-      var reassignmentReasonError = document.getElementById('reassignmentReasonError');
-      var isReassignment = false;
-      var currentUserId = '';
+            document.addEventListener('DOMContentLoaded', function () {
+                var assignModal = document.getElementById('assignTicketModal');
+                var assignForm = document.getElementById('assignTicketForm');
+                var errorDiv = document.getElementById('userSelectionError');
+                var reassignmentReasonContainer = document.getElementById('reassignmentReasonContainer');
+                var reassignmentReason = document.getElementById('reassignment_reason');
+                var reassignmentReasonError = document.getElementById('reassignmentReasonError');
+                var isReassignment = false;
+                var currentUserId = '';
 
-      // When the modal is about to be shown
-      assignModal.addEventListener('show.bs.modal', function (event) {
-        var button = event.relatedTarget;
-        var ticketId = button.getAttribute('data-ticket-id');
-        isReassignment = button.classList.contains('btn-warning');
-        currentUserId = button.getAttribute('data-current-user-id') || '';
-        
-        // Update the modal title and button text
-        var modalTitle = assignModal.querySelector('.modal-title');
-        var submitBtn = assignModal.querySelector('button[type="submit"]');
-        
-        if (isReassignment) {
-          modalTitle.textContent = 'Reasignar Ticket';
-          submitBtn.textContent = 'Reasignar';
-          submitBtn.classList.add('btn-warning');
-          submitBtn.classList.remove('btn-primary');
-          document.getElementById('is_reassignment').value = '1';
-          document.getElementById('previous_assignee').value = currentUserId;
-          reassignmentReasonContainer.classList.remove('d-none');
-        } else {
-          modalTitle.textContent = 'Asignar Ticket';
-          submitBtn.textContent = 'Asignar';
-          submitBtn.classList.add('btn-primary');
-          submitBtn.classList.remove('btn-warning');
-          document.getElementById('is_reassignment').value = '0';
-          document.getElementById('previous_assignee').value = '';
-          reassignmentReasonContainer.classList.add('d-none');
-        }
+                // When the modal is about to be shown
+                assignModal.addEventListener('show.bs.modal', function (event) {
+                    var button = event.relatedTarget;
+                    var ticketId = button.getAttribute('data-ticket-id');
+                    isReassignment = button.classList.contains('btn-warning');
+                    currentUserId = button.getAttribute('data-current-user-id') || '';
 
-        // Update the modal's hidden input with the ticket ID
-        var inputHidden = assignModal.querySelector('#assign_ticket_id');
-        inputHidden.value = ticketId;
-        
-        // Update checkboxes with current ticket ID and handle current user state
-        var checkboxes = assignModal.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(function(checkbox) {
-          if (checkbox.name === 'assigned_users[]') {
-            checkbox.setAttribute('data-ticket-id', ticketId);
-            
-            // If this is a reassignment, disable the checkbox for the current user
-            if (currentUserId && checkbox.value === currentUserId) {
-              checkbox.checked = true;
-              checkbox.disabled = true;
-            } else {
-              checkbox.checked = false;
-              checkbox.disabled = false;
-            }
-          }
-        });
-        
-        // Reset form and error state
-        assignForm.reset();
-        errorDiv.classList.add('d-none');
-        reassignmentReasonError.classList.add('d-none');
-        reassignmentReason.classList.remove('is-invalid');
-      });
-      
-      // Handle form submission
-      assignForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Reset error states
-        errorDiv.classList.add('d-none');
-        reassignmentReasonError.classList.add('d-none');
-        reassignmentReason.classList.remove('is-invalid');
-        
-        // Validate at least one user is selected
-        var checkboxes = this.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkboxes.length === 0) {
-          errorDiv.classList.remove('d-none');
-          return false;
-        }
-        
-        // If this is a reassignment, validate the reason
-        if (isReassignment && !reassignmentReason.value.trim()) {
-          reassignmentReasonError.classList.remove('d-none');
-          reassignmentReason.classList.add('is-invalid');
-          reassignmentReason.focus();
-          return false;
-        }
-        
-        // Show confirmation dialog for reassignment
-        if (isReassignment) {
-          if (confirm('¿Está seguro que desea reasignar este ticket? Se notificará al usuario actual sobre este cambio.')) {
-            this.submit();
-          }
-        } else {
-          this.submit();
-        }
-      });
-    });
-  </script>
-{% endblock %}
+                    // Update the modal title and button text
+                    var modalTitle = assignModal.querySelector('.modal-title');
+                    var submitBtn = assignModal.querySelector('button[type="submit"]');
+
+                    if (isReassignment) {
+                        modalTitle.textContent = 'Reasignar Ticket';
+                        submitBtn.textContent = 'Reasignar';
+                        submitBtn.classList.add('btn-warning');
+                        submitBtn.classList.remove('btn-primary');
+                        document.getElementById('is_reassignment').value = '1';
+                        document.getElementById('previous_assignee').value = currentUserId;
+                        reassignmentReasonContainer.classList.remove('d-none');
+                    } else {
+                        modalTitle.textContent = 'Asignar Ticket';
+                        submitBtn.textContent = 'Asignar';
+                        submitBtn.classList.add('btn-primary');
+                        submitBtn.classList.remove('btn-warning');
+                        document.getElementById('is_reassignment').value = '0';
+                        document.getElementById('previous_assignee').value = '';
+                        reassignmentReasonContainer.classList.add('d-none');
+                    }
+
+                    // Update the modal's hidden input with the ticket ID
+                    var inputHidden = assignModal.querySelector('#assign_ticket_id');
+                    inputHidden.value = ticketId;
+
+                    // Update checkboxes with current ticket ID and handle current user state
+                    var checkboxes = assignModal.querySelectorAll('input[type="checkbox"]');
+                    checkboxes.forEach(function (checkbox) {
+                        if (checkbox.name === 'assigned_users[]') {
+                            checkbox.setAttribute('data-ticket-id', ticketId);
+
+                            // If this is a reassignment, disable the checkbox for the current user
+                            if (currentUserId && checkbox.value === currentUserId) {
+                                checkbox.checked = true;
+                                checkbox.disabled = true;
+                            } else {
+                                checkbox.checked = false;
+                                checkbox.disabled = false;
+                            }
+                        }
+                    });
+
+                    // Reset form and error state
+                    assignForm.reset();
+                    errorDiv.classList.add('d-none');
+                    reassignmentReasonError.classList.add('d-none');
+                    reassignmentReason.classList.remove('is-invalid');
+                });
+
+                // Handle form submission
+                assignForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    // Reset error states
+                    errorDiv.classList.add('d-none');
+                    reassignmentReasonError.classList.add('d-none');
+                    reassignmentReason.classList.remove('is-invalid');
+
+                    // Validate at least one user is selected
+                    var checkboxes = this.querySelectorAll('input[type="checkbox"]:checked');
+                    if (checkboxes.length === 0) {
+                        errorDiv.classList.remove('d-none');
+                        return false;
+                    }
+
+                    // If this is a reassignment, validate the reason
+                    if (isReassignment && !reassignmentReason.value.trim()) {
+                        reassignmentReasonError.classList.remove('d-none');
+                        reassignmentReason.classList.add('is-invalid');
+                        reassignmentReason.focus();
+                        return false;
+                    }
+
+                    // Show confirmation dialog for reassignment
+                    if (isReassignment) {
+                        if (confirm('¿Está seguro que desea reasignar este ticket? Se notificará al usuario actual sobre este cambio.')) {
+                            this.submit();
+                        }
+                    } else {
+                        this.submit();
+                    }
+                });
+            });
+
+            //paginador
+
+            document.getElementById('perPageSelect').addEventListener('change', function() {
+                // Obtener el valor seleccionado
+                let perPage = this.value;
+
+                // Redirigir recargando la página con un query param
+                let url = new URL(window.location.href);
+                url.searchParams.set('per_page', perPage);
+                window.location.href = url.toString();
+            });
+        </script>
+    {% endblock %}
 
 {% endblock %}

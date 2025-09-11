@@ -1,8 +1,0 @@
-# Set the default timezone for the application
-parameters:
-    app.timezone: 'America/Argentina/Buenos_Aires'
-
-services:
-    _defaults:
-        bind:
-            $timezone: '%env(resolve:TZ)%'

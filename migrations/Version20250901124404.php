@@ -25,13 +25,13 @@ final class Version20250901124404 extends AbstractMigration
         $this->addSql('ALTER TABLE maintenance_task ADD CONSTRAINT FK_9D6DBBE9FFA0C224 FOREIGN KEY (office_id) REFERENCES office (id)');
         $this->addSql('CREATE INDEX IDX_9D6DBBE9F6B75B26 ON maintenance_task (machine_id)');
         $this->addSql('CREATE INDEX IDX_9D6DBBE9FFA0C224 ON maintenance_task (office_id)');
-        $this->addSql('ALTER TABLE office DROP area');
+//        $this->addSql('ALTER TABLE office DROP area');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE office ADD area VARCHAR(100) DEFAULT NULL');
+//        $this->addSql('ALTER TABLE office ADD area VARCHAR(100) DEFAULT NULL');
         $this->addSql('ALTER TABLE maintenance_task DROP FOREIGN KEY FK_9D6DBBE9F6B75B26');
         $this->addSql('ALTER TABLE maintenance_task DROP FOREIGN KEY FK_9D6DBBE9FFA0C224');
         $this->addSql('DROP INDEX IDX_9D6DBBE9F6B75B26 ON maintenance_task');

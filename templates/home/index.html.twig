@@ -12,30 +12,40 @@
             border-radius: 12px;
             color: white;
         }
+
         .stat-card {
             border: none;
             border-radius: 12px;
             transition: all 0.3s ease;
             overflow: hidden;
         }
+
+        .stat-card a{
+            text-decoration: none;
+        }
+
         .stat-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
         }
+
         .stat-card .card-body {
             padding: 1.5rem;
         }
+
         .stat-card .stat-value {
             font-size: 1.8rem;
             font-weight: 700;
             margin: 0.5rem 0;
         }
+
         .stat-card .stat-label {
             font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             opacity: 0.8;
         }
+
         .stat-card .stat-icon {
             font-size: 2.5rem;
             opacity: 0.3;
@@ -43,14 +53,17 @@
             right: 1.5rem;
             top: 1.5rem;
         }
+
         .ticket-card {
             transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
+
         .ticket-card:hover {
             transform: translateY(-3px);
             box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.1) !important;
         }
+
         .status-badge {
             font-size: 0.7rem;
             font-weight: 600;
@@ -59,21 +72,25 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
+
         .quick-actions .btn {
             border-radius: 10px;
             padding: 1rem 1.25rem;
             transition: all 0.2s;
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
+
         .quick-actions .btn i {
             font-size: 1.25rem;
             margin-bottom: 0.5rem;
             display: block;
         }
+
         .recent-activity {
             position: relative;
             padding-left: 2rem;
         }
+
         .recent-activity:before {
             content: '';
             position: absolute;
@@ -83,14 +100,17 @@
             width: 2px;
             background-color: #e9ecef;
         }
+
         .activity-item {
             position: relative;
             padding-bottom: 1.5rem;
             padding-left: 1.5rem;
         }
+
         .activity-item:last-child {
             padding-bottom: 0;
         }
+
         .activity-dot {
             position: absolute;
             left: -0.4rem;
@@ -101,6 +121,7 @@
             background-color: #4e73df;
             border: 3px solid #f8f9fc;
         }
+
         .chart-container {
             min-height: 300px;
         }
@@ -108,210 +129,230 @@
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid px-4 py-4">
-    {% if is_granted('ROLE_USER') %}
-        <!-- Welcome Card -->
-        <div class="card welcome-card mb-4 border-0 shadow-sm">
-            <div class="card-body p-4">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h1 class="h3 mb-2">¡Hola, {{ app.user.nombre ? app.user.nombre : app.user.email|split('@')|first }}!</h1>
-                        <p class="mb-0 opacity-75">Bienvenido de nuevo al panel de control</p>
-                    </div>
-                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                        {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
-                            <a href="{{ path('ticket_new') }}" class="btn btn-light btn-lg">
-                                <i class="fas fa-plus me-2"></i>Nuevo Ticket
-                            </a>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stats Cards -->
-        <div class="row mb-4">
-            <div class="col-12 col-sm-6 col-xl-3 mb-4">
-                <div class="card stat-card border-0 shadow-sm bg-primary bg-opacity-10">
-                    <div class="card-body position-relative">
-                        <h6 class="text-uppercase text-primary mb-1">Total Tickets</h6>
-                        <h2 class="stat-value text-primary">{{ stats.total }}</h2>
-                        <p class="stat-label text-muted">Total de tickets</p>
-                        <i class="fas fa-ticket-alt text-primary stat-icon"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-xl-3 mb-4">
-                <div class="card stat-card border-0 shadow-sm bg-info bg-opacity-10">
-                    <div class="card-body position-relative">
-                        <h6 class="text-uppercase text-info mb-1">Pendientes</h6>
-                        <h2 class="stat-value text-info">{{ stats.pending }}</h2>
-                        <p class="stat-label text-muted">Tickets nuevos</p>
-                        <i class="fas fa-inbox text-info stat-icon"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-xl-3 mb-4">
-                <div class="card stat-card border-0 shadow-sm bg-warning bg-opacity-10">
-                    <div class="card-body position-relative">
-                        <h6 class="text-uppercase text-warning mb-1">En Progreso</h6>
-                        <h2 class="stat-value text-warning">{{ stats.in_progress }}</h2>
-                        <p class="stat-label text-muted">Trabajando en ellos</p>
-                        <i class="fas fa-spinner fa-spin text-warning stat-icon"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12 col-sm-6 col-xl-3 mb-4">
-                <div class="card stat-card border-0 shadow-sm bg-success bg-opacity-10">
-                    <div class="card-body position-relative">
-                        <h6 class="text-uppercase text-success mb-1">Completados</h6>
-                        <h2 class="stat-value text-success">{{ stats.completed }}</h2>
-                        <p class="stat-label text-muted">Tickets finalizados</p>
-                        <i class="fas fa-check-circle text-success stat-icon"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mb-4">
-            <!-- Chart Column -->
-            <div class="col-12 col-xl-8 mb-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>Distribución de Tickets</h5>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-secondary chart-type-btn active" data-type="donut">
-                                <i class="fas fa-chart-pie"></i>
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary chart-type-btn" data-type="bar">
-                                <i class="fas fa-chart-bar"></i>
-                            </button>
+    <div class="container-fluid px-4 py-4">
+        {% if is_granted('ROLE_USER') %}
+            <!-- Welcome Card -->
+            <div class="card welcome-card mb-4 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h1 class="h3 mb-2">
+                                ¡Hola, {{ app.user.nombre ? app.user.nombre : app.user.email|split('@')|first }}!</h1>
+                            <p class="mb-0 opacity-75">Bienvenido de nuevo al panel de control</p>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                            {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                                <a href="{{ path('ticket_new') }}" class="btn btn-light btn-lg">
+                                    <i class="fas fa-plus me-2"></i>Nuevo Ticket
+                                </a>
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div id="ticketsChart" class="chart-container"></div>
-                        <div class="chart-legend mt-3 text-center"></div>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-12 col-sm-6 col-xl-3 mb-4">
+                    <div class="card stat-card border-0 shadow-sm bg-primary bg-opacity-10">
+                        <a href="{{ path('ticket_index')}}">
+                            <div class="card-body position-relative">
+                                <h6 class="text-uppercase text-primary mb-1">Total Tickets</h6>
+                                <h2 class="stat-value text-primary">{{ stats.total }}</h2>
+                                <p class="stat-label text-muted">Total de tickets</p>
+                                <i class="fas fa-ticket-alt text-primary stat-icon"></i>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3 mb-4">
+                    <div class="card stat-card border-0 shadow-sm bg-info bg-opacity-10">
+                        <a href="{{ path('ticket_index', {'status': 'pending'}) }}">
+                            <div class="card-body position-relative">
+                                <h6 class="text-uppercase text-info mb-1">Pendientes</h6>
+                                <h2 class="stat-value text-info">{{ stats.pending }}</h2>
+                                <p class="stat-label text-muted">Tickets nuevos</p>
+                                <i class="fas fa-inbox text-info stat-icon"></i>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3 mb-4">
+                    <div class="card stat-card border-0 shadow-sm bg-warning bg-opacity-10">
+                        <a href="{{ path('ticket_index', {'status': 'in_progress'}) }}">
+                            <div class="card-body position-relative">
+                                <h6 class="text-uppercase text-warning mb-1">En Progreso</h6>
+                                <h2 class="stat-value text-warning">{{ stats.in_progress }}</h2>
+                                <p class="stat-label text-muted">Trabajando en ellos</p>
+                                <i class="fas fa-spinner fa-spin text-warning stat-icon"></i>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-xl-3 mb-4">
+                    <div class="card stat-card border-0 shadow-sm bg-success bg-opacity-10">
+                        <a href="{{ path('ticket_index', {'status': 'completed'}) }}">
+                            <div class="card-body position-relative">
+                                <h6 class="text-uppercase text-success mb-1">Completados</h6>
+                                <h2 class="stat-value text-success">{{ stats.completed }}</h2>
+                                <p class="stat-label text-muted">Tickets finalizados</p>
+                                <i class="fas fa-check-circle text-success stat-icon"></i>
+                            </div>
+                        </a>
                     </div>
                 </div>
             </div>
-            
-            <!-- Recent Activities -->
-            <div class="col-12 col-xl-4 mb-4">
-                <div class="card border-0 shadow-sm h-100">
-                    <div class="card-header bg-white border-0 py-3">
-                        <h5 class="mb-0"><i class="fas fa-history me-2 text-primary"></i>Actividad Reciente</h5>
+
+            <div class="row mb-4">
+                <!-- Chart Column -->
+                <div class="col-12 col-xl-8 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div
+                            class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>Distribución de Tickets
+                            </h5>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary chart-type-btn active"
+                                        data-type="donut">
+                                    <i class="fas fa-chart-pie"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary chart-type-btn" data-type="bar">
+                                    <i class="fas fa-chart-bar"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="ticketsChart" class="chart-container"></div>
+                            <div class="chart-legend mt-3 text-center"></div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        {% if recent_activities|length > 0 %}
-                            <div class="recent-activity">
-                                {% for activity in recent_activities %}
-                                    <div class="activity-item">
-                                        <div class="activity-dot"></div>
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <h6 class="mb-1">
-                                                    <a href="{{ path('ticket_show', {'id': activity.id}) }}" class="text-dark">
-                                                        {{ activity.title|length > 40 ? activity.title|slice(0, 40) ~ '...' : activity.title }}
-                                                    </a>
-                                                </h6>
-                                                <p class="small text-muted mb-0">
-                                                    {{ activity.updatedAt|date('d/m/Y H:i') }}
-                                                </p>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="col-12 col-xl-4 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-0 py-3">
+                            <h5 class="mb-0"><i class="fas fa-history me-2 text-primary"></i>Actividad Reciente</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_activities|length > 0 %}
+                                <div class="recent-activity">
+                                    {% for activity in recent_activities %}
+                                        <div class="activity-item">
+                                            <div class="activity-dot"></div>
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        <a href="{{ path('ticket_show', {'id': activity.id}) }}"
+                                                           class="text-dark">
+                                                            {{ activity.title|length > 40 ? activity.title|slice(0, 40) ~ '...' : activity.title }}
+                                                        </a>
+                                                    </h6>
+                                                    <p class="small text-muted mb-0">
+                                                        {{ activity.updatedAt|date('d/m/Y H:i') }}
+                                                    </p>
+                                                </div>
+                                                <span class="badge bg-light text-dark">#{{ activity.id }}</span>
                                             </div>
-                                            <span class="badge bg-light text-dark">#{{ activity.id }}</span>
+                                            <div class="mt-2">
+                                                {% if activity.status == 'pending' %}
+                                                    <span class="badge bg-primary">Pendiente</span>
+                                                {% elseif activity.status == 'in_progress' %}
+                                                    <span class="badge bg-info">En Progreso</span>
+                                                {% elseif activity.status == 'rejected' %}
+                                                    <span class="badge bg-danger">Rechazado</span>
+                                                {% elseif activity.status == 'delayed' %}
+                                                    <span class="badge bg-warning">Retrasado</span>
+                                                {% elseif activity.status == 'completed' %}
+                                                    <span class="badge bg-success">Completado</span>
+                                                {% else %}
+                                                    <span
+                                                        class="badge bg-secondary">{{ activity.status|capitalize }}</span>
+                                                {% endif %}
+                                            </div>
                                         </div>
-                                        <div class="mt-2">
-                                            {% if activity.status == 'pending' %}
-                                                <span class="badge bg-primary">Pendiente</span>
-                                            {% elseif activity.status == 'in_progress' %}
-                                                <span class="badge bg-info">En Progreso</span>
-                                            {% elseif activity.status == 'rejected' %}
-                                                <span class="badge bg-danger">Rechazado</span>
-                                            {% elseif activity.status == 'delayed' %}
-                                                <span class="badge bg-warning">Retrasado</span>
-                                            {% elseif activity.status == 'completed' %}
-                                                <span class="badge bg-success">Completado</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">{{ activity.status|capitalize }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="text-center py-4">
-                                <i class="fas fa-history fa-3x text-muted mb-3"></i>
-                                <p class="text-muted mb-0">No hay actividad reciente</p>
-                            </div>
-                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                                    <p class="text-muted mb-0">No hay actividad reciente</p>
+                                </div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Quick Actions -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-3">
-                        <h5 class="mb-3"><i class="fas fa-bolt me-2 text-primary"></i>Acciones Rápidas</h5>
-                        <div class="row g-3 text-center quick-actions">
-                            <div class="col-6 col-md-3">
-                                <a href="{{ path('ticket_index') }}" class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                    <i class="fas fa-ticket-alt text-primary"></i>
-                                    <span>Ver todos los tickets</span>
-                                </a>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <a href="{{ path('ticket_index') }}?status=nuevo" class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                    <i class="fas fa-inbox text-info"></i>
-                                    <span>Tickets nuevos</span>
-                                </a>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <a href="{{ path('ticket_index') }}?status=en_progreso" class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                    <i class="fas fa-spinner fa-spin text-warning"></i>
-                                    <span>En progreso</span>
-                                </a>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <a href="{{ path('ticket_index') }}?status=completado" class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
-                                    <i class="fas fa-check-circle text-success"></i>
-                                    <span>Completados</span>
-                                </a>
+            <!-- Quick Actions -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body p-3">
+                            <h5 class="mb-3"><i class="fas fa-bolt me-2 text-primary"></i>Acciones Rápidas</h5>
+                            <div class="row g-3 text-center quick-actions">
+                                <div class="col-6 col-md-3">
+                                    <a href="{{ path('ticket_index') }}"
+                                       class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                        <i class="fas fa-ticket-alt text-primary"></i>
+                                        <span>Ver todos los tickets</span>
+                                    </a>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <a href="{{ path('ticket_index') }}?status=nuevo"
+                                       class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                        <i class="fas fa-inbox text-info"></i>
+                                        <span>Tickets nuevos</span>
+                                    </a>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <a href="{{ path('ticket_index') }}?status=en_progreso"
+                                       class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                        <i class="fas fa-spinner fa-spin text-warning"></i>
+                                        <span>En progreso</span>
+                                    </a>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <a href="{{ path('ticket_index') }}?status=completado"
+                                       class="btn btn-light w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        <span>Completados</span>
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Recent Tickets -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white border-0 py-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="fas fa-ticket-alt me-2 text-primary"></i>Tus Tickets Recientes</h5>
-                            <a href="{{ path('ticket_index') }}" class="btn btn-sm btn-outline-primary">
-                                Ver todos <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
+            <!-- Recent Tickets -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-0 py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-ticket-alt me-2 text-primary"></i>Tus Tickets
+                                    Recientes</h5>
+                                <a href="{{ path('ticket_index') }}" class="btn btn-sm btn-outline-primary">
+                                    Ver todos <i class="fas fa-arrow-right ms-1"></i>
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if tickets|length > 0 %}
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
+                        <div class="card-body p-0">
+                            {% if tickets|length > 0 %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
                                         <tr>
                                             <th class="ps-4">Título</th>
                                             <th class="text-center">Estado</th>
                                             <th class="text-end pe-4">Última actualización</th>
                                         </tr>
-                                    </thead>
-                                    <tbody>
+                                        </thead>
+                                        <tbody>
                                         {% for ticket in tickets %}
-                                            <tr style="cursor: pointer;" onclick="window.location='{{ path('ticket_show', {'id': ticket.id}) }}';">
+                                            <tr style="cursor: pointer;"
+                                                onclick="window.location='{{ path('ticket_show', {'id': ticket.id}) }}';">
                                                 <td class="ps-4">
                                                     <div class="d-flex align-items-center">
                                                         <div class="ms-3">
@@ -322,118 +363,135 @@
                                                 </td>
                                                 <td class="text-center">
                                                     {% if ticket.status == 'pending' %}
-                                                        <span class="badge bg-info bg-opacity-10 text-info status-badge">Pendiente</span>
+                                                        <span
+                                                            class="badge bg-info bg-opacity-10 text-info status-badge">Pendiente</span>
                                                     {% elseif ticket.status == 'in_progress' %}
-                                                        <span class="badge bg-primary bg-opacity-10 text-primary status-badge">En Progreso</span>
+                                                        <span
+                                                            class="badge bg-primary bg-opacity-10 text-primary status-badge">En Progreso</span>
                                                     {% elseif ticket.status == 'rejected' %}
-                                                        <span class="badge bg-danger bg-opacity-10 text-danger status-badge">Rechazado</span>
+                                                        <span
+                                                            class="badge bg-danger bg-opacity-10 text-danger status-badge">Rechazado</span>
                                                     {% elseif ticket.status == 'delayed' %}
-                                                        <span class="badge bg-warning bg-opacity-10 text-warning status-badge">Retrasado</span>
+                                                        <span
+                                                            class="badge bg-warning bg-opacity-10 text-warning status-badge">Retrasado</span>
                                                     {% elseif ticket.status == 'completed' %}
-                                                        <span class="badge bg-success bg-opacity-10 text-success status-badge">Completado</span>
+                                                        <span
+                                                            class="badge bg-success bg-opacity-10 text-success status-badge">Completado</span>
                                                     {% else %}
-                                                        <span class="badge bg-secondary bg-opacity-10 text-secondary status-badge">{{ ticket.status|capitalize }}</span>
+                                                        <span
+                                                            class="badge bg-secondary bg-opacity-10 text-secondary status-badge">{{ ticket.status|capitalize }}</span>
                                                     {% endif %}
                                                 </td>
                                                 <td class="text-end pe-4">
-                                                    <small class="text-muted" title="{{ ticket.updatedAt|date('d/m/Y H:i:s') }}">
+                                                    <small class="text-muted"
+                                                           title="{{ ticket.updatedAt|date('d/m/Y H:i:s') }}">
                                                         {{ ticket.updatedAt|date('d/m/Y H:i') }}
                                                     </small>
                                                 </td>
                                             </tr>
                                         {% endfor %}
-                                    </tbody>
-                                </table>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center p-5">
+                                    <div class="mb-4">
+                                        <i class="fas fa-inbox fa-4x text-muted mb-4"></i>
+                                        <h3 class="h4 text-muted mb-3">No tienes tickets asignados</h3>
+                                        {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                                            <p class="text-muted mb-4">Parece que aún no hay tickets en el sistema.</p>
+                                            <a href="{{ path('ticket_new') }}" class="btn btn-primary">
+                                                <i class="fas fa-plus me-2"></i>Crear primer ticket
+                                            </a>
+                                        {% else %}
+                                            <p class="text-muted">No tienes tickets asignados en este momento.</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Login/Register View -->
+            <div class="row justify-content-center align-items-center min-vh-100">
+                <div class="col-lg-8 col-xl-6">
+                    <div class="text-center mb-5">
+                        <div class="mb-4">
+                            <i class="fas fa-ticket-alt fa-4x text-primary"></i>
+                        </div>
+                        <h1 class="display-5 fw-bold text-primary mb-3">Sistema de Gestión Interna</h1>
+                        <p class="lead text-muted mb-4">Solución integral para la gestión de tickets y tareas del
+                            equipo</p>
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{{ path('app_login') }}" class="btn btn-primary btn-lg px-4">
+                                <i class="fas fa-sign-in-alt me-2"></i>Iniciar sesión
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card shadow-sm border-0 overflow-hidden">
+                        <div class="row g-0">
+                            <div class="col-md-6 d-none d-md-block bg-primary bg-opacity-10 p-4">
+                                <h4 class="h5 mb-3">Beneficios</h4>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gestión
+                                        centralizada
+                                    </li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Seguimiento en
+                                        tiempo real
+                                    </li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Notificaciones
+                                        automáticas
+                                    </li>
+                                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Reportes
+                                        detallados
+                                    </li>
+                                </ul>
                             </div>
-                        {% else %}
-                            <div class="text-center p-5">
-                                <div class="mb-4">
-                                    <i class="fas fa-inbox fa-4x text-muted mb-4"></i>
-                                    <h3 class="h4 text-muted mb-3">No tienes tickets asignados</h3>
-                                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
-                                        <p class="text-muted mb-4">Parece que aún no hay tickets en el sistema.</p>
-                                        <a href="{{ path('ticket_new') }}" class="btn btn-primary">
-                                            <i class="fas fa-plus me-2"></i>Crear primer ticket
-                                        </a>
-                                    {% else %}
-                                        <p class="text-muted">No tienes tickets asignados en este momento.</p>
-                                    {% endif %}
+                            <div class="col-md-6 p-4">
+                                <h4 class="h5 mb-4 text-center">{{ welcome_message }}</h4>
+                                <p class="text-center text-muted mb-4">
+                                    Ingresa con tus credenciales o contacta al administrador para obtener acceso al
+                                    sistema.
+                                </p>
+                                <div class="text-center mt-4">
+                                    <a href="{{ path('app_login') }}" class="btn btn-outline-primary w-100">
+                                        <i class="fas fa-user-lock me-2"></i>Acceder al sistema
+                                    </a>
                                 </div>
                             </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <!-- Login/Register View -->
-        <div class="row justify-content-center align-items-center min-vh-100">
-            <div class="col-lg-8 col-xl-6">
-                <div class="text-center mb-5">
-                    <div class="mb-4">
-                        <i class="fas fa-ticket-alt fa-4x text-primary"></i>
-                    </div>
-                    <h1 class="display-5 fw-bold text-primary mb-3">Sistema de Gestión Interna</h1>
-                    <p class="lead text-muted mb-4">Solución integral para la gestión de tickets y tareas del equipo</p>
-                    <div class="d-flex justify-content-center gap-3">
-                        <a href="{{ path('app_login') }}" class="btn btn-primary btn-lg px-4">
-                            <i class="fas fa-sign-in-alt me-2"></i>Iniciar sesión
-                        </a>
-                    </div>
-                </div>
-                <div class="card shadow-sm border-0 overflow-hidden">
-                    <div class="row g-0">
-                        <div class="col-md-6 d-none d-md-block bg-primary bg-opacity-10 p-4">
-                            <h4 class="h5 mb-3">Beneficios</h4>
-                            <ul class="list-unstyled">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Gestión centralizada</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Seguimiento en tiempo real</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Notificaciones automáticas</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Reportes detallados</li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6 p-4">
-                            <h4 class="h5 mb-4 text-center">{{ welcome_message }}</h4>
-                            <p class="text-center text-muted mb-4">
-                                Ingresa con tus credenciales o contacta al administrador para obtener acceso al sistema.
-                            </p>
-                            <div class="text-center mt-4">
-                                <a href="{{ path('app_login') }}" class="btn btn-outline-primary w-100">
-                                    <i class="fas fa-user-lock me-2"></i>Acceder al sistema
-                                </a>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    {% endif %}
-</div>
+        {% endif %}
+    </div>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.35.0/dist/apexcharts.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Initialize ApexCharts if the element exists
             if (document.getElementById('ticketsChart')) {
                 // Prepare data for the chart
                 var categories = ['Pendientes', 'En Progreso', 'Rechazados', 'Retrasados', 'Completados'];
                 var seriesData = [
-                    {{ stats.pending|default(0) }}, 
-                    {{ stats.in_progress|default(0) }}, 
-                    {{ stats.rejected|default(0) }}, 
-                    {{ stats.delayed|default(0) }}, 
+                    {{ stats.pending|default(0) }},
+                    {{ stats.in_progress|default(0) }},
+                    {{ stats.rejected|default(0) }},
+                    {{ stats.delayed|default(0) }},
                     {{ stats.completed|default(0) }}
                 ];
                 var colors = ['#4E73DF', '#36B9CC', '#F6C23E', '#E74A3B', '#1CC88A'];
-                
+
                 // Function to update chart type
                 function updateChartType(type) {
                     if (type === 'donut') {
                         chart.updateOptions({
-                            chart: { type: 'donut' },
+                            chart: {type: 'donut'},
                             plotOptions: {
                                 pie: {
                                     donut: {
@@ -443,7 +501,7 @@
                                             total: {
                                                 show: true,
                                                 label: 'Total',
-                                                formatter: function(w) {
+                                                formatter: function (w) {
                                                     return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                                 }
                                             }
@@ -451,44 +509,48 @@
                                     }
                                 }
                             },
-                            dataLabels: { enabled: false },
-                            legend: { position: 'right' },
-                            xaxis: { type: 'category' },
-                            yaxis: { show: false },
-                            grid: { padding: { top: 0, right: 0, bottom: 0, left: 0 } }
+                            dataLabels: {enabled: false},
+                            legend: {position: 'right'},
+                            xaxis: {type: 'category'},
+                            yaxis: {show: false},
+                            grid: {padding: {top: 0, right: 0, bottom: 0, left: 0}}
                         }, false, false, true);
                     } else {
                         chart.updateOptions({
-                            chart: { type: 'bar' },
+                            chart: {type: 'bar'},
                             plotOptions: {
                                 bar: {
                                     borderRadius: 8,
                                     horizontal: false,
                                     columnWidth: '45%',
-                                    dataLabels: { position: 'top' }
+                                    dataLabels: {position: 'top'}
                                 }
                             },
                             dataLabels: {
                                 enabled: true,
-                                formatter: function(val) { return val > 0 ? val : ''; },
+                                formatter: function (val) {
+                                    return val > 0 ? val : '';
+                                },
                                 offsetY: -20,
-                                style: { fontSize: '12px', colors: ['#6c757d'] }
+                                style: {fontSize: '12px', colors: ['#6c757d']}
                             },
-                            legend: { show: false },
-                            xaxis: { 
+                            legend: {show: false},
+                            xaxis: {
                                 categories: categories,
-                                labels: { style: { fontSize: '12px', fontWeight: 600 } }
+                                labels: {style: {fontSize: '12px', fontWeight: 600}}
                             },
-                            yaxis: { 
-                                labels: { 
-                                    formatter: function(val) { return Math.floor(val) === val ? val : ''; },
-                                    style: { colors: ['#6c757d'], fontSize: '12px' }
+                            yaxis: {
+                                labels: {
+                                    formatter: function (val) {
+                                        return Math.floor(val) === val ? val : '';
+                                    },
+                                    style: {colors: ['#6c757d'], fontSize: '12px'}
                                 }
                             },
-                            grid: { 
+                            grid: {
                                 borderColor: '#f8f9fa',
                                 strokeDashArray: 5,
-                                padding: { top: 0, right: 30, bottom: 0, left: 30 }
+                                padding: {top: 0, right: 30, bottom: 0, left: 30}
                             }
                         }, false, false, true);
                     }
@@ -517,26 +579,26 @@
                             enabled: true,
                             easing: 'easeinout',
                             speed: 800,
-                            animateGradually: { enabled: true, delay: 150 },
-                            dynamicAnimation: { enabled: true, speed: 350 }
+                            animateGradually: {enabled: true, delay: 150},
+                            dynamicAnimation: {enabled: true, speed: 350}
                         },
                         events: {
-                            mounted: function(chartContext, config) {
+                            mounted: function (chartContext, config) {
                                 updateLegend(chartContext, config);
                             },
-                            updated: function(chartContext, config) {
+                            updated: function (chartContext, config) {
                                 updateLegend(chartContext, config);
                             }
                         }
                     },
                     colors: colors,
                     labels: categories,
-                    dataLabels: { enabled: false },
+                    dataLabels: {enabled: false},
                     legend: {
                         position: 'right',
                         offsetY: 0,
                         height: 230,
-                        formatter: function(seriesName, opts) {
+                        formatter: function (seriesName, opts) {
                             return [
                                 seriesName,
                                 ' - ',
@@ -564,7 +626,9 @@
                                         fontFamily: 'Nunito, sans-serif',
                                         color: '#4e73df',
                                         offsetY: -10,
-                                        formatter: function (val) { return val; }
+                                        formatter: function (val) {
+                                            return val;
+                                        }
                                     },
                                     total: {
                                         show: true,
@@ -579,19 +643,25 @@
                             }
                         }
                     },
-                    stroke: { show: false },
+                    stroke: {show: false},
                     tooltip: {
                         fillSeriesColor: false,
                         y: {
-                            formatter: function(val) { return val + ' ticket' + (val !== 1 ? 's' : ''); },
-                            title: { formatter: function(seriesName) { return seriesName + ':'; } }
+                            formatter: function (val) {
+                                return val + ' ticket' + (val !== 1 ? 's' : '');
+                            },
+                            title: {
+                                formatter: function (seriesName) {
+                                    return seriesName + ':';
+                                }
+                            }
                         }
                     },
                     responsive: [{
                         breakpoint: 768,
                         options: {
-                            chart: { height: 300 },
-                            legend: { position: 'bottom' }
+                            chart: {height: 300},
+                            legend: {position: 'bottom'}
                         }
                     }]
                 };
@@ -600,10 +670,10 @@
                 function updateLegend(chartContext, config) {
                     var legendContainer = document.querySelector('.chart-legend');
                     var total = config.config.series.reduce((a, b) => a + b, 0);
-                    
+
                     if (total > 0) {
                         var legendHtml = '<div class="d-flex flex-wrap justify-content-center gap-3">';
-                        
+
                         config.config.labels.forEach((label, index) => {
                             var value = config.config.series[index];
                             if (value > 0) {
@@ -617,236 +687,357 @@
                                 `;
                             }
                         });
-                        
+
                         legendHtml += '</div>';
                         legendContainer.innerHTML = legendHtml;
                     } else {
                         legendContainer.innerHTML = '<p class="text-muted text-center mb-0">No hay datos disponibles</p>';
                     }
                 }
-                    chart: {
-                        type: 'bar',
-                        height: 350,
-                        fontFamily: 'Nunito, sans-serif',
-                        toolbar: {
-                            show: true,
-                            tools: {
-                                download: true,
-                                selection: false,
-                                zoom: false,
-                                zoomin: false,
-                                zoomout: false,
-                                pan: false,
-                                reset: false
-                            }
-                        },
-                        animations: {
-                            enabled: true,
-                            easing: 'easeinout',
-                            speed: 800,
-                            animateGradually: {
-                                enabled: true,
-                                delay: 150
-                            },
-                            dynamicAnimation: {
-                                enabled: true,
-                                speed: 350
-                            }
+
+                chart: {
+                    type: 'bar',
+                        height
+                :
+                    350,
+                        fontFamily
+                :
+                    'Nunito, sans-serif',
+                        toolbar
+                :
+                    {
+                        show: true,
+                            tools
+                    :
+                        {
+                            download: true,
+                                selection
+                        :
+                            false,
+                                zoom
+                        :
+                            false,
+                                zoomin
+                        :
+                            false,
+                                zoomout
+                        :
+                            false,
+                                pan
+                        :
+                            false,
+                                reset
+                        :
+                            false
                         }
-                    },
-                    plotOptions: {
-                        bar: {
-                            borderRadius: 8,
-                            horizontal: false,
-                            columnWidth: '45%',
-                            distributed: false,
-                            dataLabels: {
-                                position: 'top'
-                            },
-                            colors: {
-                                ranges: [{
-                                    from: -1000,
-                                    to: 1000,
-                                    color: undefined
-                                }]
-                            }
-                        }
-                    },
-                    colors: colors,
-                    dataLabels: {
+                    }
+                ,
+                    animations: {
                         enabled: true,
-                        formatter: function(val) {
-                            return val > 0 ? val : '';
-                        },
-                        offsetY: -20,
+                            easing
+                    :
+                        'easeinout',
+                            speed
+                    :
+                        800,
+                            animateGradually
+                    :
+                        {
+                            enabled: true,
+                                delay
+                        :
+                            150
+                        }
+                    ,
+                        dynamicAnimation: {
+                            enabled: true,
+                                speed
+                        :
+                            350
+                        }
+                    }
+                }
+            ,
+                plotOptions: {
+                    bar: {
+                        borderRadius: 8,
+                            horizontal
+                    :
+                        false,
+                            columnWidth
+                    :
+                        '45%',
+                            distributed
+                    :
+                        false,
+                            dataLabels
+                    :
+                        {
+                            position: 'top'
+                        }
+                    ,
+                        colors: {
+                            ranges: [{
+                                from: -1000,
+                                to: 1000,
+                                color: undefined
+                            }]
+                        }
+                    }
+                }
+            ,
+                colors: colors,
+                    dataLabels
+            :
+                {
+                    enabled: true,
+                        formatter
+                :
+
+                    function (val) {
+                        return val > 0 ? val : '';
+                    }
+
+                ,
+                    offsetY: -20,
+                        style
+                :
+                    {
+                        fontSize: '12px',
+                            colors
+                    :
+                        ['#6c757d']
+                    }
+                }
+            ,
+                xaxis: {
+                    categories: categories,
+                        labels
+                :
+                    {
                         style: {
                             fontSize: '12px',
-                            colors: ['#6c757d']
+                                fontWeight
+                        :
+                            600
                         }
-                    },
-                    xaxis: {
-                        categories: categories,
-                        labels: {
-                            style: {
-                                fontSize: '12px',
-                                fontWeight: 600
-                            },
-                            rotate: -45,
-                            rotateAlways: false
-                        },
-                        axisBorder: {
-                            show: true,
-                            color: '#e9ecef',
-                            height: 1,
-                            width: '100%',
-                            offsetX: 0,
-                            offsetY: 0
-                        },
-                        axisTicks: {
-                            show: true,
-                            borderType: 'solid',
-                            color: '#e9ecef',
-                            height: 6,
-                            offsetX: 0,
-                            offsetY: 0
+                    ,
+                        rotate: -45,
+                            rotateAlways
+                    :
+                        false
+                    }
+                ,
+                    axisBorder: {
+                        show: true,
+                            color
+                    :
+                        '#e9ecef',
+                            height
+                    :
+                        1,
+                            width
+                    :
+                        '100%',
+                            offsetX
+                    :
+                        0,
+                            offsetY
+                    :
+                        0
+                    }
+                ,
+                    axisTicks: {
+                        show: true,
+                            borderType
+                    :
+                        'solid',
+                            color
+                    :
+                        '#e9ecef',
+                            height
+                    :
+                        6,
+                            offsetX
+                    :
+                        0,
+                            offsetY
+                    :
+                        0
+                    }
+                }
+            ,
+                yaxis: {
+                    labels: {
+                        formatter: function (val) {
+                            return Math.floor(val) === val ? val : '';
                         }
-                    },
-                    yaxis: {
-                        labels: {
-                            formatter: function(val) {
-                                return Math.floor(val) === val ? val : '';
-                            },
-                            style: {
-                                colors: ['#6c757d'],
-                                fontSize: '12px'
-                            }
-                        },
-                        axisBorder: {
-                            show: true,
-                            color: '#e9ecef',
-                            offsetX: 0,
-                            offsetY: 0
-                        }
-                    },
-                    grid: {
-                        borderColor: '#f8f9fa',
-                        strokeDashArray: 5,
-                        yaxis: {
-                            lines: {
-                                show: true
-                            }
-                        },
-                        padding: {
-                            top: 0,
-                            right: 30,
-                            bottom: 0,
-                            left: 30
-                        }
-                    },
-                    tooltip: {
-                        y: {
-                            formatter: function(val) {
-                                return val + ' ticket' + (val !== 1 ? 's' : '');
-                            }
-                        },
-                        marker: {
-                            show: true
-                        },
-                        x: {
-                            show: true
-                        },
+                    ,
                         style: {
-                            fontSize: '14px',
-                            fontFamily: 'Nunito, sans-serif'
+                            colors: ['#6c757d'],
+                                fontSize
+                        :
+                            '12px'
                         }
-                    },
-                    states: {
-                        hover: {
-                            filter: {
-                                type: 'darken',
-                                value: 0.05
+                    }
+                ,
+                    axisBorder: {
+                        show: true,
+                            color
+                    :
+                        '#e9ecef',
+                            offsetX
+                    :
+                        0,
+                            offsetY
+                    :
+                        0
+                    }
+                }
+            ,
+                grid: {
+                    borderColor: '#f8f9fa',
+                        strokeDashArray
+                :
+                    5,
+                        yaxis
+                :
+                    {
+                        lines: {
+                            show: true
+                        }
+                    }
+                ,
+                    padding: {
+                        top: 0,
+                            right
+                    :
+                        30,
+                            bottom
+                    :
+                        0,
+                            left
+                    :
+                        30
+                    }
+                }
+            ,
+                tooltip: {
+                    y: {
+                        formatter: function (val) {
+                            return val + ' ticket' + (val !== 1 ? 's' : '');
+                        }
+                    }
+                ,
+                    marker: {
+                        show: true
+                    }
+                ,
+                    x: {
+                        show: true
+                    }
+                ,
+                    style: {
+                        fontSize: '14px',
+                            fontFamily
+                    :
+                        'Nunito, sans-serif'
+                    }
+                }
+            ,
+                states: {
+                    hover: {
+                        filter: {
+                            type: 'darken',
+                                value
+                        :
+                            0.05
+                        }
+                    }
+                ,
+                    active: {
+                        filter: {
+                            type: 'none'
+                        }
+                    }
+                }
+            ,
+                responsive: [{
+                    breakpoint: 768,
+                    options: {
+                        plotOptions: {
+                            bar: {
+                                columnWidth: '60%'
                             }
                         },
-                        active: {
-                            filter: {
-                                type: 'none'
+                        dataLabels: {
+                            enabled: false
+                        },
+                        xaxis: {
+                            labels: {
+                                rotate: -45
                             }
                         }
-                    },
-                    responsive: [{
-                        breakpoint: 768,
-                        options: {
-                            plotOptions: {
-                                bar: {
-                                    columnWidth: '60%'
+                    }
+                }]
+            }
+            ;
+
+            // Add total count annotation
+            var totalTickets = seriesData.reduce((a, b) => a + b, 0);
+            if (totalTickets > 0) {
+                options.annotations = {
+                    yaxis: [{
+                        y: Math.max(...seriesData) * 0.9,
+                        borderColor: '#6c757d',
+                        label: {
+                            borderColor: '#6c757d',
+                            style: {
+                                color: '#fff',
+                                background: '#6c757d',
+                                fontSize: '12px',
+                                padding: {
+                                    left: 10,
+                                    right: 10,
+                                    top: 2,
+                                    bottom: 2
                                 }
                             },
-                            dataLabels: {
-                                enabled: false
-                            },
-                            xaxis: {
-                                labels: {
-                                    rotate: -45
-                                }
-                            }
+                            text: 'Total: ' + totalTickets + ' ticket' + (totalTickets !== 1 ? 's' : '')
                         }
                     }]
                 };
-
-                // Add total count annotation
-                var totalTickets = seriesData.reduce((a, b) => a + b, 0);
-                if (totalTickets > 0) {
-                    options.annotations = {
-                        yaxis: [{
-                            y: Math.max(...seriesData) * 0.9,
-                            borderColor: '#6c757d',
-                            label: {
-                                borderColor: '#6c757d',
-                                style: {
-                                    color: '#fff',
-                                    background: '#6c757d',
-                                    fontSize: '12px',
-                                    padding: {
-                                        left: 10,
-                                        right: 10,
-                                        top: 2,
-                                        bottom: 2
-                                    }
-                                },
-                                text: 'Total: ' + totalTickets + ' ticket' + (totalTickets !== 1 ? 's' : '')
-                            }
-                        }]
-                    };
-                }
-                };
-
-                // Initialize chart
-                var chart = new ApexCharts(document.querySelector("#ticketsChart"), options);
-                chart.render();
-
-                // Add event listeners for chart type buttons
-                document.querySelectorAll('.chart-type-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
-                        this.classList.add('active');
-                        updateChartType(this.dataset.type);
-                    });
-                });
             }
+        };
 
-            // Add click handlers for table rows
-            document.querySelectorAll('tr[data-href]').forEach(row => {
-                row.style.cursor = 'pointer';
-                row.addEventListener('click', () => {
-                    window.location.href = row.dataset.href;
-                });
-            });
-            
-            // Add tooltip initialization
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+        // Initialize chart
+        var chart = new ApexCharts(document.querySelector("#ticketsChart"), options);
+        chart.render();
+
+        // Add event listeners for chart type buttons
+        document.querySelectorAll('.chart-type-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.chart-type-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                updateChartType(this.dataset.type);
             });
         });
+        }
+
+        // Add click handlers for table rows
+        document.querySelectorAll('tr[data-href]').forEach(row => {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', () => {
+                window.location.href = row.dataset.href;
+            });
+        });
+
+        // Add tooltip initialization
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        })
+        ;
     </script>
 {% endblock %}

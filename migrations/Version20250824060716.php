@@ -28,11 +28,11 @@ final class Version20250824060716 extends AbstractMigration
         $this->addSql('ALTER TABLE maintenance_task ADD CONSTRAINT FK_9D6DBBE912469DE2 FOREIGN KEY (category_id) REFERENCES maintenance_category (id)');
         $this->addSql('ALTER TABLE maintenance_task ADD CONSTRAINT FK_9D6DBBE9F4BD7827 FOREIGN KEY (assigned_to_id) REFERENCES `user` (id)');
         $this->addSql('ALTER TABLE maintenance_task ADD CONSTRAINT FK_9D6DBBE985ECDE76 FOREIGN KEY (completed_by_id) REFERENCES `user` (id)');
-        $this->addSql('ALTER TABLE ticket ADD completed_by_id INT DEFAULT NULL, ADD proposed_by_id INT DEFAULT NULL, ADD observation LONGTEXT DEFAULT NULL, ADD proposed_status VARCHAR(20) DEFAULT NULL, ADD proposal_note LONGTEXT DEFAULT NULL, DROP priority');
-        $this->addSql('ALTER TABLE ticket ADD CONSTRAINT FK_97A0ADA385ECDE76 FOREIGN KEY (completed_by_id) REFERENCES `user` (id)');
-        $this->addSql('ALTER TABLE ticket ADD CONSTRAINT FK_97A0ADA3DAB5A938 FOREIGN KEY (proposed_by_id) REFERENCES `user` (id)');
-        $this->addSql('CREATE INDEX IDX_97A0ADA385ECDE76 ON ticket (completed_by_id)');
-        $this->addSql('CREATE INDEX IDX_97A0ADA3DAB5A938 ON ticket (proposed_by_id)');
+//        $this->addSql('ALTER TABLE ticket ADD completed_by_id INT DEFAULT NULL, ADD proposed_by_id INT DEFAULT NULL, ADD observation LONGTEXT DEFAULT NULL, ADD proposed_status VARCHAR(20) DEFAULT NULL, ADD proposal_note LONGTEXT DEFAULT NULL, DROP priority');
+//        $this->addSql('ALTER TABLE ticket ADD CONSTRAINT FK_97A0ADA385ECDE76 FOREIGN KEY (completed_by_id) REFERENCES `user` (id)');
+//        $this->addSql('ALTER TABLE ticket ADD CONSTRAINT FK_97A0ADA3DAB5A938 FOREIGN KEY (proposed_by_id) REFERENCES `user` (id)');
+//        $this->addSql('CREATE INDEX IDX_97A0ADA385ECDE76 ON ticket (completed_by_id)');
+//        $this->addSql('CREATE INDEX IDX_97A0ADA3DAB5A938 ON ticket (proposed_by_id)');
     }
 
     public function down(Schema $schema): void
@@ -46,10 +46,10 @@ final class Version20250824060716 extends AbstractMigration
         $this->addSql('DROP TABLE maintenance_category');
         $this->addSql('DROP TABLE maintenance_log');
         $this->addSql('DROP TABLE maintenance_task');
-        $this->addSql('ALTER TABLE ticket DROP FOREIGN KEY FK_97A0ADA385ECDE76');
-        $this->addSql('ALTER TABLE ticket DROP FOREIGN KEY FK_97A0ADA3DAB5A938');
-        $this->addSql('DROP INDEX IDX_97A0ADA385ECDE76 ON ticket');
-        $this->addSql('DROP INDEX IDX_97A0ADA3DAB5A938 ON ticket');
+//        $this->addSql('ALTER TABLE ticket DROP FOREIGN KEY FK_97A0ADA385ECDE76');
+//        $this->addSql('ALTER TABLE ticket DROP FOREIGN KEY FK_97A0ADA3DAB5A938');
+//        $this->addSql('DROP INDEX IDX_97A0ADA385ECDE76 ON ticket');
+//        $this->addSql('DROP INDEX IDX_97A0ADA3DAB5A938 ON ticket');
         $this->addSql('ALTER TABLE ticket ADD priority VARCHAR(20) NOT NULL, DROP completed_by_id, DROP proposed_by_id, DROP observation, DROP proposed_status, DROP proposal_note');
     }
 }

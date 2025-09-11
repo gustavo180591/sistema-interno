@@ -24,7 +24,7 @@ class TicketController extends AbstractController
     private const STATUS_IN_PROGRESS = 'in_progress';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_REJECTED = 'rejected';
-    
+
     private function getStatusLabel(string $status): string
     {
         return [
@@ -46,29 +46,29 @@ class TicketController extends AbstractController
     public function updateObservation(Request $request, Ticket $ticket): Response
     {
         $this->denyAccessUnlessGranted('ROLE_AUDITOR');
-        
+
         if ($ticket->getStatus() !== self::STATUS_COMPLETED && $ticket->getStatus() !== self::STATUS_REJECTED) {
             $this->addFlash('error', 'Solo se pueden editar observaciones en tickets completados o rechazados.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         $observation = $request->request->get('observation');
-        
+
         if (empty(trim($observation))) {
             $this->addFlash('error', 'La observación no puede estar vacía.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         $ticket->setObservation($observation);
         $ticket->setUpdatedAt(new \DateTimeImmutable());
-        
+
         $this->em->persist($ticket);
         $this->em->flush();
-        
+
         $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     public function __construct(
         LoggerInterface $logger,
         EntityManagerInterface $entityManager,
@@ -92,7 +92,7 @@ class TicketController extends AbstractController
             'rejected' => self::STATUS_REJECTED,
             'status' => null // For the dropdown in index page
         ];
-        
+
         // Handle dropdown form submission from index page
         if ($status === 'status') {
             $status = $request->request->get('status');
@@ -115,7 +115,7 @@ class TicketController extends AbstractController
             }
             $newStatus = $statusMap[$status];
             $noteContent = $request->request->get('note', '');
-            
+
             if (empty(trim($noteContent))) {
                 $statusLabels = [
                     'pending' => 'Pendiente',
@@ -126,24 +126,24 @@ class TicketController extends AbstractController
                 $noteContent = 'Cambio de estado a ' . ($statusLabels[$status] ?? $status);
             }
         }
-        
+
         // If user is not an auditor or admin, create a proposal
         if (!$this->isGranted('ROLE_AUDITOR') && !$this->isGranted('ROLE_ADMIN')) {
             $ticket->setProposedStatus($newStatus);
             $ticket->setProposalNote($noteContent);
             $ticket->setProposedBy($this->getUser());
-            
+
             $this->em->persist($ticket);
             $this->em->flush();
-            
+
             $this->addFlash('warning', 'Se ha enviado la propuesta de cambio de estado a los auditores para su revisión.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         // If user is auditor or admin, apply the status change directly
         return $this->updateStatus($ticket, $newStatus, $noteContent);
     }
-    
+
     #[Route('/tickets/{id}/approve-proposal', name: 'ticket_approve_proposal', methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN')]
     public function approveProposal(Request $request, Ticket $ticket): Response
@@ -152,7 +152,7 @@ class TicketController extends AbstractController
             $this->addFlash('error', 'No hay una propuesta de cambio de estado pendiente para este ticket');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         $note = new Note();
         $note->setContent(sprintf(
             "Propuesta aprobada por %s\n\n%s",
@@ -161,52 +161,52 @@ class TicketController extends AbstractController
         ));
         $note->setTicket($ticket);
         $note->setCreatedBy($this->getUser());
-        
+
         $this->em->persist($note);
-        
+
         // Update the status
         $ticket->setStatus($ticket->getProposedStatus());
         $ticket->setProposedStatus(null);
         $ticket->setProposalNote(null);
         $ticket->setProposedBy(null);
-        
+
         $this->em->persist($ticket);
         $this->em->flush();
-        
+
         $this->addFlash('success', 'La propuesta ha sido aprobada y el estado del ticket ha sido actualizado.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     #[Route('/tickets/{id}/suggest-rejection', name: 'ticket_suggest_rejection', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function suggestRejection(Request $request, Ticket $ticket): Response
     {
         return $this->suggestStatus($request, $ticket, self::STATUS_REJECTED, 'rechazo');
     }
-    
+
     #[Route('/tickets/{id}/suggest-status/{statusType}', name: 'ticket_suggest_status', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function suggestStatus(Request $request, Ticket $ticket, string $statusType): Response
     {
         $suggestion = $request->request->get('suggestion', '');
-        
+
         if (empty(trim($suggestion))) {
             $this->addFlash('error', 'Debe proporcionar una explicación para esta sugerencia');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         $statusMap = [
             'en_progreso' => 'En Progreso',
             'completado' => 'Completado',
             'rechazado' => 'Rechazado'
         ];
-        
+
         if (!array_key_exists($statusType, $statusMap)) {
             throw $this->createNotFoundException('Tipo de estado no válido');
         }
-        
+
         $statusLabel = $statusMap[$statusType];
-        
+
         $note = new Note();
         $note->setContent(sprintf(
             "Sugerencia de %s\nUsuario: %s %s\nFecha: %s\n\n%s",
@@ -218,14 +218,14 @@ class TicketController extends AbstractController
         ));
         $note->setTicket($ticket);
         $note->setCreatedBy($this->getUser());
-        
+
         $this->em->persist($note);
         $this->em->flush();
-        
+
         $this->addFlash('success', sprintf('Su sugerencia de %s ha sido guardada en las notas del ticket', strtolower($statusLabel)));
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     #[Route('/tickets/{id}/auditor-action', name: 'ticket_auditor_action', methods: ['POST'])]
     #[IsGranted('ROLE_AUDITOR')]
     public function auditorAction(Request $request, Ticket $ticket): Response
@@ -233,33 +233,33 @@ class TicketController extends AbstractController
         $action = $request->request->get('action');
         $description = $request->request->get('description', $request->request->get('observation', ''));
         $assignToId = $request->request->get('assign_to');
-        
+
         // Handle observation update
         if ($action === 'update_observation') {
             if (empty(trim($description))) {
                 $this->addFlash('error', 'La observación no puede estar vacía');
                 return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
             }
-            
+
             $ticket->setObservation($description);
             $ticket->setUpdatedAt(new \DateTimeImmutable());
-            
+
             $this->em->persist($ticket);
             $this->em->flush();
-            
+
             $this->addFlash('success', 'La observación ha sido actualizada correctamente.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         // For other actions, require a description
         if (empty(trim($description))) {
             $this->addFlash('error', 'Debe proporcionar una descripción para esta acción');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         // Initialize note variable
         $note = null;
-        
+
         // Handle description/note
         if (!empty($description)) {
             $note = new Note();
@@ -267,14 +267,14 @@ class TicketController extends AbstractController
             $note->setCreatedBy($this->getUser());
             $ticket->addNote($note);
         }
-        
+
         // Handle user assignment if provided
         if ($assignToId && $assignToId !== '') {
             $user = $this->userRepository->find($assignToId);
             if ($user) {
                 $previousUser = $ticket->getTakenBy();
                 $ticket->setTakenBy($user);
-                
+
                 // Create a new assignment record
                 $assignment = new TicketAssignment();
                 $assignment->setTicket($ticket);
@@ -282,7 +282,7 @@ class TicketController extends AbstractController
                 $assignment->setAssignedBy($this->getUser());
                 $assignment->setAssignedAt(new \DateTimeImmutable());
                 $this->em->persist($assignment);
-                
+
                 // Update note content with assignment details
                 $assignmentNote = "\n\nTicket reasignado a: " . $user->getFullName();
                 if ($previousUser) {
@@ -291,12 +291,12 @@ class TicketController extends AbstractController
                 $note->setContent($note->getContent() . $assignmentNote);
             }
         }
-        
+
         // Update ticket description for reject/finalize actions
         if (in_array($action, ['rechazar', 'finalizar'])) {
             $currentDate = (new \DateTime())->format('d/m/Y H:i');
             $actionLabel = $action === 'rechazar' ? 'Rechazado' : 'Finalizado';
-            
+
             // For finalizing, set the observation and completedBy
             if ($action === 'finalizar') {
                 $ticket->setObservation($description);
@@ -305,19 +305,19 @@ class TicketController extends AbstractController
             } else {
                 // For reject, keep the old behavior
                 $ticket->setDescription(
-                    $ticket->getDescription() . 
+                    $ticket->getDescription() .
                     "\n\n---\n" .
-                    "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() . 
-                    "\n" . 
+                    "[{$currentDate}] {$actionLabel} por " . $this->getUser()->getNombre() .
+                    "\n" .
                     $description
                 );
             }
         }
-        
+
         // Update status based on action
         $statusUpdated = false;
         $statusMessage = '';
-        
+
         switch ($action) {
             case 'rechazar':
                 $ticket->setStatus(self::STATUS_REJECTED);
@@ -333,12 +333,12 @@ class TicketController extends AbstractController
             case 'reasignar':
                 $ticket->setStatus(self::STATUS_IN_PROGRESS);
                 $statusUpdated = true;
-                $statusMessage = $action === 'reasignar' 
-                    ? 'El ticket ha sido reasignado' 
+                $statusMessage = $action === 'reasignar'
+                    ? 'El ticket ha sido reasignado'
                     : 'El ticket ha sido marcado como en progreso';
                 break;
         }
-        
+
         if ($statusUpdated) {
             if ($note) {
                 $note->setContent($note->getContent() . "\n\nEstado actualizado a: " . $this->getStatusLabel($ticket->getStatus()));
@@ -349,17 +349,17 @@ class TicketController extends AbstractController
                 $ticket->addNote($note);
             }
         }
-        
+
         $this->em->persist($ticket);
         if ($note) {
             $this->em->persist($note);
         }
         $this->em->flush();
-        
+
         $this->addFlash('success', $statusMessage ?: 'La acción ha sido registrada');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     private function updateStatus(Ticket $ticket, string $status, ?string $noteContent = null): Response
     {
         // Create a note if content is provided
@@ -372,35 +372,35 @@ class TicketController extends AbstractController
             ));
             $note->setTicket($ticket);
             $note->setCreatedBy($this->getUser());
-            
+
             $this->em->persist($note);
             $ticket->addNote($note);
         }
 
         // Set the status
         $ticket->setStatus($status);
-        
+
         // If completing the ticket, set the completedBy user and current time
         if ($status === self::STATUS_COMPLETED) {
             $ticket->setCompletedBy($this->getUser());
             $ticket->setUpdatedAt(new \DateTimeImmutable());
         }
-        
+
         $this->em->persist($ticket);
         $this->em->flush();
 
         $statusMessage = $this->getStatusLabel($status);
         $this->addFlash('success', sprintf('El ticket ha sido marcado como %s', $statusMessage));
-        
+
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     #[Route('/tickets/{id}/edit-description', name: 'ticket_edit_description', methods: ['POST'])]
     #[IsGranted('edit', 'ticket')]
     public function editDescription(Ticket $ticket, Request $request): Response
     {
         $description = $request->request->get('description');
-        
+
         if (empty(trim($description))) {
             if ($request->isXmlHttpRequest()) {
                 return $this->json(['success' => false, 'error' => 'La descripción no puede estar vacía']);
@@ -408,18 +408,18 @@ class TicketController extends AbstractController
             $this->addFlash('error', 'La descripción no puede estar vacía');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         $ticket->setDescription($description);
         $this->em->persist($ticket);
         $this->em->flush();
-        
+
         if ($request->isXmlHttpRequest()) {
             return $this->json([
                 'success' => true,
                 'description' => nl2br(htmlspecialchars($description, ENT_QUOTES, 'UTF-8'))
             ]);
         }
-        
+
         $this->addFlash('success', 'La descripción ha sido actualizada');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
@@ -429,7 +429,7 @@ class TicketController extends AbstractController
     public function takeTicket(Ticket $ticket, Request $request): Response
     {
         $user = $this->getUser();
-        
+
         // Check if the ticket is already taken
         if ($ticket->getTakenBy()) {
             $this->addFlash('warning', 'Este ticket ya ha sido tomado por otro usuario.');
@@ -439,10 +439,10 @@ class TicketController extends AbstractController
         // Set the current user as the taker
         $ticket->setTakenBy($user);
         $ticket->setStatus(self::STATUS_IN_PROGRESS);
-        
+
         $this->em->persist($ticket);
         $this->em->flush();
-        
+
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
@@ -451,16 +451,16 @@ class TicketController extends AbstractController
     public function index(Request $request): Response
     {
         $page = max(1, $request->query->getInt('page', 1));
-        $limit = 20; // Tickets por página
+        $limit = $request->query->getInt('per_page', 10); // Tickets por página
         $offset = ($page - 1) * $limit;
-        
+
         // Filtros
         $status = $request->query->get('status');
         $search = $request->query->get('search');
         $sortBy = $request->query->get('sort', 'createdAt');
         $sortOrder = $request->query->get('order', 'DESC');
         $area = $request->query->get('area');
-        
+
         // Construir query base
         $qb = $this->em->createQueryBuilder();
         $qb->select('t', 'u', 'ta', 'assignedUser')
@@ -468,13 +468,13 @@ class TicketController extends AbstractController
            ->leftJoin('t.createdBy', 'u')
            ->leftJoin('t.ticketAssignments', 'ta')
            ->leftJoin('ta.user', 'assignedUser');
-        
+
         // Aplicar filtros
         if ($status && $status !== 'all') {
             $qb->andWhere('t.status = :status')
                ->setParameter('status', $status);
         }
-        
+
         if ($search) {
             $qb->andWhere(
                 $qb->expr()->orX(
@@ -487,19 +487,19 @@ class TicketController extends AbstractController
             )
             ->setParameter('search', '%' . $search . '%');
         }
-        
+
         if ($area && $area !== 'all') {
             $qb->andWhere('t.areaOrigen = :area')
                ->setParameter('area', $area);
         }
-        
+
         // Aplicar ordenamiento
         $validSortFields = ['createdAt', 'title', 'status', 'areaOrigen'];
         $sortBy = in_array($sortBy, $validSortFields) ? $sortBy : 'createdAt';
         $sortOrder = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
-        
+
         $qb->orderBy('t.' . $sortBy, $sortOrder);
-        
+
         // Mostrar todos los tickets a administradores y auditores
         if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
             // Para usuarios normales, solo mostrar tickets creados por ellos o asignados a ellos
@@ -511,20 +511,20 @@ class TicketController extends AbstractController
             )
             ->setParameter('currentUser', $this->getUser());
         }
-        
+
         // Contar total de tickets
         $countQb = clone $qb;
         $totalTickets = $countQb->select('COUNT(t.id)')->getQuery()->getSingleScalarResult();
-        
+
         // Aplicar paginación
         $qb->setFirstResult($offset)
            ->setMaxResults($limit);
-        
+
         $tickets = $qb->getQuery()->getResult();
-        
+
         // Obtener usuarios para asignación
         $users = $this->em->getRepository(User::class)->findAll();
-        
+
         // Obtener áreas únicas para filtros
         $areas = $this->em->createQueryBuilder()
             ->select('DISTINCT t.areaOrigen')
@@ -535,9 +535,9 @@ class TicketController extends AbstractController
             ->orderBy('t.areaOrigen', 'ASC')
             ->getQuery()
             ->getResult();
-        
+
         $areas = array_column($areas, 'areaOrigen');
-        
+
         // Calcular estadísticas
         $stats = [
             'total' => $totalTickets,
@@ -547,10 +547,10 @@ class TicketController extends AbstractController
             'rejected' => $this->em->getRepository(Ticket::class)->count(['status' => 'rejected']),
             'delayed' => $this->em->getRepository(Ticket::class)->count(['status' => 'delayed']),
         ];
-        
+
         // Calcular páginas
         $totalPages = ceil($totalTickets / $limit);
-        
+
         return $this->render('ticket/index.html.twig', [
             'tickets' => $tickets,
             'users' => $users,
@@ -559,7 +559,7 @@ class TicketController extends AbstractController
             'pagination' => [
                 'current' => $page,
                 'total' => $totalPages,
-                'limit' => $limit,
+                'per_page' => $limit,
                 'total_items' => $totalTickets,
             ],
             'filters' => [
@@ -580,24 +580,24 @@ class TicketController extends AbstractController
             $this->addFlash('error', 'No tienes permiso para crear tickets. Solo los usuarios con rol AUDITOR pueden crear nuevos tickets.');
             return $this->redirectToRoute('ticket_index');
         }
-        
+
         $ticket = new Ticket();
         $ticket->setCreatedBy($this->getUser());
-        
+
         $form = $this->createForm(TicketType::class, $ticket, [
             'is_admin' => $this->isGranted('ROLE_ADMIN'),
         ]);
-        
+
         $form->handleRequest($request);
-        
+
         if ($form->isSubmitted() && $form->isValid()) {
             $this->em->persist($ticket);
             $this->em->flush();
-            
+
             $this->addFlash('success', 'Ticket creado exitosamente.');
             return $this->redirectToRoute('ticket_index');
         }
-        
+
         return $this->render('ticket/new.html.twig', [
             'form' => $form->createView(),
         ]);
@@ -608,34 +608,34 @@ class TicketController extends AbstractController
     public function assign(Request $request): Response
     {
         $this->logger->info('=== TICKET ASSIGNMENT START ===');
-        
+
         try {
             // Log request details
             $this->logger->info('Request method: ' . $request->getMethod());
             $this->logger->info('Content-Type: ' . $request->headers->get('Content-Type'));
             $this->logger->info('Request data: ' . print_r($request->request->all(), true));
-            
+
             // Verify CSRF token
             $token = $request->request->get('_token');
             if (!$this->isCsrfTokenValid('assign_ticket', $token)) {
                 $this->logger->error('Invalid CSRF token');
                 throw $this->createAccessDeniedException('Token de seguridad inválido');
             }
-            
+
             // Get ticket ID and validate
             $ticketId = $request->request->get('ticket_id');
             if (!$ticketId) {
                 $this->logger->error('No ticket_id provided in request');
                 throw new \InvalidArgumentException('ID de ticket no proporcionado');
             }
-            
+
             // Get the ticket
             $ticket = $this->ticketRepository->find($ticketId);
             if (!$ticket) {
                 $this->logger->error('Ticket not found with ID: ' . $ticketId);
                 throw $this->createNotFoundException('Ticket no encontrado');
             }
-            
+
             // Get user IDs
             $userIds = $request->request->all('assigned_users');
             if (empty($userIds)) {
@@ -643,47 +643,47 @@ class TicketController extends AbstractController
                 $this->addFlash('warning', 'Debe seleccionar al menos un usuario');
                 return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
-            
+
             $this->logger->info('Processing assignment for ticket: ' . $ticketId);
             $this->logger->info('Selected users: ' . print_r($userIds, true));
-            
+
             // Process user assignments
             $assignedUsers = [];
             foreach ($userIds as $userId) {
                 $user = $this->userRepository->find($userId);
                 if ($user) {
                     $assignedUsers[] = $user;
-                    
+
                     // Create new assignment if it doesn't exist
                     $assignment = new TicketAssignment();
                     $assignment->setTicket($ticket);
                     $assignment->setUser($user);
                     $assignment->setAssignedAt(new \DateTimeImmutable());
-                    
+
                     $this->em->persist($assignment);
                 }
             }
-            
+
             // Update ticket status if needed
             if (count($assignedUsers) > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
                 $ticket->setStatus(self::STATUS_IN_PROGRESS);
                 $this->em->persist($ticket);
             }
-            
+
             $this->em->flush();
-            
+
             $this->logger->info('Successfully assigned users to ticket: ' . $ticketId);
             $this->addFlash('success', 'Usuarios asignados correctamente al ticket.');
-            
+
         } catch (\Exception $e) {
             $this->logger->error('Error assigning users to ticket: ' . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
         }
-        
+
         // Redirect back to the ticket
         return $this->redirectToRoute('ticket_show', [
             'id' => $ticketId ?? 0
@@ -697,24 +697,24 @@ class TicketController extends AbstractController
         $this->denyAccessUnlessGranted('view', $ticket);
         // Get all users and filter by role in PHP
         $allUsers = $userRepository->findAll();
-        
+
         // Get notes ordered by creation date (newest first)
         $notes = $ticket->getNotes()->toArray();
         usort($notes, function($a, $b) {
             return $b->getCreatedAt() <=> $a->getCreatedAt();
         });
-        
+
         // Filter users by role
         $filteredUsers = array_filter($allUsers, function($user) {
             $roles = $user->getRoles();
             return in_array('ROLE_USER', $roles) || in_array('ROLE_AUDITOR', $roles);
         });
-        
+
         // Sort users by name
         usort($filteredUsers, function($a, $b) {
             return strcmp($a->getNombre(), $b->getNombre());
         });
-        
+
         // Check if current user is assigned to this ticket
         $isAssigned = false;
         if ($this->getUser()) {
@@ -745,19 +745,19 @@ class TicketController extends AbstractController
         $form = $this->createForm(TicketType::class, $ticket, [
             'is_admin' => $this->isGranted('ROLE_ADMIN'),
         ]);
-        
+
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             // Get the assigned users from the form
             $assignedUsers = $form->get('ticketAssignments')->getData();
-            
+
             // Clear existing assignments
             foreach ($ticket->getTicketAssignments() as $assignment) {
                 $ticket->removeTicketAssignment($assignment);
                 $this->em->remove($assignment);
             }
-            
+
             // Add new assignments
             $assignedUserIds = $request->request->all('assignedUsers');
             if (!empty($assignedUserIds)) {
@@ -773,10 +773,10 @@ class TicketController extends AbstractController
                     }
                 }
             }
-            
+
             $this->em->persist($ticket);
             $this->em->flush();
-            
+
             $this->addFlash('success', 'Ticket actualizado correctamente.');
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
@@ -794,17 +794,17 @@ class TicketController extends AbstractController
             throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
         }
         $this->denyAccessUnlessGranted('reject', $ticket);
-        
+
         $reason = $request->request->get('reason', '');
         $noteContent = 'Ticket rechazado por ' . $this->getUser()->getFullName() . ".\n\n";
         $noteContent .= "Motivo del rechazo:\n" . $reason;
-        
+
         $this->updateStatus($ticket, self::STATUS_REJECTED, $noteContent);
-        
+
         $this->addFlash('success', 'El ticket ha sido rechazado correctamente.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     #[Route('/tickets/{id}/complete', name: 'ticket_complete', methods: ['POST'])]
     public function complete(Request $request, Ticket $ticket): Response
     {
@@ -812,21 +812,21 @@ class TicketController extends AbstractController
             throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
         }
         $this->denyAccessUnlessGranted('complete', $ticket);
-        
+
         $notes = $request->request->get('notes', '');
-        
+
         // Update the ticket's description with the completion notes
         $ticket->setDescription($notes);
-        
+
         // Create a note to track who completed the ticket
         $noteContent = 'Ticket marcado como completado por ' . $this->getUser()->getFullName();
-        
+
         $this->updateStatus($ticket, self::STATUS_COMPLETED, $noteContent);
-        
+
         $this->addFlash('success', 'El ticket ha sido marcado como completado.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
-    
+
     #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function rejectProposal(Request $request, Ticket $ticket): Response
@@ -837,7 +837,7 @@ class TicketController extends AbstractController
         }
 
         $reason = $request->request->get('reason', '');
-        
+
         // Create a note about the rejection
         $note = new Note();
         $note->setContent(sprintf(
