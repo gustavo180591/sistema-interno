@@ -8,24 +8,26 @@ services:
         volumes:
             - .:/var/www/html
         working_dir: /var/www/html
-        ports:
-            - "${APP_PORT}:8000"
-        depends_on:
-            - db
+        expose:
+            - "9000"
+        networks:
+            - app-net
 
     db:
         image: mysql:8.0
         container_name: symfony-mysql
         restart: always
         environment:
-            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-            MYSQL_DATABASE: ${MYSQL_DATABASE}
-            MYSQL_USER: ${MYSQL_USER}
-            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_ROOT_PASSWORD: rootpass
+            MYSQL_DATABASE: symfony_db
+            MYSQL_USER: symfony
+            MYSQL_PASSWORD: symfony_pass
         ports:
-            - "3307:3306"
+            - "3313:3306"
         volumes:
             - db_data:/var/lib/mysql
+        networks:
+            - app-net
 
     nginx:
         image: nginx:latest
@@ -37,6 +39,11 @@ services:
             - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
         depends_on:
             - php
+        networks:
+            - app-net
 
 volumes:
     db_data:
+
+networks:
+    app-net:
