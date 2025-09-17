@@ -7,8 +7,18 @@
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1><i class="fas fa-ticket-alt me-2"></i> Tickets</h1>
-                    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
+                    <h1><i class="fas fa-ticket-alt me-2"></i> 
+                        {% if app.request.query.get('status') == 'completed' %}
+                            Tickets Completados
+                        {% else %}
+                            Tickets
+                        {% endif %}
+                    </h1>
+                    {% if app.request.query.get('status') == 'completed' %}
+                        <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver al inicio
+                        </a>
+                    {% elseif is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
                         <a href="{{ path('ticket_new') }}" class="btn btn-primary">
                             <i class="fas fa-plus me-2"></i>Nuevo Ticket
                         </a>
@@ -19,19 +29,26 @@
                     <div class="card">
                         <div class="card-body text-center py-5">
                             <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
-                            <h3 class="h5">No hay tickets disponibles</h3>
+                            <h3 class="h5">
+                                {% if app.request.query.get('status') == 'completed' %}
+                                    No hay tickets completados
+                                {% else %}
+                                    No hay tickets disponibles
+                                {% endif %}
+                            </h3>
                             <p class="text-muted">
-                                {% if is_granted('ROLE_AUDITOR') %}
+                                {% if app.request.query.get('status') == 'completed' %}
+                                    Todavía no se han completado tickets
+                                {% elseif is_granted('ROLE_AUDITOR') %}
                                     Crea tu primer ticket para comenzar
                                 {% else %}
                                     No tienes tickets asignados actualmente
                                     {% if not is_granted('ROLE_AUDITOR') %}
-                                        <br><small class="text-muted">Solo los auditores pueden crear nuevos
-                                        tickets</small>
+                                        <br><small class="text-muted">Solo los auditores pueden crear nuevos tickets</small>
                                     {% endif %}
                                 {% endif %}
                             </p>
-                            {% if is_granted('ROLE_AUDITOR') %}
+                            {% if is_granted('ROLE_AUDITOR') and app.request.query.get('status') != 'completed' %}
                                 <a href="{{ path('ticket_new') }}" class="btn btn-primary mt-3">
                                     <i class="fas fa-plus me-2"></i>Crear primer ticket
                                 </a>
@@ -73,20 +90,16 @@
                                             </nav>
                                         {% endif %}
                                     </div>
-                                    <div class="col-6 d-flex align-items-center">
-                                        {% if pagination.total > 10 %}
-                                            <div class="row g-3 align-items-center">
-                                                <div class="col-auto">
-                                                    <label for="paginator-select" class="col-form-label">Registros por
-                                                        página:</label>
-                                                </div>
-                                                <div class="col-auto">
-                                                    <select id="perPageSelect" name="per_page" class="form-select" aria-label="paginator-select">
-                                                        <option value="10" {{ pagination.per_page == 10 ? 'selected' }}>10</option>
-                                                        <option value="25" {{ pagination.per_page == 25 ? 'selected' }}>25</option>
-                                                        <option value="50" {{ pagination.per_page == 50 ? 'selected' }}>50</option>
-                                                        <option value="100" {{ pagination.per_page == 100 ? 'selected' }}>100</option>
-                                                    </select>
+                                    <div class="col-6 d-flex align-items-center justify-content-end">
+                                        {% if pagination.total > 1 %}
+                                            <div class="d-flex align-items-center">
+                                                <label for="perPageSelect" class="form-label mb-0 me-2">Mostrar:</label>
+                                                <select id="perPageSelect" name="per_page" class="form-select form-select-sm" style="width: auto;" aria-label="Elementos por página">
+                                                    <option value="10" {{ pagination.per_page == 10 ? 'selected' : '' }}>10</option>
+                                                    <option value="25" {{ pagination.per_page == 25 ? 'selected' : '' }}>25</option>
+                                                    <option value="50" {{ pagination.per_page == 50 ? 'selected' : '' }}>50</option>
+                                                    <option value="100" {{ pagination.per_page == 100 ? 'selected' : '' }}>100</option>
+                                                </select>
                                                 </div>
                                             </div>
                                         {% endif %}
@@ -101,10 +114,10 @@
                                         <th>ID Ticket Externo</th>
                                         <th>Ticket</th>
                                         <th>Área De Origen</th>
+                                        <th>Creado por</th>
                                         <th>Asignado a</th>
                                         <th>Fecha</th>
                                         <th>Estado</th>
-                                        <th>Observación</th>
                                         <th>Acción</th>
                                     </tr>
                                     </thead>
@@ -121,10 +134,18 @@
                                             </td>
                                             <td>{{ ticket.areaOrigen ?? 'N/A' }}</td>
                                             <td>
+                                                {% if ticket.createdBy %}
+                                                    {% set creatorName = ticket.createdBy.username|split(' ') %}
+                                                    {{ creatorName[0] }}
+                                                {% else %}
+                                                    Sistema
+                                                {% endif %}
+                                            </td>
+                                            <td>
                                                 {% if ticket.ticketAssignments|length > 0 %}
                                                     {% for assignment in ticket.ticketAssignments %}
-                                                        <span
-                                                            class="badge bg-primary">{{ assignment.user.username }}</span>
+                                                        {% set fullName = assignment.user.username|split(' ') %}
+                                                        {{ fullName[0] }}{% if not loop.last %}, {% endif %}
                                                     {% endfor %}
                                                 {% else %}
                                                     <span class="text-muted">Sin asignar</span>
@@ -171,44 +192,11 @@
                                                 } %}
 
                                                 {% if is_granted('ROLE_AUDITOR') or is_granted('ROLE_ADMIN') %}
-                                                    <div class="dropdown d-inline-block">
-                                                        <button
-                                                            class="btn btn-sm {{ statusConfig.class }} dropdown-toggle d-flex align-items-center"
-                                                            type="button" id="statusDropdown{{ ticket.id }}"
-                                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <div class="d-inline-block">
+                                                        <span class="btn btn-sm {{ statusConfig.class }} d-flex align-items-center">
                                                             <i class="fas {{ statusConfig.icon }} me-1"></i>
                                                             <span>{{ statusConfig.text }}</span>
-                                                        </button>
-                                                        <ul class="dropdown-menu"
-                                                            aria-labelledby="statusDropdown{{ ticket.id }}">
-                                                            <li>
-                                                                <form
-                                                                    action="{{ path('ticket_propose_status', {'id': ticket.id, 'status': 'status'}) }}"
-                                                                    method="post" id="statusForm{{ ticket.id }}">
-                                                                    <input type="hidden" name="_token"
-                                                                           value="{{ csrf_token('update_status_' ~ ticket.id) }}">
-                                                                    {% for status, config in {
-                                                                        'pending': {'icon': 'fa-clock', 'text': 'Pendiente'},
-                                                                        'in_progress': {'icon': 'fa-spinner', 'text': 'En progreso'},
-                                                                        'completed': {'icon': 'fa-check-circle', 'text': 'Terminado'},
-                                                                        'rejected': {'icon': 'fa-times-circle', 'text': 'Rechazado'},
-                                                                        'delayed': {'icon': 'fa-clock', 'text': 'Demorado'}
-                                                                    } %}
-                                                                        <button type="button"
-                                                                                class="dropdown-item d-flex align-items-center {{ ticket.status == status ? 'active' : '' }}"
-                                                                                onclick="document.getElementById('statusForm{{ ticket.id }}').elements['status'].value='{{ status }}'; this.form.submit();">
-                                                                            <i class="fas {{ config.icon }} me-2 text-{{ status == 'in_progress' ? 'warning' :
-                                                                            (status == 'pending' ? 'info' :
-                                                                            (status == 'rejected' ? 'danger' :
-                                                                            (status == 'completed' ? 'success' :
-                                                                            (status == 'delayed' ? 'warning' : 'secondary')))) }}"></i>
-                                                                            {{ config.text }}
-                                                                        </button>
-                                                                    {% endfor %}
-                                                                    <input type="hidden" name="status" value="">
-                                                                </form>
-                                                            </li>
-                                                        </ul>
+                                                        </span>
                                                     </div>
                                                 {% else %}
                                                     <span
@@ -218,20 +206,6 @@
                                                         <i class="fas {{ statusConfig.icon }} me-1"></i>
                                                         {{ statusConfig.text }}
                                                     </span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% set observation = ticket.getObservation() %}
-                                                {% if observation is not empty %}
-                                                    <div class="d-flex align-items-center">
-                                                        <span class="me-2"><i
-                                                                class="fas fa-info-circle text-primary"></i></span>
-                                                        <span title="{{ observation }}" data-bs-toggle="tooltip">
-                                                            {{ observation|length > 50 ? observation|slice(0, 50) ~ '...' : observation }}
-                                                        </span>
-                                                    </div>
-                                                {% else %}
-                                                    <span class="text-muted">Sin observaciones</span>
                                                 {% endif %}
                                             </td>
                                             <td>
@@ -478,14 +452,18 @@
 
             //paginador
 
-            document.getElementById('perPageSelect').addEventListener('change', function() {
-                // Obtener el valor seleccionado
-                let perPage = this.value;
-
-                // Redirigir recargando la página con un query param
-                let url = new URL(window.location.href);
-                url.searchParams.set('per_page', perPage);
-                window.location.href = url.toString();
+            document.addEventListener('DOMContentLoaded', function() {
+                const perPageSelect = document.getElementById('perPageSelect');
+                if (perPageSelect) {
+                    perPageSelect.addEventListener('change', function() {
+                        const perPage = this.value;
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('per_page', perPage);
+                        // Reset to first page when changing items per page
+                        url.searchParams.set('page', '1');
+                        window.location.href = url.toString();
+                    });
+                }
             });
         </script>
     {% endblock %}

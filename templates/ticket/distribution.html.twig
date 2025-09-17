@@ -1,0 +1,167 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Distribución de Tickets{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css" rel="stylesheet">
+    <style>
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 2rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Distribución de Tickets</h1>
+            <a href="{{ path('ticket_index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Volver a la lista
+            </a>
+        </div>
+
+        <div class="row">
+            <div class="col-12 col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Distribución por Estado</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12 col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Distribución por Área</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="areaChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the CSRF token from the meta tag
+            const csrfToken = document.querySelector('meta[name="_token"]')?.content || '';
+            
+            // Function to create a chart
+            function createChart(elementId, type, data, options = {}) {
+                const ctx = document.getElementById(elementId).getContext('2d');
+                return new Chart(ctx, {
+                    type: type,
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const value = context.raw || 0;
+                                        const percentage = Math.round((value / total) * 100);
+                                        return `${label}${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        ...options
+                    }
+                });
+            }
+            
+            // Load data and initialize charts
+            fetch('{{ path('ticket_distribution_data') }}', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al cargar los datos');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Status chart (pie)
+                createChart('statusChart', 'pie', {
+                    labels: data.status.labels,
+                    datasets: [{
+                        data: data.status.data,
+                        backgroundColor: data.status.backgroundColor,
+                        borderWidth: 1
+                    }]
+                });
+                
+                // Area chart (doughnut)
+                createChart('areaChart', 'doughnut', {
+                    labels: data.area.labels,
+                    datasets: [{
+                        data: data.area.data,
+                        backgroundColor: data.area.backgroundColor,
+                        borderWidth: 1
+                    }]
+                }, {
+                    plugins: {
+                        legend: {
+                            display: data.area.labels.length <= 10, // Hide legend if too many items
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.querySelectorAll('.chart-container').forEach(container => {
+                    container.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error al cargar los datos del gráfico.
+                            <div class="mt-2 small">${error.message}</div>
+                        </div>
+                    `;
+                });
+            });
+        });
+    </script>
+{% endblock %}

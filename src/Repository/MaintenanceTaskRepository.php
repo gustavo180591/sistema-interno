@@ -44,23 +44,73 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
 
     public function getPerformanceSummary(\DateTimeInterface $from, \DateTimeInterface $to): array
     {
-        return $this->createQueryBuilder('t')
-            ->select('u.id as userId, u.apellido, u.nombre,
-                COUNT(t.id) as assignedCount,
-                SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount,
-                SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount,
-                AVG(CASE WHEN t.completedAt IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, COALESCE(t.startedAt, t.createdAt), t.completedAt) END) as avgMinutes')
+        // First, check if there are any tasks in the date range
+        $count = $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.createdAt BETWEEN :from AND :to')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getSingleScalarResult();
+            
+        error_log(sprintf('Found %d tasks between %s and %s', $count, $from->format('Y-m-d'), $to->format('Y-m-d')));
+        
+        if ($count === 0) {
+            return [];
+        }
+        
+        // Then try a simpler query first
+        $simpleQuery = $this->createQueryBuilder('t')
+            ->select('u.id as userId, u.apellido, u.nombre, COUNT(t.id) as taskCount')
             ->leftJoin('t.assignedTo', 'u')
             ->andWhere('t.createdAt BETWEEN :from AND :to')
             ->groupBy('u.id')
-            ->setParameters([
-                'from' => $from,
-                'to' => $to,
-                'completed' => MaintenanceTask::STATUS_COMPLETED,
-                'inProgress' => MaintenanceTask::STATUS_IN_PROGRESS
-            ])
-            ->getQuery()
-            ->getArrayResult();
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery();
+            
+        $simpleResult = $simpleQuery->getArrayResult();
+        error_log('Simple Query Result: ' . print_r($simpleResult, true));
+        
+        // If simple query works, try the full query
+        try {
+            $query = $this->createQueryBuilder('t')
+                ->select('u.id as userId, u.apellido, u.nombre,
+                    COUNT(t.id) as assignedCount,
+                    SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount,
+                    SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount,
+                    AVG(
+                        CASE 
+                            WHEN t.completedAt IS NOT NULL THEN 
+                                COALESCE(
+                                    TIMESTAMPDIFF(
+                                        \'MINUTE\',
+                                        COALESCE(t.startedAt, t.createdAt),
+                                        t.completedAt
+                                    ),
+                                    0
+                                )
+                            ELSE 0 
+                        END
+                    ) as avgMinutes')
+                ->leftJoin('t.assignedTo', 'u')
+                ->andWhere('t.createdAt BETWEEN :from AND :to')
+                ->groupBy('u.id')
+                ->setParameter('from', $from)
+                ->setParameter('to', $to)
+                ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
+                ->setParameter('inProgress', MaintenanceTask::STATUS_IN_PROGRESS)
+                ->getQuery();
+
+            $result = $query->getArrayResult();
+            error_log('Full Query Result: ' . print_r($result, true));
+            
+            return $result;
+        } catch (\Exception $e) {
+            error_log('Error in performance query: ' . $e->getMessage());
+            // Fall back to simple result if the full query fails
+            return $simpleResult;
+        }
     }
 
     public function getUserPerformance(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array

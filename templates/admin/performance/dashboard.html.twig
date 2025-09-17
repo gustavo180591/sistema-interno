@@ -77,24 +77,28 @@
                     {% set totalInProgress = 0 %}
                     
                     {% for user in summary %}
-                        {% set totalAssigned = totalAssigned + user.assignedCount %}
-                        {% set totalCompleted = totalCompleted + user.completedCount %}
-                        {% set totalInProgress = totalInProgress + user.inProgressCount %}
+                        {% set assignedCount = user.assignedCount is defined ? user.assignedCount : (user.taskCount is defined ? user.taskCount : 0) %}
+                        {% set completedCount = user.completedCount is defined ? user.completedCount : 0 %}
+                        {% set inProgressCount = user.inProgressCount is defined ? user.inProgressCount : 0 %}
+                        
+                        {% set totalAssigned = totalAssigned + assignedCount %}
+                        {% set totalCompleted = totalCompleted + completedCount %}
+                        {% set totalInProgress = totalInProgress + inProgressCount %}
                         
                         <tr>
                             <td class="fw-medium">
                                 <i class="fas fa-user-circle me-2 text-primary"></i>
                                 {{ user.apellido }}, {{ user.nombre }}
                             </td>
-                            <td class="text-center">{{ user.assignedCount }}</td>
+                            <td class="text-center">{{ assignedCount }}</td>
                             <td class="text-center">
                                 <span class="badge bg-success bg-opacity-10 text-success">
-                                    {{ user.completedCount }}
+                                    {{ completedCount }}
                                 </span>
                             </td>
                             <td class="text-center">
                                 <span class="badge bg-primary bg-opacity-10 text-primary">
-                                    {{ user.inProgressCount }}
+                                    {{ inProgressCount }}
                                 </span>
                             </td>
                             <td class="text-center fw-medium">
@@ -103,10 +107,10 @@
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                                        {% set effectiveness = (user.completedCount / (user.assignedCount ?: 1)) * 100 %}
+                                        {% set effectiveness = (completedCount / (assignedCount ?: 1)) * 100 %}
                                         <div class="progress-bar bg-{{ effectiveness > 80 ? 'success' : (effectiveness > 50 ? 'warning' : 'danger') }}" 
                                              role="progressbar" 
-                                             style="width: {{ effectiveness|min(100) }}%" 
+                                             style="width: {{ min(effectiveness, 100) }}%" 
                                              aria-valuenow="{{ effectiveness }}" 
                                              aria-valuemin="0" 
                                              aria-valuemax="100">
@@ -138,7 +142,7 @@
                                     {% set totalEffectiveness = totalAssigned > 0 ? (totalCompleted / totalAssigned) * 100 : 0 %}
                                     <div class="progress-bar bg-{{ totalEffectiveness > 80 ? 'success' : (totalEffectiveness > 50 ? 'warning' : 'danger') }}" 
                                          role="progressbar" 
-                                         style="width: {{ totalEffectiveness|min(100) }}%" 
+                                         style="width: {{ min(totalEffectiveness, 100) }}%" 
                                          aria-valuenow="{{ totalEffectiveness }}" 
                                          aria-valuemin="0" 
                                          aria-valuemax="100">
@@ -223,7 +227,7 @@
 
     async function fetchData(params) {
         const qs = new URLSearchParams(params).toString();
-        const res = await fetch('{{ path('admin_performance_data') }}?' + qs);
+        const res = await fetch('{{ path('admin_data') }}?' + qs);
         if (!res.ok) throw new Error('Error al cargar datos');
         return res.json();
     }

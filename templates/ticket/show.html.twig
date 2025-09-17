@@ -13,15 +13,15 @@
                     <li class="breadcrumb-item active" aria-current="page">#{{ '%04d'|format(ticket.id) }}</li>
                 </ol>
             </nav>
-            
+
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h3 mb-0 d-flex align-items-center">
                     <span class="me-3">{{ ticket.title }}</span>
-                    <span class="badge rounded-pill bg-{{ 
-                        ticket.status == 'in_progress' ? 'warning' : 
-                        (ticket.status == 'pending' ? 'info' : 
-                        (ticket.status == 'rejected' ? 'danger' : 
-                        (ticket.status == 'completed' ? 'success' : 'secondary'))) 
+                    <span class="badge rounded-pill bg-{{
+                        ticket.status == 'in_progress' ? 'warning' :
+                        (ticket.status == 'pending' ? 'info' :
+                        (ticket.status == 'rejected' ? 'danger' :
+                        (ticket.status == 'completed' ? 'success' : 'secondary')))
                     }} fs-6">
                         {{ ({
                             'in_progress': 'En progreso',
@@ -40,13 +40,23 @@
                             <i class="fas fa-edit me-1"></i> Editar
                         </a>
                     {% endif %}
-                    
+
                     {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
                         {% if ticket.status != 'rejected' and ticket.status != 'completed' %}
+                            {% if ticket.ticketAssignments|length > 0 %}
+                                <button type="button" class="btn btn-success btn-sm ms-1" disabled>
+                                    <i class="fas fa-check-circle me-1"></i> Asignado
+                                </button>
+                            {% else %}
+                                <button type="button" class="btn btn-primary btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#assignTicketModal">
+                                    <i class="fas fa-user-plus me-1"></i> Asignar Ticket
+                                </button>
+                            {% endif %}
+                            
                             <button type="button" class="btn btn-outline-danger btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#rejectTicketModal">
                                 <i class="fas fa-times me-1"></i> Rechazar
                             </button>
-                            
+
                             <button type="button" class="btn btn-outline-success btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#completeTicketModal">
                                 <i class="fas fa-check me-1"></i> Completar
                             </button>
@@ -71,7 +81,7 @@
                             {{ ticket.description|nl2br }}
                         </div>
                     </div>
-                    
+
                     {% if ticket.observation %}
                     <div class="mb-4">
                         <h6 class="text-muted text-uppercase small mb-3">Observaciones</h6>
@@ -82,7 +92,7 @@
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Notes Section -->
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-white py-3">
@@ -128,7 +138,7 @@
                         </div>
                     {% endif %}
                 </div>
-                
+
                 <!-- Add Note Form -->
                 {% if is_granted('ROLE_USER') and ticket.status not in ['completed', 'rejected'] %}
                 <div class="card-footer bg-white">
@@ -162,7 +172,7 @@
                             'completed': 'Terminado'
                         })[ticket.status] }}</div>
                     </div>
-                    
+
                     {% if ticket.takenBy %}
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Tarea realizada por</small>
@@ -186,14 +196,23 @@
                         </div>
                     </div>
                     {% endif %}
-                    
 
-                    
+
+
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Creado por</small>
+                        <div class="fw-bold">
+                            {{ ticket.createdBy.nombre ?? '' }} {{ ticket.createdBy.apellido ?? ticket.createdBy.username }}
+                        </div>
+
+                        <div class="fw-bold">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
+                    </div>
+
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Área</small>
                         <div class="fw-bold">{{ ticket.areaOrigen|default('No especificada') }}</div>
                     </div>
-                    
+
                     {% if ticket.takenBy %}
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Tomado por</small>
@@ -207,7 +226,7 @@
                         </div>
                     </div>
                     {% endif %}
-                    
+
                     {% if ticket.dueDate %}
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Fecha límite</small>
@@ -219,12 +238,9 @@
                         </div>
                     </div>
                     {% endif %}
-                    
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Creado</small>
-                        <div class="fw-bold">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
-                    </div>
-                    
+
+
+
                     {% if ticket.updatedAt and ticket.updatedAt != ticket.createdAt %}
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Última actualización</small>
@@ -238,17 +254,17 @@
             {% if not is_granted('ROLE_USER') or is_granted('ROLE_ADMIN') or is_granted('ROLE_AUDITOR') %}
                 {# Create an array to store unique user assignments with their latest date #}
                 {% set uniqueAssignments = {} %}
-                
+
                 {# First, sort all assignments by assignedAt date (newest first) #}
                 {% set sortedAssignments = ticket.ticketAssignments|sort((a, b) => b.assignedAt <=> a.assignedAt) %}
-                
+
                 {# Then add to uniqueAssignments, which will automatically keep only the first (newest) entry for each user #}
                 {% for assignment in sortedAssignments %}
                     {% if assignment.user.id not in uniqueAssignments|keys %}
                         {% set uniqueAssignments = uniqueAssignments|merge({ (assignment.user.id) : assignment }) %}
                     {% endif %}
                 {% endfor %}
-                
+
                 {% if uniqueAssignments|length > 0 %}
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-white py-3">
@@ -363,7 +379,7 @@
                     <div id="userSelectionError" class="alert alert-danger d-none">
                         Por favor selecciona al menos un usuario.
                     </div>
-                    
+
                     <div class="mb-3">
                         <label class="form-label">Seleccionar Usuarios:</label>
                         {% for user in users %}
@@ -375,7 +391,7 @@
                             </div>
                         {% endfor %}
                     </div>
-                    
+
                     <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
                 </div>
                 <div class="modal-footer">
@@ -401,10 +417,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addNoteForm) {
         addNoteForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const content = document.getElementById('note-content').value.trim();
             if (!content) return;
-            
+
             try {
                 const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
                     method: 'POST',
@@ -414,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -432,17 +448,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Delete Note Handler
     document.addEventListener('click', async function(e) {
         if (e.target.closest('.delete-note')) {
             const button = e.target.closest('.delete-note');
             const noteId = button.dataset.noteId;
-            
+
             if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/notes/delete/${noteId}`, {
                     method: 'POST',
@@ -452,7 +468,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     },
                     body: `_token={{ csrf_token('delete_note') }}`
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -470,14 +486,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-    
+
     // Assign Ticket Form Handler
     const assignTicketForm = document.getElementById('assignTicketForm');
     if (assignTicketForm) {
         assignTicketForm.addEventListener('submit', function(e) {
             const selectedUsers = assignTicketForm.querySelectorAll('input[name="assigned_users[]"]:checked');
             const errorDiv = document.getElementById('userSelectionError');
-            
+
             if (selectedUsers.length === 0) {
                 e.preventDefault();
                 errorDiv.classList.remove('d-none');

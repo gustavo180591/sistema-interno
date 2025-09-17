@@ -82,7 +82,8 @@ class Ticket
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $areaOrigen = null;
 
-    #[ORM\Column(length: 50, nullable: true)]
+    #[ORM\Column(length: 50, unique: true, nullable: true)]
+    #[Assert\Unique(message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
     private ?string $idSistemaInterno = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
@@ -96,6 +97,10 @@ class Ticket
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     private ?User $proposedBy = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $assignedTo = null;
 
     /**
      * @var Collection|User[]
@@ -451,6 +456,17 @@ class Ticket
     public function setProposedBy(?User $proposedBy): self
     {
         $this->proposedBy = $proposedBy;
+        return $this;
+    }
+
+    public function getAssignedTo(): ?User
+    {
+        return $this->assignedTo;
+    }
+
+    public function setAssignedTo(?User $assignedTo): self
+    {
+        $this->assignedTo = $assignedTo;
         return $this;
     }
 

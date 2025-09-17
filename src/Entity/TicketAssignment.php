@@ -17,7 +17,7 @@ class TicketAssignment
     #[ORM\JoinColumn(nullable: false)]
     private $ticket;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'ticketAssignments')]
     #[ORM\JoinColumn(nullable: false)]
     private $user;
 

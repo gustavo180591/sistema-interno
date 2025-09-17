@@ -1,0 +1,5 @@
+# API Routes
+app_api_users:
+    path: /admin/api/users
+    controller: App\Controller\UserController::getUsersApi
+    methods: [GET]

@@ -32,9 +32,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\Length(max: 100)]
     public ?string $apellido = null;
 
-    #[ORM\Column(length: 180, unique: true)]
-    #[Assert\NotBlank(message: 'El email es obligatorio.')]
+    #[ORM\Column(length: 180, unique: true, nullable: true)]
     #[Assert\Email(message: 'Email inválido.')]
+    #[Assert\NotBlank(allowNull: true)]
     private ?string $email = null;
 
     #[ORM\Column(length: 60, unique: true)]
@@ -327,5 +327,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return trim(sprintf('%s %s', $this->nombre ?? '', $this->apellido ?? '')) ?: $this->username;
     }
 }

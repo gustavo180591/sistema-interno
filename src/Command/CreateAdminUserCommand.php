@@ -60,7 +60,10 @@ class CreateAdminUserCommand extends Command
         $user->setNombre($firstName);
         $user->setApellido($lastName);
         $user->setRoles(['ROLE_ADMIN']);
-        $user->setPlainPassword($password, $this->passwordHasher);
+        
+        // Hash the password before setting it
+        $hashedPassword = $this->passwordHasher->hashPassword($user, $password);
+        $user->setPassword($hashedPassword);
         
         $this->entityManager->persist($user);
         $this->entityManager->flush();

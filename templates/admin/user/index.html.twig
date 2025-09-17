@@ -18,7 +18,7 @@
                         <thead>
                             <tr>
                                 <th>Nombre</th>
-                                <th>Email</th>
+                                <th>Apellido</th>
                                 <th>Usuario</th>
                                 <th>Roles</th>
                                 <th>Estado</th>
@@ -28,8 +28,8 @@
                         <tbody>
                         {% for user in users %}
                             <tr>
-                                <td>{{ user.nombreCompleto }}</td>
-                                <td>{{ user.email }}</td>
+                                <td>{{ user.nombre ?? 'N/A' }}</td>
+                                <td>{{ user.apellido ?? 'N/A' }}</td>
                                 <td>{{ user.username }}</td>
                                 <td>
                                     {% for role in user.roleDisplayNamesForTwig %}
@@ -62,7 +62,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="6" class="text-center">No se encontraron usuarios</td>
+                                <td colspan="5" class="text-center">No se encontraron usuarios</td>
                             </tr>
                         {% endfor %}
                         </tbody>
