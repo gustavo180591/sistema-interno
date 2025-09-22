@@ -103,4 +103,30 @@ class UserController extends AbstractController
 
         return $this->redirectToRoute('admin_user_index', [], Response::HTTP_SEE_OTHER);
     }
+
+    #[Route('/{id}/toggle-status', name: 'toggle_status', methods: ['POST'])]
+    public function toggleStatus(Request $request, User $user, EntityManagerInterface $entityManager): Response
+    {
+        if ($this->isCsrfTokenValid('toggle-status' . $user->getId(), $request->request->get('_token'))) {
+            $user->setIsActive(!$user->isActive());
+            $entityManager->flush();
+
+            if ($request->isXmlHttpRequest()) {
+                return $this->json([
+                    'success' => true,
+                    'isActive' => $user->isActive(),
+                    'message' => $user->isActive() ? 'Usuario activado correctamente' : 'Usuario desactivado correctamente'
+                ]);
+            }
+
+            $this->addFlash('success', $user->isActive() ? 'Usuario activado correctamente' : 'Usuario desactivado correctamente');
+        } else {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['success' => false, 'message' => 'Token CSRF inválido'], 400);
+            }
+            $this->addFlash('error', 'Error al cambiar el estado del usuario');
+        }
+
+        return $this->redirectToRoute('admin_user_index');
+    }
 }

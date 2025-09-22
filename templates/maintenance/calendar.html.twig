@@ -395,7 +395,7 @@
                             <label for="externalTicketId" class="form-label fw-bold">ID del Ticket Externo</label>
                             <input type="text" class="form-control" id="externalTicketId" name="external_ticket_id" required>
                         </div>
-                        
+
 <!-- Descripción del Trabajo -->
                         <div class="mb-3">
                             <label for="description" class="form-label fw-bold">Descripción del Trabajo</label>
@@ -444,35 +444,35 @@
                     dateClick: function(info) {
                         // Prevent default behavior
                         info.jsEvent.preventDefault();
-                        
+
                         // Get the clicked date
                         const clickedDate = info.date;
-                        
+
                         // Format date as YYYY-MM-DD
                         const y = clickedDate.getFullYear();
                         const m = String(clickedDate.getMonth() + 1).padStart(2, '0');
                         const d = String(clickedDate.getDate()).padStart(2, '0');
                         const formattedDate = `${y}-${m}-${d}`;
-                        
+
                         // Set date and default time (09:00)
                         document.getElementById('taskDate').value = formattedDate;
                         document.getElementById('taskTime').value = '09:00';
-                        
+
                         // Update the hidden datetime field
                         if (typeof updateScheduledDateTime === 'function') {
                             updateScheduledDateTime();
                         }
-                        
+
                         // Format date for display
                         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                         const formattedDateText = clickedDate.toLocaleDateString('es-ES', options);
-                        
+
                         // Update modal title
                         const modalTitle = document.getElementById('newTaskFromTicketModalLabel');
                         if (modalTitle) {
                             modalTitle.textContent = `Agendar para ${formattedDateText}`;
                         }
-                        
+
                         // Show the modal
                         const modalElement = document.getElementById('newTaskFromTicketModal');
                         if (modalElement) {
@@ -642,29 +642,29 @@
             // Handle form submission
             document.getElementById('newTaskFromTicketForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                
+
                 const form = e.target;
-                
+
                 // Update hidden fields with current date/time values
                 updateScheduledDateTime();
-                
+
                 // Get all form data including CSRF token
                 const formData = new FormData(form);
-                
+
                 // Log form data for debugging
                 const formDataObj = {};
                 formData.forEach((value, key) => {
                     formDataObj[key] = value;
                     console.log(key + ': ' + value);
                 });
-                
+
                 // Ensure CSRF token is included
                 if (!formData.has('_token')) {
                     const csrfToken = document.querySelector('input[name="_token"]').value;
                     formData.append('_token', csrfToken);
                     console.log('Added CSRF token:', csrfToken);
                 }
-                
+
                 fetch(form.action, {
                     method: 'POST',
                     body: new URLSearchParams(formData).toString(),
@@ -680,7 +680,7 @@
                         window.location.href = response.url;
                         return;
                     }
-                    
+
                     const contentType = response.headers.get('content-type');
                     if (contentType && contentType.includes('application/json')) {
                         return response.json();
@@ -704,11 +704,11 @@
                                 description: data.task.description
                             }
                         });
-                        
+
                         // Close the modal
                         const modal = bootstrap.Modal.getInstance(document.getElementById('newTaskFromTicketModal'));
                         modal.hide();
-                        
+
                         // Show success message
                         const toast = new bootstrap.Toast(document.getElementById('successToast'));
                         document.getElementById('toastMessage').textContent = 'Tarea agendada exitosamente';

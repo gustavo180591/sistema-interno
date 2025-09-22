@@ -3,6 +3,32 @@
 {% block title %}Ticket #{{ '%04d'|format(ticket.id) }} - {{ ticket.title }}{% endblock %}
 
 {% block body %}
+<!-- Success Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="toastSuccess" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-success text-white">
+            <strong class="me-auto">Éxito</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            Operación completada con éxito
+        </div>
+    </div>
+</div>
+
+<!-- Error Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="toastError" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header bg-danger text-white">
+            <strong class="me-auto">Error</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+        </div>
+        <div class="toast-body" id="errorMessage">
+            Ha ocurrido un error
+        </div>
+    </div>
+</div>
+
 <div class="container py-4">
     <!-- Header with Breadcrumb -->
     <div class="row mb-4">
@@ -382,14 +408,11 @@
 
                     <div class="mb-3">
                         <label class="form-label">Seleccionar Usuarios:</label>
-                        {% for user in users %}
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="assigned_users[]" value="{{ user.id }}" id="user_{{ user.id }}">
-                                <label class="form-check-label" for="user_{{ user.id }}">
-                                    {{ user.username }}
-                                </label>
-                            </div>
-                        {% endfor %}
+                        <select class="form-select" name="assigned_users[]" multiple>
+                            {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.username }} - {{ user.email }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <input type="hidden" name="_token" value="{{ csrf_token('assign' ~ ticket.id) }}">
@@ -408,9 +431,98 @@
 
 {% endblock %}
 
+{% block stylesheets %}
+{{ parent() }}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
 {% block javascripts %}
 {{ parent() }}
 <script>
+// Ticket Assignment Form Handler
+document.addEventListener('DOMContentLoaded', function() {
+    const assignForm = document.getElementById('assignTicketForm');
+    const errorDiv = document.getElementById('userSelectionError');
+    
+    if (assignForm) {
+        assignForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Reset error state
+            errorDiv.classList.add('d-none');
+            
+            // Get selected users
+            const selectedUsers = Array.from(assignForm.querySelectorAll('option:checked'));
+            if (selectedUsers.length === 0) {
+                errorDiv.classList.remove('d-none');
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = assignForm.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asignando...';
+            
+            try {
+                const formData = new FormData(assignForm);
+                const response = await fetch(assignForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Success - show toast and reload
+                    const toastEl = document.getElementById('toastSuccess');
+                    const toast = new bootstrap.Toast(toastEl);
+                    document.getElementById('toastMessage').textContent = 'Usuarios asignados correctamente';
+                    toast.show();
+                    
+                    // Close modal and reload page after a short delay
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
+                    if (modal) modal.hide();
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.message || 'Error al asignar usuarios');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                const toastEl = document.getElementById('toastError');
+                const toast = new bootstrap.Toast(toastEl);
+                document.getElementById('errorMessage').textContent = error.message || 'Error al procesar la solicitud';
+                toast.show();
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        });
+        
+        // Initialize select2 for user selection if available
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('select[name="assigned_users[]"]').select2({
+                placeholder: 'Selecciona uno o más usuarios',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#assignTicketModal')
+            });
+        }
+    }
+    
+    // Add Note Form Handler
 document.addEventListener('DOMContentLoaded', function() {
     // Add Note Form Handler
     const addNoteForm = document.getElementById('add-note-form');
@@ -486,23 +598,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-
-    // Assign Ticket Form Handler
-    const assignTicketForm = document.getElementById('assignTicketForm');
-    if (assignTicketForm) {
-        assignTicketForm.addEventListener('submit', function(e) {
-            const selectedUsers = assignTicketForm.querySelectorAll('input[name="assigned_users[]"]:checked');
-            const errorDiv = document.getElementById('userSelectionError');
-
-            if (selectedUsers.length === 0) {
-                e.preventDefault();
-                errorDiv.classList.remove('d-none');
-                return false;
-            } else {
-                errorDiv.classList.add('d-none');
-            }
-        });
-    }
 });
 </script>
 {% endblock %}

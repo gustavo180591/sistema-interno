@@ -34,9 +34,9 @@ class TicketController extends AbstractController
     public function getUsersList(UserRepository $userRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         $users = $userRepository->findAllActiveUsers();
-        
+
         $userData = array_map(function($user) {
             return [
                 'id' => $user->getId(),
@@ -57,18 +57,18 @@ class TicketController extends AbstractController
     public function ticketDistributionChart(TicketRepository $ticketRepository): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         return $this->render('ticket/distribution.html.twig');
     }
-    
+
     #[Route('/tickets/distribution/data', name: 'ticket_distribution_data')]
     public function ticketDistributionData(TicketRepository $ticketRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         $statusCounts = $ticketRepository->countTicketsByStatus();
         $areaCounts = $ticketRepository->countTicketsByArea();
-        
+
         return $this->json([
             'status' => [
                 'labels' => array_map([$this, 'getStatusLabel'], array_keys($statusCounts)),
@@ -554,7 +554,7 @@ class TicketController extends AbstractController
         $sortBy = $request->query->get('sort', 't.id');
         $sortOrder = $request->query->get('order', 'DESC');
 
-        // Construir la consulta
+        // Construir la consulta con todas las relaciones necesarias
         $qb = $this->em->createQueryBuilder()
             ->select('t', 'createdBy', 'ta', 'assignedUser')
             ->from(Ticket::class, 't')
@@ -562,7 +562,10 @@ class TicketController extends AbstractController
             ->leftJoin('t.ticketAssignments', 'ta')
             ->leftJoin('ta.user', 'assignedUser')
             ->addSelect('ta', 'assignedUser')
-            ->orderBy($sortBy, $sortOrder);
+            ->orderBy($sortBy, $sortOrder)
+            // Asegurarse de que se carguen las asignaciones para evitar consultas adicionales
+            ->addSelect('IDENTITY(ta.user) AS HIDDEN userId')
+            ->groupBy('t.id, ta.id, assignedUser.id, createdBy.id');
 
         // Aplicar filtros
         if ($status) {
@@ -612,16 +615,47 @@ class TicketController extends AbstractController
             ->setParameter('currentUser', $this->getUser());
         }
 
-        // Contar total de tickets
-        $countQb = clone $qb;
-        $totalTickets = $countQb->select('COUNT(DISTINCT t.id)')->getQuery()->getSingleScalarResult();
-
-        // Aplicar paginación
-        $qb->setFirstResult($offset)
-           ->setMaxResults($limit);
+        // Get the query without pagination first
+        $query = $qb->getQuery();
+        
+        // Create a separate query builder for counting total unique tickets
+        $countQb = $this->em->createQueryBuilder()
+            ->select('COUNT(DISTINCT t.id)')
+            ->from(Ticket::class, 't');
+            
+        // Apply the same where conditions as the main query
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            $countQb->leftJoin('t.ticketAssignments', 'ta')
+                   ->leftJoin('ta.user', 'au')
+                   ->andWhere('t.createdBy = :currentUser OR au = :currentUser')
+                   ->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Apply search filter if present
+        if ($search) {
+            $countQb->andWhere(
+                $countQb->expr()->orX(
+                    $countQb->expr()->like('t.title', ':search'),
+                    $countQb->expr()->like('t.description', ':search'),
+                    $countQb->expr()->like('t.idSistemaInterno', ':search')
+                )
+            )->setParameter('search', '%' . $search . '%');
+        }
+        
+        // Apply area filter if present
+        if ($area) {
+            $countQb->andWhere('t.areaOrigen = :area')
+                   ->setParameter('area', $area);
+        }
+        
+        $totalTickets = (int) $countQb->getQuery()->getSingleScalarResult();
+        
+        // Apply pagination to the main query
+        $query->setFirstResult($offset)
+              ->setMaxResults($limit);
 
         // Obtener los tickets con los joins necesarios
-        $tickets = $qb->getQuery()->getResult();
+        $tickets = $query->getResult();
 
         // Obtener usuarios para el modal de asignación
         $users = $this->userRepository->findAll();
@@ -707,34 +741,64 @@ class TicketController extends AbstractController
 
             // Handle multiple user assignments
             $assignedUsers = $form->get('assignedUsers')->getData();
-            
+
             if ($assignedUsers && count($assignedUsers) > 0) {
                 foreach ($assignedUsers as $user) {
-                    $assignment = new TicketAssignment();
-                    $assignment->setTicket($ticket);
-                    $assignment->setUser($user);
-                    $assignment->setAssignedAt(new \DateTimeImmutable());
-                    $this->em->persist($assignment);
-                    
-                    // Add to formAssignedUsers for any immediate use
-                    $ticket->addFormAssignedUser($user);
+                    // Verificar si ya existe una asignación para este usuario
+                    $existingAssignment = null;
+                    foreach ($ticket->getTicketAssignments() as $assignment) {
+                        if ($assignment->getUser() === $user) {
+                            $existingAssignment = $assignment;
+                            break;
+                        }
+                    }
+
+                    if (!$existingAssignment) {
+                        $assignment = new TicketAssignment();
+                        $assignment->setTicket($ticket);
+                        $assignment->setUser($user);
+                        $assignment->setAssignedAt(new \DateTimeImmutable());
+                        $this->em->persist($assignment);
+                        $ticket->addTicketAssignment($assignment);
+                    }
                 }
+
+                // Si hay usuarios asignados, establecer el estado a 'En progreso' si está pendiente
+                if ($ticket->getStatus() === Ticket::STATUS_PENDING) {
+                    $ticket->setStatus(Ticket::STATUS_IN_PROGRESS);
+                }
+
+                // Store assigned users in session to show after redirect
+                $assignedUserIds = array_map(function($user) {
+                    return $user->getId();
+                }, $assignedUsers->toArray());
+                $request->getSession()->set('last_assigned_users', $assignedUserIds);
             }
-            
+
             $this->em->persist($ticket);
             $this->em->flush();
 
-            $this->addFlash('success', 'Ticket creado exitosamente.');
+            $this->addFlash('success', '¡Ticket creado exitosamente!');
+            // Redirigir a la lista de tickets en lugar de mostrar el ticket creado
             return $this->redirectToRoute('ticket_index');
         }
 
         // Get all users for the assign modal
         $users = $userRepository->findAll();
-        
+
+        // Get any previously assigned users from session
+        $assignedUsers = [];
+        if ($request->getSession()->has('last_assigned_users')) {
+            $assignedUserIds = $request->getSession()->get('last_assigned_users');
+            $assignedUsers = $userRepository->findBy(['id' => $assignedUserIds]);
+            $request->getSession()->remove('last_assigned_users');
+        }
+
         return $this->render('ticket/new.html.twig', [
             'form' => $form->createView(),
             'users' => $users,
-        ]);
+            'assigned_users' => $assignedUsers,
+       ]);
     }
 
     #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
@@ -742,7 +806,6 @@ class TicketController extends AbstractController
     public function assign(Request $request): Response
     {
         $this->logger->info('=== TICKET ASSIGNMENT START ===');
-
         try {
             // Log request details
             $this->logger->info('Request method: ' . $request->getMethod());
@@ -823,12 +886,12 @@ class TicketController extends AbstractController
             ]);
 
             $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
-            
+
             // If we have a valid ticket ID, redirect to the ticket, otherwise go to ticket list
             if (isset($ticketId) && $ticket = $this->ticketRepository->find($ticketId)) {
                 return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
-            
+
             return $this->redirectToRoute('ticket_index');
         }
 
@@ -836,7 +899,7 @@ class TicketController extends AbstractController
         if (isset($ticket) && $ticket instanceof Ticket) {
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         // Fallback to ticket list if we can't determine the ticket
         return $this->redirectToRoute('ticket_index');
     }

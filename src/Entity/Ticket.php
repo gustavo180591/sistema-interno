@@ -102,65 +102,12 @@ class Ticket
     #[ORM\JoinColumn(nullable: true)]
     private ?User $assignedTo = null;
 
-    /**
-     * @var Collection|User[]
-     */
-    private Collection $formAssignedUsers;
-
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->ticketAssignments = new ArrayCollection();
         $this->updates = new ArrayCollection();
         $this->notes = new ArrayCollection();
-        $this->formAssignedUsers = new ArrayCollection();
-    }
-
-    /**
-     * @return Collection|User[]
-     */
-    public function getFormAssignedUsers(): Collection
-    {
-        if ($this->formAssignedUsers === null) {
-            $this->formAssignedUsers = new ArrayCollection();
-        }
-        return $this->formAssignedUsers;
-    }
-
-    /**
-     * @param User[]|Collection|User|null $assignedUsers
-     */
-    public function setFormAssignedUsers($assignedUsers): self
-    {
-        if ($assignedUsers === null) {
-            $assignedUsers = [];
-        } elseif ($assignedUsers instanceof Collection) {
-            $assignedUsers = $assignedUsers->toArray();
-        } elseif (!is_array($assignedUsers)) {
-            $assignedUsers = [$assignedUsers];
-        }
-        
-        // Ensure we only have User objects
-        $assignedUsers = array_filter($assignedUsers, function($user) {
-            return $user instanceof User;
-        });
-        
-        $this->formAssignedUsers = new ArrayCollection($assignedUsers);
-        return $this;
-    }
-
-    public function addFormAssignedUser(User $user): self
-    {
-        if (!$this->getFormAssignedUsers()->contains($user)) {
-            $this->getFormAssignedUsers()->add($user);
-        }
-        return $this;
-    }
-
-    public function removeFormAssignedUser(User $user): self
-    {
-        $this->getFormAssignedUsers()->removeElement($user);
-        return $this;
     }
 
     // Getters and Setters
@@ -256,19 +203,66 @@ class Ticket
     }
 
     /**
-     * @return Collection|User[]
-     */
-    public function getAssignedUsers(): Collection
-    {
-        return $this->ticketAssignments->map(fn(TicketAssignment $assignment) => $assignment->getUser());
-    }
-
-    /**
      * @return Collection|TicketAssignment[]
      */
     public function getTicketAssignments(): Collection
     {
         return $this->ticketAssignments;
+    }
+    
+    /**
+     * Get assigned users
+     *
+     * @return Collection|User[]
+     */
+    public function getAssignedUsers(): Collection
+    {
+        $users = new ArrayCollection();
+        foreach ($this->ticketAssignments as $assignment) {
+            $users->add($assignment->getUser());
+        }
+        return $users;
+    }
+    
+    /**
+     * Set assigned users
+     *
+     * @param Collection|User[] $users
+     * @return self
+     */
+    public function setAssignedUsers(Collection $users): self
+    {
+        // Clear existing assignments
+        foreach ($this->ticketAssignments as $assignment) {
+            $this->removeTicketAssignment($assignment);
+        }
+        
+        // Add new assignments
+        foreach ($users as $user) {
+            $assignment = new TicketAssignment();
+            $assignment->setUser($user);
+            $assignment->setTicket($this);
+            $assignment->setAssignedAt(new \DateTimeImmutable());
+            $this->addTicketAssignment($assignment);
+        }
+        
+        return $this;
+    }
+    
+    /**
+     * Check if user is assigned to this ticket
+     *
+     * @param User $user
+     * @return bool
+     */
+    public function hasUserAssignment(User $user): bool
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser() === $user) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

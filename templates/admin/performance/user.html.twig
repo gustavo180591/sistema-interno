@@ -281,7 +281,7 @@
                 </button>
             </div>
             <div class="col-md-2">
-                <a href="{{ path('admin_performance_user', {'id': user.id}) }}" class="btn btn-outline-secondary w-100">
+                <a href="{{ path('admin_user', {'id': user.id}) }}" class="btn btn-outline-secondary w-100">
                     <i class="fas fa-sync-alt me-1"></i>Restablecer
                 </a>
             </div>
@@ -398,7 +398,9 @@
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="flex-grow-1">
-                                        <div class="fw-medium">{{ task.description|u.truncate(50, '...') }}</div>
+                                        <div class="fw-medium" title="{{ task.description }}">
+                                            {{ task.description|length > 50 ? task.description|slice(0, 50) ~ '...' : task.description }}
+                                        </div>
                                         {% if task.category is defined and task.category %}
                                             <small class="text-muted">{{ task.category.name }}</small>
                                         {% endif %}
@@ -440,7 +442,7 @@
                                         {% set progress = (task.durationMin / 480) * 100 %}
                                         <div class="progress-bar bg-{{ progress > 100 ? 'danger' : 'success' }}" 
                                              role="progressbar" 
-                                             style="width: {{ progress|min(100) }}%" 
+                                             style="width: {{ min(progress, 100) }}%" 
                                              aria-valuenow="{{ progress }}" 
                                              aria-valuemin="0" 
                                              aria-valuemax="100">

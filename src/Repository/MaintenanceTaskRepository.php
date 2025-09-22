@@ -59,7 +59,7 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
             return [];
         }
         
-        // Then try a simpler query first
+        // Then try a simpler query first to get all users with tasks
         $simpleQuery = $this->createQueryBuilder('t')
             ->select('u.id as userId, u.apellido, u.nombre, COUNT(t.id) as taskCount')
             ->leftJoin('t.assignedTo', 'u')
@@ -72,27 +72,44 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         $simpleResult = $simpleQuery->getArrayResult();
         error_log('Simple Query Result: ' . print_r($simpleResult, true));
         
-        // If simple query works, try the full query
+        // Initialize result array with default values for all users
+        $result = [];
+        foreach ($simpleResult as $user) {
+            $result[$user['userId']] = [
+                'userId' => $user['userId'],
+                'apellido' => $user['apellido'],
+                'nombre' => $user['nombre'],
+                'assignedCount' => 0,
+                'completedCount' => 0,
+                'inProgressCount' => 0,
+                'avgMinutes' => 0
+            ];
+        }
+        
+        // Try to get detailed statistics
         try {
             $query = $this->createQueryBuilder('t')
                 ->select('u.id as userId, u.apellido, u.nombre,
                     COUNT(t.id) as assignedCount,
                     SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount,
                     SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount,
-                    AVG(
+                    COALESCE(AVG(
                         CASE 
-                            WHEN t.completedAt IS NOT NULL THEN 
-                                COALESCE(
-                                    TIMESTAMPDIFF(
-                                        \'MINUTE\',
-                                        COALESCE(t.startedAt, t.createdAt),
-                                        t.completedAt
-                                    ),
-                                    0
+                            WHEN t.completedAt IS NOT NULL AND t.startedAt IS NOT NULL THEN 
+                                TIMESTAMPDIFF(
+                                    \'MINUTE\',
+                                    t.startedAt,
+                                    t.completedAt
                                 )
-                            ELSE 0 
+                            WHEN t.completedAt IS NOT NULL THEN 
+                                TIMESTAMPDIFF(
+                                    \'MINUTE\',
+                                    t.createdAt,
+                                    t.completedAt
+                                )
+                            ELSE NULL
                         END
-                    ) as avgMinutes')
+                    ), 0) as avgMinutes')
                 ->leftJoin('t.assignedTo', 'u')
                 ->andWhere('t.createdAt BETWEEN :from AND :to')
                 ->groupBy('u.id')
@@ -102,32 +119,72 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
                 ->setParameter('inProgress', MaintenanceTask::STATUS_IN_PROGRESS)
                 ->getQuery();
 
-            $result = $query->getArrayResult();
-            error_log('Full Query Result: ' . print_r($result, true));
+            $detailedResults = $query->getArrayResult();
+            error_log('Detailed Query Result: ' . print_r($detailedResults, true));
             
-            return $result;
+            // Merge detailed results with default values
+            foreach ($detailedResults as $row) {
+                if (isset($result[$row['userId']])) {
+                    $result[$row['userId']] = array_merge($result[$row['userId']], $row);
+                } else {
+                    $result[$row['userId']] = array_merge([
+                        'assignedCount' => 0,
+                        'completedCount' => 0,
+                        'inProgressCount' => 0,
+                        'avgMinutes' => 0
+                    ], $row);
+                }
+            }
+            
+            return array_values($result);
+            
         } catch (\Exception $e) {
             error_log('Error in performance query: ' . $e->getMessage());
-            // Fall back to simple result if the full query fails
-            return $simpleResult;
+            
+            // If detailed query fails, ensure we have all required fields in the simple result
+            $formattedResults = [];
+            foreach ($simpleResult as $row) {
+                $formattedResults[] = [
+                    'userId' => $row['userId'],
+                    'apellido' => $row['apellido'],
+                    'nombre' => $row['nombre'],
+                    'assignedCount' => $row['taskCount'] ?? 0,
+                    'completedCount' => 0,
+                    'inProgressCount' => 0,
+                    'avgMinutes' => 0
+                ];
+            }
+            
+            return $formattedResults;
         }
     }
 
     public function getUserPerformance(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
     {
-        return $this->createQueryBuilder('t')
-            ->select('t.id, t.description, t.status, t.createdAt, t.startedAt, t.completedAt,
-                TIMESTAMPDIFF(MINUTE, COALESCE(t.startedAt, t.createdAt), t.completedAt) as durationMin')
+        // First, get the basic task data
+        $tasks = $this->createQueryBuilder('t')
+            ->select('t.id, t.description, t.status, t.createdAt, t.scheduledDate as startedAt, t.completedAt')
             ->andWhere('t.assignedTo = :user')
             ->andWhere('t.createdAt BETWEEN :from AND :to')
-            ->setParameters([
-                'user' => $user,
-                'from' => $from,
-                'to' => $to
-            ])
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
             ->orderBy('t.createdAt', 'DESC')
             ->getQuery()
             ->getArrayResult();
+
+        // Calculate duration in PHP for better compatibility
+        foreach ($tasks as &$task) {
+            if ($task['completedAt'] instanceof \DateTimeInterface) {
+                $endDate = $task['completedAt'];
+                $startDate = ($task['startedAt'] instanceof \DateTimeInterface) ? $task['startedAt'] : $task['createdAt'];
+                $task['durationMin'] = (int) (($endDate->getTimestamp() - $startDate->getTimestamp()) / 60);
+            } else {
+                $task['durationMin'] = null;
+            }
+        }
+
+        return $tasks;
     }
 
     public function findByDateRange(
