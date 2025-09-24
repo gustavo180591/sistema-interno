@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class UpdateOfficesCommand extends Command
 {
     private $entityManager;
-    
+
     // New office structure
     private $newOffices = [
         // Concejales
@@ -35,7 +35,7 @@ class UpdateOfficesCommand extends Command
         'Concejal Scromeda Luciana' => 'Concejal Scromeda Luciana',
         'Concejal Traid Laura' => 'Concejal Traid Laura',
         'Concejal Velazquez Pablo' => 'Concejal Velazquez Pablo',
-        
+
         // Direcciones
         'Dirección de Abastecimiento' => 'Dirección de Abastecimiento',
         'Dirección de Asuntos Jurídicos' => 'Dirección de Asuntos Jurídicos',
@@ -51,12 +51,12 @@ class UpdateOfficesCommand extends Command
         'Dirección de RR.HH' => 'Dirección de RR.HH',
         'Dirección de RR.PP y Ceremonial' => 'Dirección de RR.PP y Ceremonial',
         'Dirección de Salud Mental' => 'Dirección de Salud Mental',
-        
+
         // Direcciones Generales
         'Dirección General de Administración y Contabilidad' => 'Dirección General de Administración y Contabilidad',
         'Dirección General de Asuntos Legislativos y Comisiones' => 'Dirección General de Asuntos Legislativos y Comisiones',
         'Dirección General de Gestión Financiera y Administrativa' => 'Dirección General de Gestión Financiera y Administrativa',
-        
+
         // Departamentos
         'Departamento de Archivos' => 'Departamento de Archivos',
         'Departamento de Asuntos Legislativos' => 'Departamento de Asuntos Legislativos',
@@ -67,7 +67,7 @@ class UpdateOfficesCommand extends Command
         'Departamento de Mesa de Entradas y Salidas' => 'Departamento de Mesa de Entradas y Salidas',
         'Departamento de Reconocimiento Médico' => 'Departamento de Reconocimiento Médico',
         'Departamento de Sumario' => 'Departamento de Sumario',
-        
+
         // Secciones
         'Sección Biblioteca' => 'Sección Biblioteca',
         'Sección Computos' => 'Sección Computos',
@@ -80,7 +80,7 @@ class UpdateOfficesCommand extends Command
         'Sección Servicios Generales' => 'Sección Servicios Generales',
         'Sección Sumario' => 'Sección Sumario',
         'Sección Suministro' => 'Sección Suministro',
-        
+
         // Otras áreas
         'Agenda HCD' => 'Agenda HCD',
         'Coordinación de Jurídico y Administración' => 'Coordinación de Jurídico y Administración',
@@ -108,11 +108,11 @@ class UpdateOfficesCommand extends Command
         // Remove all existing offices
         $existingOffices = $this->entityManager->getRepository(Office::class)->findAll();
         $removed = count($existingOffices);
-        
+
         foreach ($existingOffices as $office) {
             $this->entityManager->remove($office);
         }
-        
+
         if ($removed > 0) {
             $this->entityManager->flush();
             $io->writeln(sprintf('  - Removed %d existing offices', $removed));
@@ -120,12 +120,12 @@ class UpdateOfficesCommand extends Command
 
         // Create new offices
         $created = 0;
-        
+
         foreach ($this->newOffices as $name => $location) {
             $office = new Office();
             $office->setName($name);
             $office->setLocation($location);
-            
+
             $this->entityManager->persist($office);
             $io->writeln(sprintf('  - Created office: %s', $name));
             $created++;

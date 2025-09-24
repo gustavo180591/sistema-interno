@@ -10,6 +10,7 @@ use App\Entity\User;
 use App\Form\TicketType;
 use App\Repository\TicketRepository;
 use App\Repository\UserRepository;
+use App\Repository\TicketAssignmentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -26,6 +27,236 @@ class TicketController extends AbstractController
     private const STATUS_IN_PROGRESS = 'in_progress';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_REJECTED = 'rejected';
+    private const STATUS_DELAYED = 'delayed';
+    
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly EntityManagerInterface $em,
+        private readonly TicketRepository $ticketRepository,
+        private readonly TicketAssignmentRepository $ticketAssignmentRepository,
+        private readonly UserRepository $userRepository
+    ) {}
+    
+    #[Route('/tickets', name: 'ticket_index')]
+    public function index(Request $request, \Knp\Component\Pager\PaginatorInterface $paginator): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        
+        $page = $request->query->getInt('page', 1);
+        $limit = $request->query->getInt('per_page', 10);
+        $status = $request->query->get('status');
+        $search = $request->query->get('search');
+        $area = $request->query->get('area');
+        $sort = $request->query->get('sort', 'createdAt');
+        $direction = $request->query->get('direction', 'DESC');
+        
+        // Validate and sanitize inputs
+        $limit = max(5, min(100, $limit));
+        $validSorts = ['id', 'title', 'status', 'area_origen', 'createdAt'];
+        $sort = in_array($sort, $validSorts) ? $sort : 'createdAt';
+        $direction = strtoupper($direction) === 'ASC' ? 'ASC' : 'DESC';
+        
+        // Initialize the count query builder
+        $countQb = $this->em->createQueryBuilder()
+            ->select('COUNT(t.id) as count')
+            ->from(Ticket::class, 't')
+            ->leftJoin('t.ticketAssignments', 'ta')
+            ->leftJoin('ta.user', 'assignedUser');
+            
+        // Apply the same filters to the count query
+        if ($status) {
+            $countQb->andWhere('t.status = :status')
+                   ->setParameter('status', $status);
+        }
+        
+        // Get the total count after applying status filter
+        $totalTickets = (int) $countQb->getQuery()->getSingleScalarResult();
+        
+        if ($search) {
+            $countQb->andWhere(
+                $countQb->expr()->orX(
+                    $countQb->expr()->like('t.title', ':search'),
+                    $countQb->expr()->like('t.description', ':search'),
+                    $countQb->expr()->like('t.idSistemaInterno', ':search')
+                )
+            )->setParameter('search', '%' . $search . '%');
+        }
+        
+        if ($area) {
+            $countQb->andWhere('t.area_origen = :area')
+                   ->setParameter('area', $area);
+        }
+        
+        // Apply access control to count query
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            $countQb->andWhere(
+                $countQb->expr()->orX(
+                    $countQb->expr()->eq('t.createdBy', ':currentUser'),
+                    $countQb->expr()->eq('assignedUser', ':currentUser')
+                )
+            )->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Use the pre-calculated total
+        
+        // Build the main query for pagination - only non-archived tickets
+        $qb = $this->em->createQueryBuilder()
+            ->select('t')
+            ->from(Ticket::class, 't')
+            ->leftJoin('t.createdBy', 'createdBy')
+            ->leftJoin('t.ticketAssignments', 'ta')
+            ->leftJoin('ta.user', 'assignedUser')
+            ->where('t.status != :archived')
+            ->setParameter('archived', 'archived')
+            ->groupBy('t.id');
+            
+        // Apply filters
+        if ($status) {
+            $qb->andWhere('t.status = :status')
+               ->setParameter('status', $status);
+        }
+        
+        if ($search) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->like('t.title', ':search'),
+                    $qb->expr()->like('t.description', ':search'),
+                    $qb->expr()->like('t.idSistemaInterno', ':search')
+                )
+            )->setParameter('search', '%' . $search . '%');
+        }
+        
+        if ($area) {
+            $qb->andWhere('t.area_origen = :area')
+               ->setParameter('area', $area);
+        }
+        
+        // Apply sorting
+        $validSorts = ['id', 'title', 'status', 'area_origen', 'createdAt'];
+        $sort = in_array($sort, $validSorts) ? $sort : 'createdAt';
+        $direction = in_array(strtoupper($direction), ['ASC', 'DESC']) ? $direction : 'DESC';
+        
+        // Special handling for relations
+        if ($sort === 'createdBy') {
+            $qb->addSelect('createdBy')
+               ->orderBy('createdBy.apellido', $direction);
+        } else {
+            $qb->orderBy('t.' . $sort, $direction);
+        }
+        
+        // Apply access control
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('t.createdBy', ':currentUser'),
+                    $qb->expr()->eq('assignedUser', ':currentUser')
+                )
+            )->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Create base query builder
+        $qb = $this->ticketRepository->createQueryBuilder('t')
+            ->leftJoin('t.createdBy', 'createdBy')
+            ->leftJoin('t.ticketAssignments', 'ta')
+            ->leftJoin('ta.user', 'assignedUser')
+            ->where('t.status != :archived')
+            ->setParameter('archived', 'archived');
+            
+        // Apply filters
+        if ($status) {
+            $qb->andWhere('t.status = :status')
+               ->setParameter('status', $status);
+        }
+        
+        if ($search) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->like('t.title', ':search'),
+                    $qb->expr()->like('t.description', ':search'),
+                    $qb->expr()->like('t.idSistemaInterno', ':search')
+                )
+            )->setParameter('search', '%' . $search . '%');
+        }
+        
+        if ($area) {
+            $qb->andWhere('t.area_origen = :area')
+               ->setParameter('area', $area);
+        }
+        
+        // Apply access control
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    $qb->expr()->eq('t.createdBy', ':currentUser'),
+                    $qb->expr()->eq('assignedUser', ':currentUser')
+                )
+            )->setParameter('currentUser', $this->getUser());
+        }
+        
+        // Get total count
+        $totalTickets = (clone $qb)
+            ->select('COUNT(DISTINCT t.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+        
+        // Apply sorting
+        if ($sort === 'createdBy') {
+            $qb->orderBy('createdBy.apellido', $direction);
+        } else {
+            $qb->orderBy('t.' . $sort, $direction);
+        }
+        
+        // Apply pagination
+        $offset = ($page - 1) * $limit;
+        $tickets = $qb->select('t', 'createdBy', 'ta', 'assignedUser')
+            ->distinct()
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+        
+        // Prepare pagination data for the template
+        $pagination = [
+            'items' => $tickets,
+            'total' => (int)$totalTickets,
+            'per_page' => $limit,
+            'current_page' => $page,
+            'last_page' => max(1, ceil($totalTickets / $limit)),
+            'from' => $totalTickets > 0 ? $offset + 1 : 0,
+            'to' => $totalTickets > 0 ? min($offset + $limit, $totalTickets) : 0,
+            'has_more' => ($page * $limit) < $totalTickets
+        ];
+        
+        // Get unique areas for filter
+        $areas = $this->em->createQueryBuilder()
+            ->select('DISTINCT t.area_origen')
+            ->from(Ticket::class, 't')
+            ->where('t.area_origen IS NOT NULL')
+            ->andWhere('t.area_origen != :empty')
+            ->setParameter('empty', '')
+            ->orderBy('t.area_origen', 'ASC')
+            ->getQuery()
+            ->getResult();
+            
+        $users = $this->userRepository->findBy(['isActive' => true], ['apellido' => 'ASC', 'nombre' => 'ASC']);
+        
+        return $this->render('ticket/index.html.twig', [
+            'tickets' => $pagination['items'],
+            'pagination' => $pagination,
+            'areas' => $areas,
+            'sort' => $sort,
+            'direction' => $direction,
+            'users' => $users, // Add users to the template context
+            'current_filters' => [
+                'status' => $status,
+                'search' => $search,
+                'area' => $area,
+                'sort' => $sort,
+                'direction' => $direction,
+            ],
+            'total_tickets' => $pagination['total'], // Use the total from pagination array
+        ]);
+    }
 
     /**
      * Get list of users for assignment
@@ -34,9 +265,9 @@ class TicketController extends AbstractController
     public function getUsersList(UserRepository $userRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         $users = $userRepository->findAllActiveUsers();
-        
+
         $userData = array_map(function($user) {
             return [
                 'id' => $user->getId(),
@@ -57,18 +288,18 @@ class TicketController extends AbstractController
     public function ticketDistributionChart(TicketRepository $ticketRepository): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         return $this->render('ticket/distribution.html.twig');
     }
-    
+
     #[Route('/tickets/distribution/data', name: 'ticket_distribution_data')]
     public function ticketDistributionData(TicketRepository $ticketRepository): JsonResponse
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        
+
         $statusCounts = $ticketRepository->countTicketsByStatus();
         $areaCounts = $ticketRepository->countTicketsByArea();
-        
+
         return $this->json([
             'status' => [
                 'labels' => array_map([$this, 'getStatusLabel'], array_keys($statusCounts)),
@@ -104,10 +335,6 @@ class TicketController extends AbstractController
             self::STATUS_REJECTED => 'rechazado'
         ][$status] ?? 'desconocido';
     }
-    private LoggerInterface $logger;
-    private EntityManagerInterface $em;
-    private TicketRepository $ticketRepository;
-    private UserRepository $userRepository;
 
     /**
      * @Route("/tickets/{id}/update-observation", name="ticket_update_observation", methods={"POST"})
@@ -139,17 +366,6 @@ class TicketController extends AbstractController
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
-    public function __construct(
-        LoggerInterface $logger,
-        EntityManagerInterface $entityManager,
-        TicketRepository $ticketRepository,
-        UserRepository $userRepository
-    ) {
-        $this->logger = $logger;
-        $this->em = $entityManager; // Using $em as the property name for consistency
-        $this->ticketRepository = $ticketRepository;
-        $this->userRepository = $userRepository;
-    }
 
     #[Route('/tickets/{id}/propose-status/{status}', name: 'ticket_propose_status', methods: ['POST'])]
     #[IsGranted('propose_status', 'ticket')]
@@ -517,160 +733,6 @@ class TicketController extends AbstractController
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
-    #[Route('/tickets/{id}/take', name: 'ticket_take', methods: ['POST'])]
-    #[IsGranted('ROLE_USER')]
-    public function takeTicket(Ticket $ticket, Request $request): Response
-    {
-        $user = $this->getUser();
-
-        // Check if the ticket is already taken
-        if ($ticket->getTakenBy()) {
-            $this->addFlash('warning', 'Este ticket ya ha sido tomado por otro usuario.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        // Set the current user as the taker
-        $ticket->setTakenBy($user);
-        $ticket->setStatus(self::STATUS_IN_PROGRESS);
-
-        $this->em->persist($ticket);
-        $this->em->flush();
-
-        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-    }
-
-    #[Route('/tickets', name: 'ticket_index')]
-    #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function index(Request $request): Response
-    {
-        $page = max(1, $request->query->getInt('page', 1));
-        $limit = $request->query->getInt('per_page', 10); // Tickets por página
-        $offset = ($page - 1) * $limit;
-
-        // Filtros
-        $status = $request->query->get('status');
-        $search = $request->query->get('search');
-        $area = $request->query->get('area');
-        $sortBy = $request->query->get('sort', 't.id');
-        $sortOrder = $request->query->get('order', 'DESC');
-
-        // Construir la consulta
-        $qb = $this->em->createQueryBuilder()
-            ->select('t', 'createdBy', 'ta', 'assignedUser')
-            ->from(Ticket::class, 't')
-            ->leftJoin('t.createdBy', 'createdBy')
-            ->leftJoin('t.ticketAssignments', 'ta')
-            ->leftJoin('ta.user', 'assignedUser')
-            ->addSelect('ta', 'assignedUser')
-            ->orderBy($sortBy, $sortOrder);
-
-        // Aplicar filtros
-        if ($status) {
-            $qb->andWhere('t.status = :status')
-               ->setParameter('status', $status);
-        }
-
-        if ($area) {
-            $qb->andWhere('t.areaOrigen = :area')
-               ->setParameter('area', $area);
-        }
-
-        if ($search) {
-            $qb->andWhere(
-                $qb->expr()->orX(
-                    $qb->expr()->like('t.title', ':search'),
-                    $qb->expr()->like('t.description', ':search'),
-                    $qb->expr()->like('t.idSistemaInterno', ':search'),
-                    $qb->expr()->like('createdBy.username', ':search'),
-                    $qb->expr()->like('createdBy.apellido', ':search')
-                )
-            )
-            ->setParameter('search', '%' . $search . '%');
-        }
-
-        if ($area && $area !== 'all') {
-            $qb->andWhere('t.areaOrigen = :area')
-               ->setParameter('area', $area);
-        }
-
-        // Aplicar ordenamiento
-        $validSortFields = ['createdAt', 'title', 'status', 'areaOrigen'];
-        $sortBy = in_array($sortBy, $validSortFields) ? $sortBy : 'createdAt';
-        $sortOrder = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
-
-        $qb->orderBy('t.' . $sortBy, $sortOrder);
-
-        // Mostrar todos los tickets a administradores y auditores
-        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
-            // Para usuarios normales, solo mostrar tickets creados por ellos o asignados a ellos
-            $qb->andWhere(
-                $qb->expr()->orX(
-                    $qb->expr()->eq('t.createdBy', ':currentUser'),
-                    $qb->expr()->eq('assignedUser', ':currentUser')
-                )
-            )
-            ->setParameter('currentUser', $this->getUser());
-        }
-
-        // Contar total de tickets
-        $countQb = clone $qb;
-        $totalTickets = $countQb->select('COUNT(DISTINCT t.id)')->getQuery()->getSingleScalarResult();
-
-        // Aplicar paginación
-        $qb->setFirstResult($offset)
-           ->setMaxResults($limit);
-
-        // Obtener los tickets con los joins necesarios
-        $tickets = $qb->getQuery()->getResult();
-
-        // Obtener usuarios para el modal de asignación
-        $users = $this->userRepository->findAll();
-
-        // Obtener áreas únicas para filtros
-        $areas = $this->em->createQueryBuilder()
-            ->select('DISTINCT t.areaOrigen')
-            ->from(Ticket::class, 't')
-            ->where('t.areaOrigen IS NOT NULL')
-            ->andWhere('t.areaOrigen != :empty')
-            ->setParameter('empty', '')
-            ->orderBy('t.areaOrigen', 'ASC')
-            ->getQuery()
-            ->getResult();
-        $areas = array_column($areas, 'areaOrigen');
-
-        // Calcular estadísticas
-        $stats = [
-            'total' => $totalTickets,
-            'pending' => $this->em->getRepository(Ticket::class)->count(['status' => 'pending']),
-            'in_progress' => $this->em->getRepository(Ticket::class)->count(['status' => 'in_progress']),
-            'completed' => $this->em->getRepository(Ticket::class)->count(['status' => 'completed']),
-            'rejected' => $this->em->getRepository(Ticket::class)->count(['status' => 'rejected']),
-            'delayed' => $this->em->getRepository(Ticket::class)->count(['status' => 'delayed']),
-        ];
-
-        // Calcular páginas
-        $totalPages = ceil($totalTickets / $limit);
-
-        return $this->render('ticket/index.html.twig', [
-            'tickets' => $tickets,
-            'users' => $users,
-            'areas' => $areas,
-            'stats' => $stats,
-            'pagination' => [
-                'current' => $page,
-                'total' => $totalPages,
-                'per_page' => $limit,
-                'total_items' => $totalTickets,
-            ],
-            'filters' => [
-                'status' => $status,
-                'search' => $search,
-                'area' => $area,
-                'sort' => $sortBy,
-                'order' => $sortOrder,
-            ],
-        ]);
-    }
 
     #[Route('/tickets/new', name: 'ticket_new')]
     public function new(Request $request, UserRepository $userRepository): Response
@@ -683,6 +745,35 @@ class TicketController extends AbstractController
 
         $ticket = new Ticket();
         $ticket->setCreatedBy($this->getUser());
+        
+        // Handle external ID from request before creating the form
+        $ticketData = $request->request->all('ticket');
+        $externalId = isset($ticketData['idSistemaInterno']) ? trim($ticketData['idSistemaInterno']) : '';
+        
+        // If external ID is provided, check for duplicates before form validation
+        if (!empty($externalId)) {
+            $existingTicket = $this->ticketRepository->findOneBy(['idSistemaInterno' => $externalId]);
+            if ($existingTicket) {
+                $this->addFlash('error', 'El ID Externo ingresado ya está en uso. Por favor, ingrese un ID único.');
+                // Recreate the form with submitted data
+                $form = $this->createForm(TicketType::class, $ticket, [
+                    'is_admin' => $this->isGranted('ROLE_ADMIN'),
+                    'is_new_ticket' => true
+                ]);
+                $form->handleRequest($request);
+                
+                return $this->render('ticket/new.html.twig', [
+                    'ticket' => $ticket,
+                    'form' => $form->createView(),
+                    'users' => $userRepository->findAll(),
+                    'assigned_users' => []
+                ]);
+            }
+            
+            // If we get here, the external ID is valid and unique
+            $ticket->setIdSistemaInterno($externalId);
+            $this->logger->info('Using provided external ID: ' . $externalId);
+        }
 
         $form = $this->createForm(TicketType::class, $ticket, [
             'is_admin' => $this->isGranted('ROLE_ADMIN'),
@@ -692,49 +783,97 @@ class TicketController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Check for duplicate external ID
-            $externalId = $ticket->getIdSistemaInterno();
-            if ($externalId) {
-                $existingTicket = $this->ticketRepository->findOneBy(['idSistemaInterno' => $externalId]);
-                if ($existingTicket) {
-                    $this->addFlash('error', 'El ID Externo ingresado ya está en uso. Por favor, ingrese un ID único.');
-                    return $this->render('ticket/new.html.twig', [
-                        'ticket' => $ticket,
-                        'form' => $form->createView(),
-                    ]);
-                }
-            }
-
-            // Handle multiple user assignments
+            // Check if there are any assigned users
             $assignedUsers = $form->get('assignedUsers')->getData();
             
-            if ($assignedUsers && count($assignedUsers) > 0) {
+            // If there are assigned users, update status to IN_PROGRESS
+            if (count($assignedUsers) > 0) {
+                $ticket->setStatus(Ticket::STATUS_IN_PROGRESS);
+                
+                // Add assigned users to the ticket
                 foreach ($assignedUsers as $user) {
-                    $assignment = new TicketAssignment();
-                    $assignment->setTicket($ticket);
-                    $assignment->setUser($user);
-                    $assignment->setAssignedAt(new \DateTimeImmutable());
-                    $this->em->persist($assignment);
-                    
-                    // Add to formAssignedUsers for any immediate use
-                    $ticket->addFormAssignedUser($user);
+                    $ticket->addAssignedTo($user);
                 }
+            } else {
+                $ticket->setStatus(Ticket::STATUS_PENDING);
             }
             
+            try {
+                // If no external ID was provided, generate an internal one
+                if (empty($externalId)) {
+                    // Start a transaction for ID generation
+                    $this->em->beginTransaction();
+                    
+                    // Get the maximum internal ticket number with INT- prefix
+                    $conn = $this->em->getConnection();
+                    $sql = "SELECT id_sistema_interno FROM ticket WHERE id_sistema_interno LIKE 'INT-%' ORDER BY id DESC LIMIT 1";
+                    $stmt = $conn->prepare($sql);
+                    $result = $stmt->executeQuery();
+                    $lastId = $result->fetchOne();
+                    
+                    // Extract the highest number
+                    $nextNumber = 1;
+                    if ($lastId && preg_match('/^INT-(\d+)$/', $lastId, $matches)) {
+                        $nextNumber = (int)$matches[1] + 1;
+                    }
+                    
+                    // Set the new ID in format INT-1, INT-2, etc.
+                    $newId = 'INT-' . $nextNumber;
+                    $ticket->setIdSistemaInterno($newId);
+                    
+                    // Debug: Log the generated ID
+                    $this->logger->info('Generated new internal ticket ID: ' . $newId);
+                    
+                    $this->em->commit();
+                }
+            } catch (\Exception $e) {
+                if ($this->em->getConnection()->isTransactionActive()) {
+                    $this->em->rollback();
+                }
+                
+                $this->logger->error('Error processing ticket ID: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+                
+                $this->addFlash('error', 'Error al procesar el ID del ticket: ' . $e->getMessage());
+                
+                return $this->render('ticket/new.html.twig', [
+                    'ticket' => $ticket,
+                    'form' => $form->createView(),
+                ]);
+            }
+
+            // Log the final state before saving
+            $this->logger->info('Final ticket state before save:', [
+                'ticketId' => $ticket->getId(),
+                'status' => $ticket->getStatus(),
+                'assignedUsers' => $ticket->getAssignedUsers()->map(fn($u) => $u->getId())->toArray()
+            ]);
+
+            // Final save with all changes
             $this->em->persist($ticket);
             $this->em->flush();
 
-            $this->addFlash('success', 'Ticket creado exitosamente.');
+            $this->addFlash('success', '¡Ticket creado exitosamente!');
             return $this->redirectToRoute('ticket_index');
         }
 
         // Get all users for the assign modal
         $users = $userRepository->findAll();
-        
+
+        // Get any previously assigned users from session
+        $assignedUsers = [];
+        if ($request->getSession()->has('last_assigned_users')) {
+            $assignedUserIds = $request->getSession()->get('last_assigned_users');
+            $assignedUsers = $userRepository->findBy(['id' => $assignedUserIds]);
+            $request->getSession()->remove('last_assigned_users');
+        }
+
         return $this->render('ticket/new.html.twig', [
             'form' => $form->createView(),
             'users' => $users,
-        ]);
+            'assigned_users' => $assignedUsers,
+       ]);
     }
 
     #[Route('/tickets/assign', name: 'ticket_assign', methods: ['POST'])]
@@ -742,7 +881,6 @@ class TicketController extends AbstractController
     public function assign(Request $request): Response
     {
         $this->logger->info('=== TICKET ASSIGNMENT START ===');
-
         try {
             // Log request details
             $this->logger->info('Request method: ' . $request->getMethod());
@@ -781,18 +919,25 @@ class TicketController extends AbstractController
             $this->logger->info('Processing assignment for ticket: ' . $ticketId);
             $this->logger->info('Selected users: ' . print_r($userIds, true));
 
-            // Check if ticket already has assignments
-            if (count($ticket->getTicketAssignments()) > 0) {
-                $this->logger->warning('Ticket already has assignments');
-                $this->addFlash('warning', 'Este ticket ya ha sido asignado anteriormente. No se puede asignar nuevamente.');
-                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+            // Get existing assignments to prevent duplicates
+            $existingAssignments = [];
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                $existingAssignments[$assignment->getUser()->getId()] = true;
             }
 
             // Process user assignments
             $assignedUsers = [];
+            $newAssignments = 0;
+            
             foreach ($userIds as $userId) {
                 $user = $this->userRepository->find($userId);
                 if ($user) {
+                    // Skip if user is already assigned
+                    if (isset($existingAssignments[$user->getId()])) {
+                        $this->logger->info(sprintf('User %s is already assigned to ticket %s', $user->getId(), $ticketId));
+                        continue;
+                    }
+                    
                     $assignedUsers[] = $user;
 
                     // Create new assignment
@@ -802,15 +947,24 @@ class TicketController extends AbstractController
                     $assignment->setAssignedAt(new \DateTimeImmutable());
 
                     $this->em->persist($assignment);
+                    $newAssignments++;
                 }
             }
-
-            // Update ticket status if needed
-            if (count($assignedUsers) > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
-                $ticket->setStatus(self::STATUS_IN_PROGRESS);
-                $this->em->persist($ticket);
+            
+            if ($newAssignments === 0) {
+                $this->logger->warning('No new users to assign to ticket');
+                $this->addFlash('warning', 'Los usuarios seleccionados ya están asignados a este ticket.');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
 
+            // Update ticket status based on assignments
+            if (count($ticket->getTicketAssignments()) > 0) {
+                $ticket->setStatus(self::STATUS_IN_PROGRESS);
+            } else {
+                $ticket->setStatus(self::STATUS_PENDING);
+            }
+
+            $this->em->persist($ticket);
             $this->em->flush();
 
             $this->logger->info('Successfully assigned users to ticket: ' . $ticketId);
@@ -823,12 +977,12 @@ class TicketController extends AbstractController
             ]);
 
             $this->addFlash('danger', 'Error al asignar usuarios al ticket: ' . $e->getMessage());
-            
+
             // If we have a valid ticket ID, redirect to the ticket, otherwise go to ticket list
             if (isset($ticketId) && $ticket = $this->ticketRepository->find($ticketId)) {
                 return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
-            
+
             return $this->redirectToRoute('ticket_index');
         }
 
@@ -836,7 +990,7 @@ class TicketController extends AbstractController
         if (isset($ticket) && $ticket instanceof Ticket) {
             return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
         }
-        
+
         // Fallback to ticket list if we can't determine the ticket
         return $this->redirectToRoute('ticket_index');
     }
@@ -852,7 +1006,10 @@ class TicketController extends AbstractController
         // Get notes ordered by creation date (newest first)
         $notes = $ticket->getNotes()->toArray();
         usort($notes, function($a, $b) {
-            return $b->getCreatedAt() <=> $a->getCreatedAt();
+            if ($a->getCreatedAt() === $b->getCreatedAt()) {
+                return 0;
+            }
+            return ($a->getCreatedAt() < $b->getCreatedAt()) ? 1 : -1;
         });
 
         // Filter users by role
@@ -875,6 +1032,13 @@ class TicketController extends AbstractController
                     break;
                 }
             }
+        }
+
+        // Ensure ticket status is in sync with assignments
+        if ($ticket->getTicketAssignments()->count() > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
+            $ticket->setStatus(self::STATUS_IN_PROGRESS);
+            $this->em->persist($ticket);
+            $this->em->flush();
         }
 
         return $this->render('ticket/show.html.twig', [
@@ -914,6 +1078,12 @@ class TicketController extends AbstractController
         }
         $this->denyAccessUnlessGranted('complete', $ticket);
 
+        // Optional CSRF validation scoped to a dedicated field to avoid collisions with other forms
+        $submittedToken = $request->request->get('_complete_token');
+        if ($submittedToken !== null && !$this->isCsrfTokenValid('ticket_complete_' . $ticket->getId(), $submittedToken)) {
+            throw $this->createAccessDeniedException('Token CSRF inválido');
+        }
+
         $notes = $request->request->get('notes', '');
 
         // Update the ticket's description with the completion notes
@@ -926,6 +1096,21 @@ class TicketController extends AbstractController
 
         $this->addFlash('success', 'El ticket ha sido marcado como completado.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
+    #[Route('/tickets/{id}/complete/confirm', name: 'ticket_complete_confirm', methods: ['GET'])]
+    public function completeConfirm(Ticket $ticket): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
+        }
+
+        // Reuse voter to ensure consistent rules
+        $this->denyAccessUnlessGranted('complete', $ticket);
+
+        return $this->render('ticket/complete_confirm.html.twig', [
+            'ticket' => $ticket,
+        ]);
     }
 
     #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]

@@ -1,173 +1,55 @@
-{% extends 'base.html.twig' %}
+{% extends 'maintenance/base.html.twig' %}
 
-{% block title %}Rendimiento de Personal{% endblock %}
+{% block title %}Dashboard de Rendimiento{% endblock %}
+
+{% block page_title %}
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" href="#personal" data-bs-toggle="tab">Rendimiento del Personal</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="#equipo" data-bs-toggle="tab">Rendimiento del Equipo</a>
+        </li>
+    </ul>
+{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
     <style>
+        .kpi-card { border-left: 4px solid; }
+        .kpi-card .card-title { font-size: 0.9rem; margin-bottom: 0.5rem; }
         .kpi-card .display-6 { font-weight: 600; }
-        .avatar-sm { 
-            width: 36px; 
-            height: 36px; 
-            border-radius: 50%; 
-            display: inline-flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: #e9ecef; 
-        }
-        .progress { height: 0.5rem; }
-        .table th { font-weight: 600; }
+        .progress { height: 6px; }
+        .progress-sm { height: 4px; }
+        .table th { font-weight: 600; white-space: nowrap; }
+        .score-badge { min-width: 60px; }
     </style>
 {% endblock %}
 
-{% block body %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h4 mb-0"><i class="fas fa-chart-line me-2 text-warning"></i>Rendimiento de Personal</h1>
-    <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i> Volver al Inicio
-    </a>
-</div>
-
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Desde</label>
-                <input type="date" class="form-control" name="from" value="{{ from|date('Y-m-d') }}" required>
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-end mb-3">
+        <form method="get" class="row g-2">
+            <div class="col-auto">
+                <input type="date" name="from" value="{{ from|date('Y-m-d') }}" class="form-control form-control-sm">
             </div>
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Hasta</label>
-                <input type="date" class="form-control" name="to" value="{{ to|date('Y-m-d') }}" required>
+            <div class="col-auto">
+                <input type="date" name="to" value="{{ to|date('Y-m-d') }}" class="form-control form-control-sm">
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">
+            <div class="col-auto">
+                <button class="btn btn-sm btn-primary">
                     <i class="fas fa-filter me-1"></i>Filtrar
                 </button>
             </div>
-            <div class="col-md-2">
-                <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary w-100">
-                    <i class="fas fa-sync-alt me-1"></i>Restablecer
-                </a>
-            </div>
         </form>
     </div>
-</div>
 
-<div class="card mb-4">
-    <div class="card-header bg-white">
-        <h5 class="mb-0">Resumen de Rendimiento</h5>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Usuario</th>
-                    <th class="text-center">Asignadas</th>
-                    <th class="text-center">Completadas</th>
-                    <th class="text-center">En Progreso</th>
-                    <th class="text-center">Promedio (min)</th>
-                    <th class="text-center">Efectividad</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if summary|length > 0 %}
-                    {% set totalAssigned = 0 %}
-                    {% set totalCompleted = 0 %}
-                    {% set totalInProgress = 0 %}
-                    
-                    {% for user in summary %}
-                        {% set assignedCount = user.assignedCount is defined ? user.assignedCount : (user.taskCount is defined ? user.taskCount : 0) %}
-                        {% set completedCount = user.completedCount is defined ? user.completedCount : 0 %}
-                        {% set inProgressCount = user.inProgressCount is defined ? user.inProgressCount : 0 %}
-                        
-                        {% set totalAssigned = totalAssigned + assignedCount %}
-                        {% set totalCompleted = totalCompleted + completedCount %}
-                        {% set totalInProgress = totalInProgress + inProgressCount %}
-                        
-                        <tr>
-                            <td class="fw-medium">
-                                <i class="fas fa-user-circle me-2 text-primary"></i>
-                                {{ user.apellido }}, {{ user.nombre }}
-                            </td>
-                            <td class="text-center">{{ assignedCount }}</td>
-                            <td class="text-center">
-                                <span class="badge bg-success bg-opacity-10 text-success">
-                                    {{ completedCount }}
-                                </span>
-                            </td>
-                            <td class="text-center">
-                                <span class="badge bg-primary bg-opacity-10 text-primary">
-                                    {{ inProgressCount }}
-                                </span>
-                            </td>
-                            <td class="text-center fw-medium">
-                                {{ user.avgMinutes ? user.avgMinutes|number_format(1, ',', '.') : '-' }}
-                            </td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                                        {% set effectiveness = (completedCount / (assignedCount ?: 1)) * 100 %}
-                                        <div class="progress-bar bg-{{ effectiveness > 80 ? 'success' : (effectiveness > 50 ? 'warning' : 'danger') }}" 
-                                             role="progressbar" 
-                                             style="width: {{ min(effectiveness, 100) }}%" 
-                                             aria-valuenow="{{ effectiveness }}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                        </div>
-                                    </div>
-                                    <span class="small fw-medium">{{ effectiveness|number_format(1) }}%</span>
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <a href="{{ path('admin_performance_user', {'id': user.userId, 'from': from|date('Y-m-d'), 'to': to|date('Y-m-d')}) }}" 
-                                   class="btn btn-sm btn-outline-primary"
-                                   title="Ver detalles del usuario">
-                                    <i class="fas fa-eye"></i> Detalles
-                                </a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    
-                    <!-- Total row -->
-                    <tr class="table-light fw-bold">
-                        <td>Total</td>
-                        <td class="text-center">{{ totalAssigned }}</td>
-                        <td class="text-center">{{ totalCompleted }}</td>
-                        <td class="text-center">{{ totalInProgress }}</td>
-                        <td class="text-center">-</td>
-                        <td>
-                            <div class="d-flex align-items-center">
-                                <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                                    {% set totalEffectiveness = totalAssigned > 0 ? (totalCompleted / totalAssigned) * 100 : 0 %}
-                                    <div class="progress-bar bg-{{ totalEffectiveness > 80 ? 'success' : (totalEffectiveness > 50 ? 'warning' : 'danger') }}" 
-                                         role="progressbar" 
-                                         style="width: {{ min(totalEffectiveness, 100) }}%" 
-                                         aria-valuenow="{{ totalEffectiveness }}" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                    </div>
-                                </div>
-                                <span class="small fw-bold">{{ totalEffectiveness|number_format(1) }}%</span>
-                            </div>
-                        </td>
-                        <td></td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center py-5 text-muted">
-                            <div class="mb-2">
-                                <i class="fas fa-inbox fa-3x opacity-25 mb-3"></i>
-                            </div>
-                            <h6 class="mb-1">No hay datos disponibles</h6>
-                            <p class="small mb-0">No se encontraron registros para el rango de fechas seleccionado.</p>
-                        </td>
-                    </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-</div>
+    <div class="tab-content">
+        <!-- Pestaña de Rendimiento del Personal -->
+        <div class="tab-pane fade show active" id="personal">
+
+
+ 
 
 <div class="row g-3 mb-3 d-none">
     <div class="col-lg-6">
@@ -195,176 +77,295 @@
             <thead>
                 <tr>
                     <th>Usuario</th>
-                    <th class="text-center">Tareas</th>
                     <th class="text-center">Tickets</th>
                     <th class="text-center">Rendimiento</th>
                     <th class="text-center">Detalle</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody>
+            {% for r in ranking %}
+                {% set s = r.score %}
+                <tr>
+                    <td>
+                        <div class="fw-semibold">{{ r.nombre }} {{ r.apellido }}</div>
+                        <div class="text-muted small">{{ r.username }}</div>
+                    </td>
+                    <td class="text-center">
+                        <div>
+                            <span class="fw-semibold">Asignados:</span> {{ r.ticketsAssigned|default(0) }} · <span class="fw-semibold">Completados:</span> {{ r.ticketsCompleted|default(0) }}
+                        </div>
+                        <div class="text-muted small">
+                            {% set avgMin = r.ticketAvgResolutionMin|default(0) %}
+                            {% set hours = (avgMin / 60)|round(0, 'floor') %}
+                            {% set mins = (avgMin - (hours * 60))|round(0, 'floor') %}
+                            Prom. Resolución: {{ hours }}h {{ mins }}m
+                        </div>
+                    </td>
+                    <td class="text-center" style="min-width: 220px;">
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center">
+                                <div class="text-muted small me-2">Rendimiento</div>
+                                <div class="position-relative flex-grow-1">
+                                    <!-- Barra de fondo gris -->
+                                    <div class="progress" style="height: 12px; background-color: #e9ecef;">
+                                        <div class="position-absolute w-100 d-flex">
+                                            <div class="border-end" style="width: 20%; height: 12px;"></div>
+                                            <div class="border-end" style="width: 20%; height: 12px;"></div>
+                                            <div class="border-end" style="width: 20%; height: 12px;"></div>
+                                            <div class="border-end" style="width: 20%; height: 12px;"></div>
+                                            <div style="width: 20%; height: 12px;"></div>
+                                        </div>
+                                        <!-- Barra de progreso con color -->
+                                        <div class="progress-bar bg-{{ s.final > 80 ? 'success' : (s.final > 60 ? 'warning' : 'danger') }}" 
+                                             style="width: {{ s.final }}%; position: absolute; top: 0; left: 0;"
+                                             data-bs-toggle="tooltip" 
+                                             data-bs-placement="top" 
+                                             title="Puntuación: {{ s.final|number_format(1) }}% | Prod: {{ s.prod|number_format(1) }}% | Calidad: {{ s.calidad|number_format(1) }}% | Colab: {{ s.colaboracion|number_format(1) }}%">
+                                        </div>
+                                        <!-- Marcador de porcentaje -->
+                                        <div class="position-absolute" style="left: {{ s.final }}%; top: -5px;">
+                                            <div class="position-relative">
+                                                <div class="position-absolute" style="left: -10px; top: 100%; font-size: 10px; white-space: nowrap;">
+                                                    {{ s.final|number_format(0) }}%
+                                                </div>
+                                                <div style="width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #000; margin: 0 auto;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="small text-muted d-flex justify-content-between px-1">
+                                <span>0%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <a class="btn btn-sm btn-outline-secondary"
+                           href="{{ path('admin_admin_performance_performance_user', { id: r.userId, from: from|date('Y-m-d'), to: to|date('Y-m-d') }) }}">
+                            <i class="fas fa-user me-1"></i> Ver
+                        </a>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2 d-block text-muted"></i>
+                        No hay datos para mostrar en este período.
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
         </table>
+            </div>
+        </div>
+
+        <!-- Pestaña de Rendimiento del Equipo -->
+        <div class="tab-pane fade" id="equipo">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Métricas del Equipo</h5>
+                    <div class="row g-4">
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="display-4 fw-bold text-primary">{{ summary.totalCerrados|default(0) }}</div>
+                                    <div class="text-muted">Tickets Cerrados</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="display-4 fw-bold text-info">{{ summary.tmrHoras|default(0)|number_format(1) }}</div>
+                                    <div class="text-muted">TMR Promedio (horas)</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="display-4 fw-bold text-success">
+                                        {% if ranking|length > 0 %}
+                                            {{ (ranking|reduce((sum, r) => sum + r.score.raw.cerr, 0) / ranking|length)|number_format(1) }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted">Tickets/Prom. por Usuario</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3">
+                            <div class="card border-0 shadow-sm h-100">
+                                <div class="card-body text-center">
+                                    <div class="display-4 fw-bold text-warning">
+                                        {{ summary.reabiertos|default(0) }}
+                                    </div>
+                                    <div class="text-muted">Tickets Reabiertos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">Distribución de Tickets</h5>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <canvas id="teamPerformanceChart" height="250"></canvas>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mt-3">
+                                <h6 class="mb-3">Estadísticas Adicionales</h6>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Usuarios Activos</span>
+                                    <strong>{{ ranking|length }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Período</span>
+                                    <strong>{{ from|date('d/m/Y') }} - {{ to|date('d/m/Y') }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Días del Período</span>
+                                    <strong>{{ (to.diff(from).days + 1) }}</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Tickets/Día</span>
+                                    <strong>
+                                        {% set days = (to.diff(from).days + 1) %}
+                                        {% if days > 0 %}
+                                            {{ (summary.totalCerrados / days)|number_format(1) }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 {% endblock %}
 
 {% block javascripts %}
-{{ parent() }}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>
-(function() {
-    const form = document.getElementById('filtersForm');
-    const resetBtn = document.getElementById('resetBtn');
-
-    const kpiCompleted = document.getElementById('kpiCompleted');
-    const kpiAvg = document.getElementById('kpiAvg');
-    const kpiEffectiveness = document.getElementById('kpiEffectiveness');
-    const kpiInProgress = document.getElementById('kpiInProgress');
-    const kpiPending = document.getElementById('kpiPending');
-    const employeeOfMonth = document.getElementById('employeeOfMonth');
-
-    let barChart, lineChart;
-
-    async function fetchData(params) {
-        const qs = new URLSearchParams(params).toString();
-        const res = await fetch('{{ path('admin_data') }}?' + qs);
-        if (!res.ok) throw new Error('Error al cargar datos');
-        return res.json();
-    }
-
-    function renderKPIs(kpis) {
-        kpiCompleted.textContent = kpis.totalCompleted;
-        kpiAvg.textContent = (kpis.avgDurationMin || 0) + ' min';
-        kpiEffectiveness.textContent = (kpis.effectiveness || 0) + '%';
-        kpiInProgress.textContent = kpis.inProgress || 0;
-        kpiPending.textContent = kpis.pending || 0;
-        employeeOfMonth.textContent = kpis.employeeOfMonth || '-';
-    }
-
-    function ensureCharts() {
-        const barCtx = document.getElementById('barChart');
-        const lineCtx = document.getElementById('lineChart');
-        if (barChart) barChart.destroy();
-        if (lineChart) lineChart.destroy();
-        barChart = new Chart(barCtx, {
-            type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Completadas', data: [], backgroundColor: '#0d6efd' }] },
-            options: { responsive: true, plugins: { legend: { display: false }}}
-        });
-        lineChart = new Chart(lineCtx, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Promedio (min)', data: [], borderColor: '#20c997' }] },
-            options: { responsive: true }
-        });
-    }
-
-    function renderCharts(payload) {
-        barChart.data.labels = payload.bar.labels;
-        barChart.data.datasets[0].data = payload.bar.data;
-        barChart.update();
-        lineChart.data.labels = payload.bar.labels;
-        lineChart.data.datasets[0].data = payload.table.map(r => r.avgDurationMin);
-        lineChart.update();
-    }
-
-    function renderTable(rows) {
-        const tbody = document.querySelector('#performanceTable tbody');
-        tbody.innerHTML = '';
-        tbody.innerHTML = '';
-        if (!rows.length) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="7" class="text-center text-muted py-4">Sin datos para el rango seleccionado</td>';
-            tbody.appendChild(tr);
-            return;
-        }
-        rows.forEach(row => {
-            const tr = document.createElement('tr');
-            const progress = Math.min(100, Math.max(0, row.effectiveness || 0));
-            const progressClass = progress > 80 ? 'bg-success' : progress > 50 ? 'bg-warning' : 'bg-danger';
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
             
-            tr.innerHTML = `
-                <td>
-                    <div class="d-flex align-items-center">
-                        <div class="avatar-sm me-2">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <div class="fw-medium">${row.userName}</div>
-                            <small class="text-muted">${row.userEmail || ''}</small>
-                        </div>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <div class="d-flex flex-column">
-                        <span class="fw-medium">${row.assigned || 0} <small>asignadas</small></span>
-                        <div class="progress mt-1" style="height: 4px;">
-                            <div class="progress-bar ${progressClass}" style="width: ${progress}%" role="progressbar"></div>
-                        </div>
-                        <small class="text-muted">${row.completed || 0} completadas (${row.effectiveness || 0}%)</small>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <span class="badge bg-primary rounded-pill">${row.ticketsCompleted || 0} cerrados</span>
-                    ${row.lastTicketDate ? `<div class="small text-muted mt-1">Último: ${row.lastTicketDate}</div>` : ''}
-                </td>
-                <td class="text-center">
-                    <div class="d-flex flex-column">
-                        <span class="small">⏱️ ${row.avgDurationMin || 0} min/promedio</span>
-                        <span class="small">🏆 ${row.completedThisMonth || 0} este mes</span>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-outline-primary" onclick="viewUserDetails(${row.userId || 0})">
-                        <i class="fas fa-chart-line me-1"></i>Ver detalles
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    async function load() {
-        const formData = new FormData(form);
-        const params = {};
-        for (const [k, v] of formData.entries()) {
-            if (params[k]) {
-                if (!Array.isArray(params[k])) params[k] = [params[k]];
-                params[k].push(v);
-            } else {
-                params[k] = v;
+            // Initialize date range picker if available (guard jQuery presence)
+            if (typeof window.$ !== 'undefined'
+                && typeof $.fn !== 'undefined'
+                && typeof $.fn.daterangepicker !== 'undefined'
+                && $('input[name="date_range"]').length) {
+                $('input[name="date_range"]').daterangepicker({
+                    locale: {
+                        format: 'DD/MM/YYYY',
+                        applyLabel: 'Aplicar',
+                        cancelLabel: 'Cancelar',
+                        fromLabel: 'Desde',
+                        toLabel: 'Hasta',
+                        customRangeLabel: 'Personalizado',
+                        daysOfWeek: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'],
+                        monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+                        firstDay: 1
+                    },
+                    startDate: '{{ from|date('d/m/Y') }}',
+                    endDate: '{{ to|date('Y-m-d') }}',
+                    ranges: {
+                       'Hoy': [moment(), moment()],
+                       'Ayer': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                       'Últimos 7 Días': [moment().subtract(6, 'days'), moment()],
+                       'Últimos 30 Días': [moment().subtract(29, 'days'), moment()],
+                       'Este Mes': [moment().startOf('month'), moment().endOf('month')],
+                       'Mes Anterior': [
+                           moment().subtract(1, 'month').startOf('month'), 
+                           moment().subtract(1, 'month').endOf('month')
+                       ]
+                    }
+                }, function(start, end) {
+                    const from = start.format('YYYY-MM-DD');
+                    const to = end.format('YYYY-MM-DD');
+                    window.location.href = `?from=${from}&to=${to}`;
+                });
             }
+            
+            // Initialize progress bars
+            document.querySelectorAll('.progress-bar').forEach(bar => {
+                const width = bar.getAttribute('aria-valuenow') || 0;
+                bar.style.width = `${width}%`;
+            });
+            
+            // Handle user details click
+            document.querySelectorAll('.btn-view-user').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const userId = this.getAttribute('data-user-id');
+                    if (userId) {
+                        window.location.href = this.getAttribute('href');
+                    }
+                });
+            });
+        });
+        
+        // Initialize team performance chart when Equipo tab is shown
+        const equipoTabLink = document.querySelector('a[href="#equipo"][data-bs-toggle="tab"]');
+        if (equipoTabLink) {
+            equipoTabLink.addEventListener('shown.bs.tab', function () {
+            const ctx = document.getElementById('teamPerformanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ ranking|map(r => r.nombre ~ ' ' ~ r.apellido)|json_encode|raw }},
+                    datasets: [{
+                        label: 'Tickets Cerrados',
+                        data: {{ ranking|map(r => r.score.raw.cerr)|json_encode|raw }},
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Tickets Cerrados por Usuario'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        });
         }
-        try {
-            ensureCharts();
-            const data = await fetchData(params);
-            renderKPIs(data.kpis);
-            renderCharts(data);
-            renderTable(data.table);
-        } catch (e) {
-            showNotification('Error', e.message, 'danger');
-        }
-    }
+    </script>
+{% endblock %}
 
-    form.addEventListener('submit', function(ev) {
-        ev.preventDefault();
-        load();
-    });
-
-    resetBtn.addEventListener('click', function() {
-        form.reset();
-        load();
-    });
-
-    load();
-})();
-</script>
-<script>
-function viewUserDetails(userId) {
-    // Implementar vista detallada del usuario
-    alert('Vista detallada del usuario ' + userId + ' se abrirá aquí');
-    // Aquí podrías abrir un modal o redirigir a una vista detallada
-}
-</script>
+{% block styles %}
+{{ parent() }}
 <style>
 .avatar-sm {
     width: 36px;

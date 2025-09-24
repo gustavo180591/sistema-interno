@@ -15,10 +15,11 @@ app_admin_user:
     prefix: /admin/user
     name_prefix: admin_
 
-# Import NoteController (no prefix)
-note_controller:
-    resource: '../src/Controller/NoteController.php'
+# Import API Controllers
+api_ticket_notes:
+    resource: '../src/Controller/Api/TicketNotesApiController.php'
     type: attribute
+    prefix: /api
 
 # Import Maintenance OfficeController
 maintenance_office:
@@ -50,3 +51,16 @@ maintenance_controller:
     resource: '../src/Controller/MaintenanceController.php'
     type: attribute
     name_prefix: maintenance_
+    exclude: ['/calendar', '/calendar/*']
+
+# Define the calendar route at the root level
+app_calendar:
+    path: /calendar
+    controller: App\Controller\MaintenanceController::calendar
+    methods: [GET]
+
+# Redirect old calendar URL to the new one
+maintenance_calendar_redirect:
+    path: /admin/maintenance/calendar
+    controller: App\Controller\MaintenanceController::maintenanceCalendar
+    methods: [GET]

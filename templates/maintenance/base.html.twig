@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Mantenimiento Preventivo{% endblock %}
+{% block title %}Calendario - Sistema Interno{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -64,7 +64,7 @@
             });
 
             // Initialize date/time pickers
-            if (flatpickr) {
+            if (typeof flatpickr !== 'undefined') {
                 flatpickr('.js-datetime-picker', {
                     enableTime: true,
                     dateFormat: 'Y-m-d H:i',

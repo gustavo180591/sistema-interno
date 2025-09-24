@@ -85,6 +85,16 @@ class MaintenanceTask
     #[ORM\OneToMany(mappedBy: 'task', targetEntity: MaintenanceLog::class, orphanRemoval: true)]
     private $logs;
 
+    #[ORM\Column(type: 'boolean', nullable: true)]
+    private $withinSla = false;
+
+    #[ORM\Column(type: 'boolean')]
+    private $reopened = false;
+
+    #[ORM\ManyToOne(targetEntity: Ticket::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Ticket $originTicket = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -314,6 +324,28 @@ class MaintenanceTask
         return $this;
     }
 
+    public function isWithinSla(): ?bool
+    {
+        return $this->withinSla;
+    }
+
+    public function setWithinSla(?bool $withinSla): self
+    {
+        $this->withinSla = $withinSla;
+        return $this;
+    }
+
+    public function isReopened(): bool
+    {
+        return $this->reopened;
+    }
+
+    public function setReopened(bool $reopened): self
+    {
+        $this->reopened = $reopened;
+        return $this;
+    }
+
     /**
      * @return Collection|MaintenanceLog[]
      */
@@ -373,6 +405,17 @@ class MaintenanceTask
             self::STATUS_OVERDUE => 'Atrasada',
             self::STATUS_SKIPPED => 'Omitida'
         ];
+    }
+
+    public function getOriginTicket(): ?Ticket
+    {
+        return $this->originTicket;
+    }
+
+    public function setOriginTicket(?Ticket $originTicket): self
+    {
+        $this->originTicket = $originTicket;
+        return $this;
     }
 
     public function __toString(): string

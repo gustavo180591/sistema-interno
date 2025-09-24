@@ -3,18 +3,13 @@
 namespace App\Repository;
 
 use App\Entity\MaintenanceTask;
-use App\Entity\MaintenanceCategory;
 use App\Entity\User;
+use App\Entity\MaintenanceCategory;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * @extends ServiceEntityRepository<MaintenanceTask>
- *
- * @method MaintenanceTask|null find($id, $lockMode = null, $lockVersion = null)
- * @method MaintenanceTask|null findOneBy(array $criteria, array $orderBy = null)
- * @method MaintenanceTask[]    findAll()
- * @method MaintenanceTask[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
 class MaintenanceTaskRepository extends ServiceEntityRepository
 {
@@ -23,9 +18,119 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         parent::__construct($registry, MaintenanceTask::class);
     }
 
+    // KPI por usuario (volumen, TMR, SLA, %reabiertos, etc.)
+    public function getAssignedUsersPerformance(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('u.id AS userId, u.username, u.nombre, u.apellido')
+            ->addSelect('COUNT(t.id) AS cerrados')
+            ->addSelect('AVG(TIMESTAMPDIFF(HOUR, t.createdAt, t.completedAt)) AS tmrHoras')
+            ->addSelect('100.0 * SUM(CASE WHEN t.withinSla = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(t.id),0) AS slaPct')
+            ->addSelect('100.0 * SUM(CASE WHEN t.reopened = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(t.id),0) AS reabPct')
+            ->leftJoin('t.assignedTo', 'u')
+            ->where('t.completedAt BETWEEN :f AND :t')
+            ->andWhere('t.assignedTo IS NOT NULL')
+            ->groupBy('u.id')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        return $qb->getQuery()->getArrayResult();
+    }
+
+    // Totales del período (para cards del dashboard)
+    public function getPerformanceSummary(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->select('COUNT(t.id) AS totalCerrados')
+            ->addSelect('AVG(TIMESTAMPDIFF(HOUR, t.createdAt, t.completedAt)) AS tmrHoras')
+            ->addSelect('100.0 * SUM(CASE WHEN t.withinSla = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(t.id),0) AS slaPct')
+            ->where('t.completedAt BETWEEN :f AND :t')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        return (array) $qb->getQuery()->getSingleResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
+    }
+
+    // Detalle de un usuario (cálculo en PHP para mayor compatibilidad)
+    public function getUserPerformance(int $userId, \DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->leftJoin('t.assignedTo', 'u')
+            ->addSelect('u')
+            ->where('u.id = :uid')
+            ->andWhere('t.completedAt BETWEEN :f AND :t')
+            ->setParameter('uid', $userId)
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
+
+        $cerr = 0;
+        $sumHours = 0.0;
+        $slaTotal = 0;
+        $slaMet = 0;
+        $reab = 0;
+        $username = null; $nombre = null; $apellido = null;
+
+        foreach ($tasks as $task) {
+            $user = $task->getAssignedTo();
+            if ($user instanceof User) {
+                $username = method_exists($user, 'getUsername') ? $user->getUsername() : ($user->getEmail() ?? $username);
+                $nombre = method_exists($user, 'getNombre') ? $user->getNombre() : $nombre;
+                $apellido = method_exists($user, 'getApellido') ? $user->getApellido() : $apellido;
+            }
+
+            $createdAt = $task->getCreatedAt();
+            $completedAt = $task->getCompletedAt();
+            if ($createdAt instanceof \DateTimeInterface && $completedAt instanceof \DateTimeInterface) {
+                $cerr++;
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $hours = $diffSeconds / 3600.0;
+                $sumHours += $hours;
+                $slaTotal++;
+                if ($hours <= 48.0) { $slaMet++; }
+            }
+            if ($task->isReopened()) { $reab++; }
+        }
+
+        $tmr = $cerr > 0 ? ($sumHours / $cerr) : 0.0;
+        $slaPct = $slaTotal > 0 ? (100.0 * $slaMet / $slaTotal) : 0.0;
+        $reabPct = $cerr > 0 ? (100.0 * $reab / $cerr) : 0.0;
+
+        return [
+            'userId' => $userId,
+            'username' => $username,
+            'nombre' => $nombre,
+            'apellido' => $apellido,
+            'cerrados' => $cerr,
+            'tmrHoras' => $tmr,
+            'slaPct' => $slaPct,
+            'reabPct' => $reabPct,
+        ];
+    }
+
+    // Tasa de finalización (opcional)
+    public function calculateCompletionRate(\DateTimeInterface $from, \DateTimeInterface $to): float
+    {
+        $conn = $this->getEntityManager()->getConnection();
+        $sql = "
+            SELECT 100.0 * SUM(CASE WHEN status = :done THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS rate
+            FROM maintenance_task
+            WHERE created_at BETWEEN :f AND :t";
+        $stmt = $conn->prepare($sql);
+        $result = $stmt->executeQuery([
+            'done' => 'completed',
+            'f' => $from->format('Y-m-d H:i:s'),
+            't' => $to->format('Y-m-d H:i:s'),
+        ])->fetchAssociative();
+
+        return (float) ($result['rate'] ?? 0.0);
+    }
+    
+    // Basic CRUD operations
     public function save(MaintenanceTask $entity, bool $flush = false): void
     {
-        $entity->setUpdatedAt(new \DateTimeImmutable());
         $this->getEntityManager()->persist($entity);
 
         if ($flush) {
@@ -41,95 +146,8 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
-
-    public function getPerformanceSummary(\DateTimeInterface $from, \DateTimeInterface $to): array
-    {
-        // First, check if there are any tasks in the date range
-        $count = $this->createQueryBuilder('t')
-            ->select('COUNT(t.id)')
-            ->andWhere('t.createdAt BETWEEN :from AND :to')
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->getQuery()
-            ->getSingleScalarResult();
-            
-        error_log(sprintf('Found %d tasks between %s and %s', $count, $from->format('Y-m-d'), $to->format('Y-m-d')));
-        
-        if ($count === 0) {
-            return [];
-        }
-        
-        // Then try a simpler query first
-        $simpleQuery = $this->createQueryBuilder('t')
-            ->select('u.id as userId, u.apellido, u.nombre, COUNT(t.id) as taskCount')
-            ->leftJoin('t.assignedTo', 'u')
-            ->andWhere('t.createdAt BETWEEN :from AND :to')
-            ->groupBy('u.id')
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->getQuery();
-            
-        $simpleResult = $simpleQuery->getArrayResult();
-        error_log('Simple Query Result: ' . print_r($simpleResult, true));
-        
-        // If simple query works, try the full query
-        try {
-            $query = $this->createQueryBuilder('t')
-                ->select('u.id as userId, u.apellido, u.nombre,
-                    COUNT(t.id) as assignedCount,
-                    SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount,
-                    SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount,
-                    AVG(
-                        CASE 
-                            WHEN t.completedAt IS NOT NULL THEN 
-                                COALESCE(
-                                    TIMESTAMPDIFF(
-                                        \'MINUTE\',
-                                        COALESCE(t.startedAt, t.createdAt),
-                                        t.completedAt
-                                    ),
-                                    0
-                                )
-                            ELSE 0 
-                        END
-                    ) as avgMinutes')
-                ->leftJoin('t.assignedTo', 'u')
-                ->andWhere('t.createdAt BETWEEN :from AND :to')
-                ->groupBy('u.id')
-                ->setParameter('from', $from)
-                ->setParameter('to', $to)
-                ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
-                ->setParameter('inProgress', MaintenanceTask::STATUS_IN_PROGRESS)
-                ->getQuery();
-
-            $result = $query->getArrayResult();
-            error_log('Full Query Result: ' . print_r($result, true));
-            
-            return $result;
-        } catch (\Exception $e) {
-            error_log('Error in performance query: ' . $e->getMessage());
-            // Fall back to simple result if the full query fails
-            return $simpleResult;
-        }
-    }
-
-    public function getUserPerformance(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
-    {
-        return $this->createQueryBuilder('t')
-            ->select('t.id, t.description, t.status, t.createdAt, t.startedAt, t.completedAt,
-                TIMESTAMPDIFF(MINUTE, COALESCE(t.startedAt, t.createdAt), t.completedAt) as durationMin')
-            ->andWhere('t.assignedTo = :user')
-            ->andWhere('t.createdAt BETWEEN :from AND :to')
-            ->setParameters([
-                'user' => $user,
-                'from' => $from,
-                'to' => $to
-            ])
-            ->orderBy('t.createdAt', 'DESC')
-            ->getQuery()
-            ->getArrayResult();
-    }
-
+    
+    // Find tasks by date range
     public function findByDateRange(
         \DateTimeInterface $start,
         \DateTimeInterface $end,
@@ -137,24 +155,81 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         ?int $categoryId = null
     ): array {
         $qb = $this->createQueryBuilder('t')
-            ->andWhere('t.scheduledDate BETWEEN :start AND :end')
-            ->setParameter('start', $start->format('Y-m-d 00:00:00'))
-            ->setParameter('end', $end->format('Y-m-d 23:59:59'))
-            ->orderBy('t.scheduledDate', 'ASC');
+            ->where('t.createdAt BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end);
 
         if (!$showCompleted) {
-            $qb->andWhere('t.status != :completed')
-               ->setParameter('completed', 'completed');
+            $qb->andWhere('t.status != :status')
+               ->setParameter('status', 'completed');
         }
 
-        if ($categoryId) {
-            $qb->andWhere('t.category = :category')
-               ->setParameter('category', $categoryId);
+        if ($categoryId !== null) {
+            $qb->andWhere('t.category = :categoryId')
+               ->setParameter('categoryId', $categoryId);
         }
 
         return $qb->getQuery()->getResult();
     }
+    
+    // Find overdue tasks
+    public function findOverdueTasks(): array
+    {
+        $now = new \DateTime();
+        
+        return $this->createQueryBuilder('t')
+            ->where('t.dueDate < :now')
+            ->andWhere('t.status != :completed')
+            ->setParameter('now', $now)
+            ->setParameter('completed', 'completed')
+            ->getQuery()
+            ->getResult();
+    }
+    
+    // Find tasks assigned to a specific user
+    public function findAssignedToUser(User $user, array $statuses = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->where('t.assignedTo = :user')
+            ->setParameter('user', $user);
+            
+        if (!empty($statuses)) {
+            $qb->andWhere('t.status IN (:statuses)')
+               ->setParameter('statuses', $statuses);
+        }
+        
+        return $qb->getQuery()->getResult();
+    }
+    
+    // Find tasks by category
+    public function findByCategory(int $categoryId, array $filters = []): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->where('t.category = :categoryId')
+            ->setParameter('categoryId', $categoryId);
+            
+        if (!empty($filters['status'])) {
+            $qb->andWhere('t.status = :status')
+               ->setParameter('status', $filters['status']);
+        }
+        
+        if (!empty($filters['priority'])) {
+            $qb->andWhere('t.priority = :priority')
+               ->setParameter('priority', $filters['priority']);
+        }
+        
+        return $qb->getQuery()->getResult();
+    }
 
+    /**
+     * Find tasks for calendar view within a date range.
+     *
+     * @param \DateTimeInterface $start
+     * @param \DateTimeInterface $end
+     * @param bool $showCompleted Include completed tasks if true
+     * @param MaintenanceCategory|null $category Filter by category if provided
+     * @return MaintenanceTask[]
+     */
     public function findTasksForCalendar(
         \DateTimeInterface $start,
         \DateTimeInterface $end,
@@ -162,19 +237,17 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         ?MaintenanceCategory $category = null
     ): array {
         $qb = $this->createQueryBuilder('t')
-            ->leftJoin('t.category', 'c')
-            ->leftJoin('t.assignedTo', 'u')
             ->where('t.scheduledDate BETWEEN :start AND :end')
-            ->setParameter('start', $start->format('Y-m-d 00:00:00'))
-            ->setParameter('end', $end->format('Y-m-d 23:59:59'))
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
             ->orderBy('t.scheduledDate', 'ASC');
 
         if (!$showCompleted) {
             $qb->andWhere('t.status != :completed')
-               ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED);
+               ->setParameter('completed', 'completed');
         }
 
-if ($category) {
+        if ($category !== null) {
             $qb->andWhere('t.category = :category')
                ->setParameter('category', $category);
         }
@@ -182,293 +255,122 @@ if ($category) {
         return $qb->getQuery()->getResult();
     }
 
-    public function findUpcomingTasks(\DateTimeInterface $date = null, int $limit = 10): array
-    {
-        $date = $date ?? new \DateTimeImmutable('now');
-
-        return $this->createQueryBuilder('t')
-            ->andWhere('t.dueDate >= :now')
-            ->andWhere('t.status != :completed')
-            ->setParameter('now', $date)
-            ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
-            ->orderBy('t.dueDate', 'ASC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-    }
-
-    public function getUserTaskStatusDistribution(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
-    {
-        $result = $this->createQueryBuilder('t')
-            ->select('t.status, COUNT(t.id) as count')
-            ->where('t.assignedTo = :user')
-            ->andWhere('t.createdAt BETWEEN :from AND :to')
-            ->setParameter('user', $user)
-            ->setParameter('from', $from)
-            ->setParameter('to', $to)
-            ->groupBy('t.status')
-            ->getQuery()
-            ->getResult();
-
-        // Initialize all statuses with 0 using the correct constants
-        $statuses = [
-            MaintenanceTask::STATUS_PENDING => 0,
-            MaintenanceTask::STATUS_IN_PROGRESS => 0,
-            MaintenanceTask::STATUS_COMPLETED => 0,
-            MaintenanceTask::STATUS_OVERDUE => 0,
-            MaintenanceTask::STATUS_SKIPPED => 0,
-        ];
-
-        // Update with actual counts
-        foreach ($result as $row) {
-            $statuses[$row['status']] = (int) $row['count'];
-        }
-
-        return [
-            'labels' => array_keys($statuses),
-            'data' => array_values($statuses),
-            'colors' => [
-                '#4E73DF', // Pending
-                '#36B9CC', // In Progress
-                '#1CC88A', // Completed
-                '#F6C23E', // Overdue (yellow)
-                '#6F42C1', // Skipped (purple)
-            ]
-        ];
-    }
-
-    public function findOverdueTasks(): array
-    {
-        return $this->createQueryBuilder('t')
-            ->where('t.scheduledDate < :now')
-            ->andWhere('t.status != :completed')
-            ->andWhere('t.status != :overdue')
-            ->setParameter('now', new \DateTime())
-            ->setParameter('completed', MaintenanceTask::STATUS_COMPLETED)
-            ->setParameter('overdue', MaintenanceTask::STATUS_OVERDUE)
-            ->orderBy('t.scheduledDate', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    public function findAssignedToUser(User $user, array $statuses = []): array
+    /**
+     * Portable summary computed in PHP for any database engine.
+     * Returns keys: totalCerrados, tmrHoras, reabiertos.
+     */
+    public function getPerformanceSummaryPhp(\DateTimeInterface $from, \DateTimeInterface $to): array
     {
         $qb = $this->createQueryBuilder('t')
-            ->where('t.assignedTo = :user')
-            ->setParameter('user', $user)
-            ->orderBy('t.scheduledDate', 'ASC');
+            ->andWhere('t.completedAt BETWEEN :f AND :t')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
 
-        if (!empty($statuses)) {
-            $qb->andWhere('t.status IN (:statuses)')
-               ->setParameter('statuses', $statuses);
-        }
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
 
-        return $qb->getQuery()->getResult();
-    }
+        $totalCerrados = 0;
+        $sumHours = 0.0;
+        $reabiertos = 0;
 
-    public function findByCategory(int $categoryId, array $filters = [])
-    {
-        $qb = $this->createQueryBuilder('t')
-            ->where('t.category = :categoryId')
-            ->setParameter('categoryId', $categoryId);
-
-        if (!empty($filters['status'])) {
-            $qb->andWhere('t.status = :status')
-               ->setParameter('status', $filters['status']);
-        }
-
-if (!empty($filters['dateFrom'])) {
-            $qb->andWhere('t.scheduledDate >= :dateFrom')
-               ->setParameter('dateFrom', $filters['dateFrom']);
-        }
-
-        if (!empty($filters['dateTo'])) {
-            $qb->andWhere('t.scheduledDate <= :dateTo')
-               ->setParameter('dateTo', $filters['dateTo']);
-        }
-
-        $sortField = $filters['sort'] ?? 'scheduledDate';
-        $sortOrder = $filters['order'] ?? 'ASC';
-        
-        $qb->orderBy('t.' . $sortField, $sortOrder);
-
-        return $qb->getQuery()->getResult();
-    }
-
-    public function findByFilters(array $filters = [])
-    {
-        $qb = $this->createQueryBuilder('t')
-            ->leftJoin('t.category', 'c')
-            ->leftJoin('t.assignedTo', 'u');
-
-        if (!empty($filters['status'])) {
-            $qb->andWhere('t.status = :status')
-               ->setParameter('status', $filters['status']);
-        }
-
-if (!empty($filters['category'])) {
-            $qb->andWhere('t.category = :category')
-               ->setParameter('category', $filters['category']);
-        }
-
-        if (!empty($filters['assigned_to'])) {
-            $qb->andWhere('t.assignedTo = :assignedTo')
-               ->setParameter('assignedTo', $filters['assigned_to']);
-        }
-
-        if (!empty($filters['date_from'])) {
-            $dateFrom = $filters['date_from'] instanceof \DateTimeInterface 
-                ? $filters['date_from'] 
-                : new \DateTime($filters['date_from']);
-            $qb->andWhere('t.scheduledDate >= :dateFrom')
-               ->setParameter('dateFrom', $dateFrom->format('Y-m-d 00:00:00'));
-        }
-
-        if (!empty($filters['date_to'])) {
-            $dateTo = $filters['date_to'] instanceof \DateTimeInterface
-                ? $filters['date_to']
-                : new \DateTime($filters['date_to']);
-            $qb->andWhere('t.scheduledDate <= :dateTo')
-               ->setParameter('dateTo', $dateTo->format('Y-m-d 23:59:59'));
-        }
-
-        $sortField = $filters['sort'] ?? 'scheduledDate';
-        $sortOrder = $filters['order'] ?? 'ASC';
-        
-        // Ensure the sort field has the proper table alias
-        $validSortFields = [
-            'id', 'title', 'description', 'status', 'scheduledDate',
-            'completedAt', 'createdAt', 'updatedAt'
-        ];
-        
-        if (in_array($sortField, $validSortFields)) {
-            $qb->orderBy('t.' . $sortField, $sortOrder);
-        } else {
-            // Default sorting if invalid field provided
-            $qb->orderBy('t.scheduledDate', $sortOrder);
-        }
-
-        return $qb->getQuery()->getResult();
-    }
-
-    public function getTaskStats(\DateTimeInterface $startDate = null, \DateTimeInterface $endDate = null): array
-    {
-        $conn = $this->getEntityManager()->getConnection();
-        
-        // Set default date range to last 30 days if not specified
-        $now = new \DateTime();
-        $startDate = $startDate ?? (clone $now)->modify('-30 days');
-        $endDate = $endDate ?? $now;
-        
-        // Base statistics query
-        $sql = 'SELECT 
-                COUNT(*) as total_tasks,
-                SUM(CASE WHEN status = :pending THEN 1 ELSE 0 END) as pending_tasks,
-                SUM(CASE WHEN status = :in_progress THEN 1 ELSE 0 END) as in_progress_tasks,
-                SUM(CASE WHEN status = :completed THEN 1 ELSE 0 END) as completed_tasks,
-                SUM(CASE WHEN status = :overdue OR (status = :pending2 AND scheduled_date < :now) THEN 1 ELSE 0 END) as overdue_tasks,
-                COUNT(DISTINCT assigned_to_id) as active_users,
-                AVG(TIMESTAMPDIFF(HOUR, created_at, completed_at)) as avg_completion_hours
-            FROM maintenance_task
-            WHERE created_at BETWEEN :start_date AND :end_date';
-        
-        $stmt = $conn->prepare($sql);
-        $baseStats = $stmt->executeQuery([
-            'pending' => MaintenanceTask::STATUS_PENDING,
-            'in_progress' => MaintenanceTask::STATUS_IN_PROGRESS,
-            'completed' => MaintenanceTask::STATUS_COMPLETED,
-            'overdue' => MaintenanceTask::STATUS_OVERDUE,
-            'pending2' => MaintenanceTask::STATUS_PENDING,
-            'now' => $now->format('Y-m-d H:i:s'),
-            'start_date' => $startDate->format('Y-m-d 00:00:00'),
-            'end_date' => $endDate->format('Y-m-d 23:59:59')
-        ])->fetchAssociative();
-        
-        // Get category distribution
-        $categorySql = 'SELECT 
-                c.name as category_name,
-                COUNT(t.id) as task_count,
-                ROUND(COUNT(t.id) * 100.0 / (SELECT COUNT(*) FROM maintenance_task WHERE created_at BETWEEN :start_date AND :end_date), 1) as percentage
-            FROM maintenance_task t
-            LEFT JOIN maintenance_category c ON t.category_id = c.id
-            WHERE t.created_at BETWEEN :start_date AND :end_date
-            GROUP BY c.id, c.name
-            ORDER BY task_count DESC';
-            
-        $categoryStats = $conn->executeQuery($categorySql, [
-            'start_date' => $startDate->format('Y-m-d 00:00:00'),
-            'end_date' => $endDate->format('Y-m-d 23:59:59')
-        ])->fetchAllAssociative();
-        
-        // Get status trend (last 7 days)
-        $trendStart = (clone $endDate)->modify('-6 days');
-        $trendSql = 'SELECT 
-                DATE(created_at) as date,
-                COUNT(*) as total,
-                SUM(CASE WHEN status = :completed THEN 1 ELSE 0 END) as completed
-            FROM maintenance_task
-            WHERE created_at BETWEEN :trend_start AND :end_date
-            GROUP BY DATE(created_at)
-            ORDER BY date ASC';
-            
-        $trendStats = $conn->executeQuery($trendSql, [
-            'completed' => MaintenanceTask::STATUS_COMPLETED,
-            'trend_start' => $trendStart->format('Y-m-d 00:00:00'),
-            'end_date' => $endDate->format('Y-m-d 23:59:59')
-        ])->fetchAllAssociative();
-        
-        // Calculate completion rate
-        $completionRate = $baseStats['total_tasks'] > 0 
-            ? round(($baseStats['completed_tasks'] / $baseStats['total_tasks']) * 100, 1)
-            : 0;
-            
-        return [
-            'overview' => [
-                'total_tasks' => (int)($baseStats['total_tasks'] ?? 0),
-                'pending_tasks' => (int)($baseStats['pending_tasks'] ?? 0),
-                'in_progress_tasks' => (int)($baseStats['in_progress_tasks'] ?? 0),
-                'completed_tasks' => (int)($baseStats['completed_tasks'] ?? 0),
-                'overdue_tasks' => (int)($baseStats['overdue_tasks'] ?? 0),
-                'active_users' => (int)($baseStats['active_users'] ?? 0),
-                'avg_completion_hours' => round($baseStats['avg_completion_hours'] ?? 0, 1),
-                'completion_rate' => $completionRate,
-                'date_range' => [
-                    'start' => $startDate->format('Y-m-d'),
-                    'end' => $endDate->format('Y-m-d')
-                ]
-            ],
-            'categories' => $categoryStats,
-            'trends' => $this->fillMissingDates($trendStats, $trendStart, $endDate)
-        ];
-    }
-    
-    private function fillMissingDates(array $data, \DateTimeInterface $startDate, \DateTimeInterface $endDate): array
-    {
-        $result = [];
-        $period = new \DatePeriod(
-            $startDate,
-            new \DateInterval('P1D'),
-            $endDate
-        );
-        
-        $dataByDate = [];
-        foreach ($data as $row) {
-            $dataByDate[$row['date']] = $row;
-        }
-        
-        foreach ($period as $date) {
-            $dateStr = $date->format('Y-m-d');
-            if (isset($dataByDate[$dateStr])) {
-                $result[] = $dataByDate[$dateStr];
-            } else {
-                $result[] = [
-                    'date' => $dateStr,
-                    'total' => 0,
-                    'completed' => 0
-                ];
+        foreach ($tasks as $task) {
+            $completedAt = $task->getCompletedAt();
+            $createdAt = $task->getCreatedAt();
+            if ($completedAt instanceof \DateTimeInterface && $createdAt instanceof \DateTimeInterface) {
+                $totalCerrados++;
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $sumHours += $diffSeconds / 3600.0;
+            }
+            if ($task->isReopened()) {
+                $reabiertos++;
             }
         }
-        
-        return $result;
+
+        $tmrHoras = $totalCerrados > 0 ? $sumHours / $totalCerrados : 0.0;
+
+        return [
+            'totalCerrados' => $totalCerrados,
+            'tmrHoras' => $tmrHoras,
+            'reabiertos' => $reabiertos,
+        ];
+    }
+
+    /**
+     * Portable per-user performance rows computed in PHP.
+     * Each row contains: userId, username, nombre, apellido, cerrados, tmrHoras, slaPct, reabPct.
+     */
+    public function getAssignedUsersPerformancePhp(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->leftJoin('t.assignedTo', 'u')
+            ->addSelect('u')
+            ->andWhere('t.completedAt BETWEEN :f AND :t')
+            ->andWhere('t.assignedTo IS NOT NULL')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
+
+        // Aggregate per user
+        $agg = [];
+        foreach ($tasks as $task) {
+            $user = $task->getAssignedTo();
+            if (!$user instanceof User) { continue; }
+            $uid = (int) $user->getId();
+            if (!isset($agg[$uid])) {
+                $agg[$uid] = [
+                    'userId' => $uid,
+                    'username' => method_exists($user, 'getUsername') ? $user->getUsername() : ($user->getEmail() ?? ''),
+                    'nombre' => method_exists($user, 'getNombre') ? $user->getNombre() : null,
+                    'apellido' => method_exists($user, 'getApellido') ? $user->getApellido() : null,
+                    'cerrados' => 0,
+                    'sumHours' => 0.0,
+                    'slaTotal' => 0,
+                    'slaMet' => 0,
+                    'reabiertos' => 0,
+                ];
+            }
+
+            $agg[$uid]['cerrados']++;
+
+            $createdAt = $task->getCreatedAt();
+            $completedAt = $task->getCompletedAt();
+            if ($createdAt instanceof \DateTimeInterface && $completedAt instanceof \DateTimeInterface) {
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $hours = $diffSeconds / 3600.0;
+                $agg[$uid]['sumHours'] += $hours;
+
+                // SLA simple 48h
+                $agg[$uid]['slaTotal']++;
+                if ($hours <= 48.0) { $agg[$uid]['slaMet']++; }
+            }
+
+            if ($task->isReopened()) {
+                $agg[$uid]['reabiertos']++;
+            }
+        }
+
+        // Finalize rows
+        $rows = [];
+        foreach ($agg as $row) {
+            $cerr = max(0, (int) $row['cerrados']);
+            $tmr = $cerr > 0 ? ($row['sumHours'] / $cerr) : 0.0;
+            $slaPct = $row['slaTotal'] > 0 ? (100.0 * $row['slaMet'] / $row['slaTotal']) : 0.0;
+            $reabPct = $cerr > 0 ? (100.0 * $row['reabiertos'] / $cerr) : 0.0;
+
+            $rows[] = [
+                'userId' => $row['userId'],
+                'username' => $row['username'],
+                'nombre' => $row['nombre'],
+                'apellido' => $row['apellido'],
+                'cerrados' => $cerr,
+                'tmrHoras' => $tmr,
+                'slaPct' => $slaPct,
+                'reabPct' => $reabPct,
+            ];
+        }
+
+        return $rows;
     }
 }

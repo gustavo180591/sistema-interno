@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Ticket #{{ '%04d'|format(ticket.idSistemaInterno) }}{% endblock %}
+{% block title %}Editar Ticket #{{ '%04d'|format(ticket.idSistemaInterno) }} - {{ ticket.status|status_label }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}

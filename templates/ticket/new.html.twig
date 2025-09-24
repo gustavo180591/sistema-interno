@@ -10,6 +10,11 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
     <style>
+        /* Hide the Asignar button */
+        button[title="Asignar"] {
+            display: none !important;
+        }
+
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -165,12 +170,12 @@
             .card-body {
                 padding: 1rem;
             }
-            
+
             .btn {
                 width: 100%;
                 margin-bottom: 0.5rem;
             }
-            
+
             .d-md-flex .btn:not(:last-child) {
                 margin-right: 0;
             }
@@ -226,19 +231,31 @@
                             <i class="fas fa-ticket-alt me-2"></i>Nuevo Ticket
                         </h1>
                         <div class="d-flex align-items-center">
-                            <form id="assignTicketForm" onsubmit="event.preventDefault(); handleAssignUsers(event);">
-                                <a href="{{ path('ticket_index') }}" class="btn btn-sm btn-outline-light">
-                                    <i class="fas fa-arrow-left me-1"></i> Volver
-                                </a>
-                            </form>
+                            <a href="{{ path('ticket_index') }}" class="btn btn-sm btn-outline-light">
+                                <i class="fas fa-arrow-left me-1"></i> Volver
+                            </a>
                         </div>
                     </div>
                 </div>
 
                 <div class="card-body p-4">
                     <!-- Form -->
-                    {{ form_start(form, {'attr': {'class': 'needs-validation', 'novalidate': 'novalidate'}}) }}
-                        <div class="row g-4">
+                    {{ form_start(form, {
+                        'attr': {
+                            'class': 'needs-validation',
+                            'novalidate': 'novalidate',
+                            'id': 'ticketForm'
+                        },
+                        'method': 'POST'
+                    }) }}
+    <div id="form-errors" class="alert alert-danger d-none"></div>
+                            {# NO renderizamos el widget real para que no pise el valor #}
+                            {# En su lugar, dejamos un repeater con el "full_name" para armar inputs compatibles #}
+                            <div id="assignedUsersHiddenRepeater"
+                                 data-full-name="{{ form.assignedUsers.vars.full_name }}">
+                            </div>
+
+                            <div class="row g-4">
                             <!-- Left Column -->
                             <div class="col-lg-8">
                                 <div class="card border-0 shadow-sm mb-4">
@@ -247,111 +264,80 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="row g-4">
-                                            <!-- ID Externo -->
+                                            <!-- ID Externo y Botón de Asignar -->
                                             <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label">
+                                                        ID <small class="text-muted">(Opcional)</small>
+                                                        <i class="fas fa-info-circle text-primary ms-1" 
+                                                           data-bs-toggle="tooltip" 
+                                                           title="Deje vacío para ID interno automático o ingrese un ID externo">
+                                                        </i>
+                                                    </label>
+                                                    {{ form_widget(form.idSistemaInterno, {
+                                                        'attr': {
+                                                            'class': 'form-control',
+                                                            'autocomplete': 'off',
+                                                            'placeholder': 'Dejar vacío para ID automático',
+                                                            'data-toggle': 'tooltip',
+                                                            'title': 'Deje vacío para ID automático o ingrese un ID externo'
+                                                        }
+                                                    }) }}
+                                                    <small class="form-text text-muted">
+                                                        <i class="fas fa-lightbulb text-warning"></i> 
+                                                        Deje vacío para ID interno automático o ingrese un ID externo
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Asignación de Usuarios -->
+                                            <div class="col-12">
                                                 <div class="mb-3">
-                                                    {{ form_label(form.idSistemaInterno, 'ID Externo', {'label_attr': {
-                                                        'class': 'form-label fw-medium text-muted small mb-2'
-                                                    }}) }}
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light">
-                                                            <i class="fas fa-external-link-alt text-muted"></i>
-                                                        </span>
-                                                        {{ form_widget(form.idSistemaInterno, {
-                                                            'attr': {
-                                                                'class': 'form-control form-control-lg',
-                                                                'placeholder': 'Ingrese el ID externo'
-                                                            }
-                                                        }) }}
-                                                    </div>
+                                                    <label class="form-label">Asignar a</label>
+                                                    {{ form_widget(form.assignedUsers, {
+                                                        'attr': {
+                                                            'class': 'form-select select2-multiple',
+                                                            'multiple': 'multiple',
+                                                            'id': 'ticket_assignedUsers'
+                                                        }
+                                                    }) }}
                                                 </div>
                                             </div>
 
                                             <!-- Área de Origen -->
                                             <div class="col-md-6">
                                                 <div class="mb-3">
-                                                    {{ form_label(form.areaOrigen, 'Área de Origen', {'label_attr': {
+                                                    {{ form_label(form.area_origen, 'Área de Origen', {'label_attr': {
                                                         'class': 'form-label fw-medium text-muted small mb-2'
                                                     }}) }}
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light">
-                                                            <i class="fas fa-building text-muted"></i>
-                                                        </span>
-                                                        {{ form_widget(form.areaOrigen, {
-                                                            'attr': {
-                                                                'class': 'form-select form-select-lg select2-search',
-                                                                'data-placeholder': 'Seleccione un área de origen...'
-                                                            }
-                                                        }) }}
-                                                    </div>
+                                                    {{ form_widget(form.area_origen, {
+                                                        'attr': {
+                                                            'class': 'form-select form-select-lg area-origen-select w-100',
+                                                            'data-placeholder': 'Seleccione un área de origen...',
+                                                            'data-allow-clear': 'true',
+                                                            'data-minimum-results-for-search': '3'
+                                                        }
+                                                    }) }}
                                                 </div>
                                             </div>
 
                                             <!-- Título -->
                                             <div class="col-12">
                                                 <div class="mb-3">
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        {{ form_label(form.title, 'Título del Ticket', {'label_attr': {
-                                                            'class': 'form-label fw-medium text-muted small mb-0'
-                                                        }}) }}
-                                                    </div>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-light">
-                                                            <i class="fas fa-heading text-muted"></i>
-                                                        </span>
-                                                        {{ form_widget(form.title, {
-                                                            'attr': {
-                                                                'class': 'form-control form-control-lg',
-                                                                'placeholder': 'Ingrese un título descriptivo para el ticket',
-                                                                'required': 'required'
-                                                            }
-                                                        }) }}
-                                                    </div>
+                                                    {{ form_label(form.title, 'Título del Ticket', {'label_attr': {
+                                                        'class': 'form-label fw-medium text-muted small mb-0'
+                                                    }}) }}
+                                                    {{ form_widget(form.title, {
+                                                        'attr': {
+                                                            'class': 'form-control form-control-lg',
+                                                            'placeholder': 'Ingrese un título descriptivo para el ticket',
+                                                            'required': 'required'
+                                                        }
+                                                    }) }}
                                                     <small class="form-text text-muted">Describa brevemente el problema o solicitud</small>
                                                 </div>
                                             </div>
 
-                                            <!-- Asignar a múltiples usuarios -->
-                                            <div class="col-12">
-                                                <div class="mb-3">
-                                                    <label class="form-label fw-medium text-muted small mb-2 d-block">Asignar a</label>
-                                                    <div class="users-checkbox-container">
-                                                        {% for user in users %}
-                                                            <div class="form-check form-check-inline mb-2 me-3">
-                                                                {% set isChecked = false %}
-                                                                {% if form.assignedUsers.vars.value is defined %}
-                                                                    {% for assignedUser in form.assignedUsers.vars.value %}
-                                                                        {% if assignedUser.id is defined and assignedUser.id == user.id %}
-                                                                            {% set isChecked = true %}
-                                                                        {% endif %}
-                                                                    {% endfor %}
-                                                                {% endif %}
-                                                                <input type="checkbox" 
-                                                                       id="assignedUsers_{{ user.id }}" 
-                                                                       name="ticket[assignedUsers][]" 
-                                                                       value="{{ user.id }}" 
-                                                                       class="form-check-input"
-                                                                       {% if isChecked %}checked{% endif %}>
-                                                                <label class="form-check-label" for="assignedUsers_{{ user.id }}">
-                                                                    {{ user.nombre }} {{ user.apellido }}
-                                                                </label>
-                                                            </div>
-                                                        {% endfor %}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <style>
-                                                .users-checkbox-container {
-                                                    max-height: 200px;
-                                                    overflow-y: auto;
-                                                    padding: 10px;
-                                                    border: 1px solid #dee2e6;
-                                                    border-radius: 0.375rem;
-                                                }
-                                                .form-check-input {
-                                                    margin-top: 0.2rem;
-                                                }
-                                            </style>
                                         </div>
                                     </div>
                                 </div>
@@ -366,7 +352,7 @@
                                     </button>
                                 </div>
                             </div>
-                            
+
                             <!-- Right Column - Removed Assigned Users Section -->
                             <div class="col-lg-4">
                                 <!-- User assignment has been removed from the creation form -->
@@ -389,7 +375,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
 
-            <form id="assignTicketForm" onsubmit="return false;">
+            <form id="assignTicketForm" action="{{ path('ticket_assign', {'id': 'new'}) }}" method="post">
                 <input type="hidden" name="_token" value="{{ csrf_token('assign_ticket') }}">
                 <input type="hidden" name="ticket_id" id="assign_ticket_id" value="new">
                 <input type="hidden" name="is_reassignment" id="is_reassignment" value="0">
@@ -468,9 +454,217 @@
 
 {% block javascripts %}
     {{ parent() }}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('ticketForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                console.log('Form submitted');
+                console.log('Form data:', new FormData(form));
+
+                // Validate required fields
+                const requiredFields = form.querySelectorAll('[required]');
+                let isValid = true;
+                const errors = [];
+
+                requiredFields.forEach(field => {
+                    if (!field.value.trim()) {
+                        field.classList.add('is-invalid');
+                        isValid = false;
+                        errors.push(`El campo ${field.labels[0]?.textContent || field.name} es obligatorio`);
+                    } else {
+                        field.classList.remove('is-invalid');
+                    }
+                });
+
+                if (!isValid) {
+                    e.preventDefault();
+                    const errorContainer = document.getElementById('form-errors');
+                    if (errorContainer) {
+                        errorContainer.innerHTML = errors.join('<br>');
+                        errorContainer.classList.remove('d-none');
+                        errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        }
+    });
+    </script>
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+
+    <!-- Initialize Select2 for Área de Origen -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Select2 for Área de Origen
+        $('.area-origen-select').select2({
+            theme: 'bootstrap-5',
+            language: 'es',
+            width: '100%',
+            placeholder: 'Buscar área de origen...',
+            allowClear: true,
+            dropdownAutoWidth: true,
+            minimumInputLength: 0,
+            dropdownParent: $('body')
+        });
+
+        // Ensure the dropdown is visible when clicking the search input
+        $('.area-origen-select').on('select2:open', function() {
+            setTimeout(function() {
+                $('.select2-search__field').focus();
+            }, 100);
+        });
+    });
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const modalEl = document.getElementById('assignTicketModal');
+        const assignForm = document.getElementById('assignTicketForm');
+        const repeater = document.getElementById('assignedUsersHiddenRepeater');
+        const assignedContainer = document.getElementById('assignedUsersContainer');
+        const userSearchInput = document.getElementById('userSearch');
+        const userList = document.getElementById('userList');
+
+        // Handle user search
+        if (userSearchInput) {
+            userSearchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const userItems = userList.querySelectorAll('.user-item');
+
+                userItems.forEach(item => {
+                    const userName = item.textContent.toLowerCase();
+                    item.style.display = userName.includes(searchTerm) ? '' : 'none';
+                });
+            });
+        }
+
+        // Handle form submission for user assignment
+        if (assignForm) {
+            assignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const checked = modalEl.querySelectorAll('input[name="assigned_users[]"]:checked');
+
+                // Clear previous hidden inputs
+                repeater.innerHTML = '';
+                const badges = [];
+                const selectedUsers = new Set();
+
+                // Process selected users
+                checked.forEach(cb => {
+                    const id = cb.value;
+                    // Get the user item and extract both first and last name
+                    const userItem = cb.closest('.list-group-item');
+                    let fullName = `Usuario ${id}`;
+
+                    if (userItem) {
+                        const nameElement = userItem.querySelector('.fw-bold');
+                        if (nameElement) {
+                            fullName = nameElement.textContent.trim();
+                        }
+                    }
+
+                    // Add hidden input for form submission
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    // Get the full name from data attribute or use default
+                    const hiddenName = repeater.dataset.fullName
+                        ? repeater.dataset.fullName + '[]'
+                        : 'ticket[assignedUsers][]';
+                    input.name = hiddenName;
+                    input.value = id;
+                    repeater.appendChild(input);
+
+                    // Create badge HTML
+                    if (!selectedUsers.has(id)) {
+                        selectedUsers.add(id);
+                        badges.push(`
+                            <span class="badge bg-primary d-flex align-items-center me-1 mb-1" data-user-id="${id}">
+                                ${fullName}
+                                <button type="button" class="btn-close btn-close-white btn-sm ms-2"
+                                        style="font-size:.5rem"
+                                        data-remove-user="${id}"
+                                        title="Quitar usuario"></button>
+                            </span>
+                        `);
+                    }
+                });
+
+                // Update UI with selected users
+                updateAssignedUsersUI(badges);
+
+                // Close modal and show success message
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+
+                showSuccessToast(checked.length);
+
+                // Reset search
+                if (userSearchInput) userSearchInput.value = '';
+                if (userList) {
+                    userList.querySelectorAll('.user-item').forEach(item => {
+                        item.style.display = '';
+                    });
+                }
+            });
+        }
+
+        // Update the assigned users display
+        function updateAssignedUsersUI(badges) {
+            if (!assignedContainer) return;
+
+            if (badges.length) {
+                assignedContainer.innerHTML = `
+                    <div class="assigned-users mb-2">
+                        <span class="small text-muted d-block mb-1">Usuarios asignados:</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            ${badges.join('')}
+                        </div>
+                    </div>`;
+
+                // Add event listeners to remove buttons
+                assignedContainer.querySelectorAll('[data-remove-user]').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const userId = this.getAttribute('data-remove-user');
+
+                        // Remove corresponding hidden input
+                        const inputs = repeater.querySelectorAll('input[value="' + userId + '"]');
+                        inputs.forEach(input => input.remove());
+
+                        // Uncheck in modal
+                        const checkbox = modalEl.querySelector(`input[type="checkbox"][value="${userId}"]`);
+                        if (checkbox) checkbox.checked = false;
+
+                        // Remove badge
+                        this.closest('.badge')?.remove();
+
+                        // Update UI if no more users
+                        if (!assignedContainer.querySelector('.badge')) {
+                            assignedContainer.innerHTML = '';
+                        }
+                    });
+                });
+            } else {
+                assignedContainer.innerHTML = '';
+            }
+        }
+
+        // Show success toast
+        function showSuccessToast(count) {
+            const toastEl = document.getElementById('toastAssignmentSuccess');
+            if (!toastEl) return;
+
+            const countSpan = toastEl.querySelector('#assignedUsersCount');
+            if (countSpan) countSpan.textContent = count;
+
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+        }
+    });
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // State management
@@ -534,16 +728,16 @@
                         },
                         credentials: 'same-origin' // Important for sending cookies/session
                     });
-                    
+
                     if (!response.ok) {
                         if (response.status === 403 || response.status === 401) {
                             throw new Error('No tiene permisos para ver la lista de usuarios');
                         }
                         throw new Error('No se pudo cargar la lista de usuarios');
                     }
-                    
+
                     const data = await response.json();
-                    
+
                     if (data.success && Array.isArray(data.users)) {
                         state.users = data.users;
                         renderUsers();
@@ -561,9 +755,9 @@
             // Render users based on search term
             function renderUsers() {
                 if (!elements.userList) return;
-                
-                const filteredUsers = state.users.filter(user => 
-                    (user.name && user.name.toLowerCase().includes(state.searchTerm)) || 
+
+                const filteredUsers = state.users.filter(user =>
+                    (user.name && user.name.toLowerCase().includes(state.searchTerm)) ||
                     (user.username && user.username.toLowerCase().includes(state.searchTerm))
                 );
 
@@ -592,14 +786,15 @@
                 return `
                     <div class="list-group-item user-item" data-user-id="${user.id}">
                         <div class="form-check">
-                            <input class="form-check-input user-checkbox" type="checkbox" 
-                                   value="${user.id}" id="user-${user.id}" 
+                            <input class="form-check-input user-checkbox" type="checkbox"
+                                   value="${user.id}" id="user-${user.id}"
                                    ${isSelected ? 'checked' : ''}>
                             <label class="form-check-label w-100" for="user-${user.id}">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span class="fw-bold">${user.name || 'Usuario sin nombre'}</span>
                                     <span class="badge bg-${user.roles && user.roles.includes('ROLE_AUDITOR') ? 'info' : 'secondary'} ms-2">
                                         ${user.roles && user.roles.includes('ROLE_AUDITOR') ? 'Auditor' : 'Usuario'}
+                                        ${isSelected ? '(Asignado)' : ''}
                                     </span>
                                 </div>
                                 ${user.username ? `<div class="text-muted small">@${user.username}</div>` : ''}
@@ -612,7 +807,7 @@
             function handleFormSubmit(event) {
                 event.preventDefault();
                 event.stopPropagation();
-                
+
                 try {
                     // Get selected users
                     const selectedUsers = [];
@@ -622,7 +817,7 @@
                         const userName = userItem.querySelector('.fw-bold')?.textContent.trim() || 'Usuario sin nombre';
                         selectedUsers.push({ id: userId, name: userName });
                     });
-                    
+
                     if (selectedUsers.length === 0) {
                         // Show error if no users selected
                         const errorDiv = document.getElementById('userSelectionError');
@@ -631,16 +826,16 @@
                         }
                         return false;
                     }
-                    
+
                     // Update the hidden input with selected user IDs
                     const assignedUsersInput = document.querySelector('input[name="ticket[assignedUsers]"]');
                     if (assignedUsersInput) {
                         assignedUsersInput.value = JSON.stringify(selectedUsers.map(user => user.id));
                     }
-                    
+
                     // Update the state
                     state.selectedUsers = new Map(selectedUsers.map(user => [user.id, user]));
-                    
+
                     // Update the UI to show selected users
                     const noUsersMessage = document.getElementById('noUsersMessage');
                     if (noUsersMessage) {
@@ -652,30 +847,26 @@
                             </div>
                         `;
                     }
-                    
+
                     // Close the modal
                     const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
                     if (modal) modal.hide();
-                    
+
                     // Show success toast
-                    const toastElement = document.getElementById('toastAssignmentSuccess');
-                    const toastBody = toastElement.querySelector('.toast-body');
-                    const countSpan = toastElement.querySelector('#assignedUsersCount');
-                    
+                    const toast = new bootstrap.Toast(document.getElementById('toastAssignmentSuccess'));
+                    const countSpan = document.getElementById('assignedUsersCount');
                     if (countSpan) {
                         countSpan.textContent = selectedUsers.length;
                     }
-                    
-                    const toast = new bootstrap.Toast(toastElement);
                     toast.show();
-                    
+
                 } catch (error) {
                     console.error('Error assigning users:', error);
                 }
-                
+
                 return false;
             }
-            
+
             // Add event listener to the form to handle user assignment
             document.addEventListener('DOMContentLoaded', function() {
                 // Handle assign button click
@@ -683,7 +874,7 @@
                 if (assignButton) {
                     assignButton.addEventListener('click', function(e) {
                         e.preventDefault();
-                        
+
                         // Get selected users
                         const selectedUsers = [];
                         document.querySelectorAll('#userList input[type="checkbox"]:checked').forEach(checkbox => {
@@ -692,7 +883,7 @@
                             const userName = userItem.querySelector('.fw-bold')?.textContent.trim() || 'Usuario sin nombre';
                             selectedUsers.push({ id: userId, name: userName });
                         });
-                        
+
                         if (selectedUsers.length === 0) {
                             // Show error if no users selected
                             const errorDiv = document.getElementById('userSelectionError');
@@ -701,13 +892,13 @@
                             }
                             return false;
                         }
-                        
+
                         // Update the hidden input with selected user IDs
                         const assignedUsersInput = document.querySelector('input[name="ticket[assignedUsers]"]');
                         if (assignedUsersInput) {
                             assignedUsersInput.value = JSON.stringify(selectedUsers.map(user => user.id));
                         }
-                        
+
                         // Update the UI to show selected users
                         const noUsersMessage = document.getElementById('noUsersMessage');
                         if (noUsersMessage) {
@@ -719,11 +910,11 @@
                                 </div>
                             `;
                         }
-                        
+
                         // Close the modal
                         const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
                         if (modal) modal.hide();
-                        
+
                         // Show success toast
                         const toastElement = document.getElementById('toastAssignmentSuccess');
                         const countSpan = toastElement.querySelector('#assignedUsersCount');
@@ -732,11 +923,11 @@
                         }
                         const toast = new bootstrap.Toast(toastElement);
                         toast.show();
-                        
+
                         return false;
                     });
                 }
-                
+
                 // Initialize the form with empty state
                 const noUsersMessage = document.getElementById('noUsersMessage');
                 if (noUsersMessage) {
@@ -753,7 +944,7 @@
             function loadAssignedUsers() {
                 const assignedUsersInput = document.querySelector('input[name="ticket[assignedUsers]"]');
                 if (!assignedUsersInput || !assignedUsersInput.value) return;
-                
+
                 try {
                     const userIds = JSON.parse(assignedUsersInput.value);
                     if (Array.isArray(userIds)) {
@@ -773,7 +964,7 @@
             // Render the list of assigned users
             function renderAssignedUsers() {
                 if (!elements.assignedUsersList) return;
-                
+
                 if (state.selectedUsers.size === 0) {
                     elements.assignedUsersList.innerHTML = `
                         <div class="text-muted text-center py-3">
@@ -782,14 +973,14 @@
                         </div>`;
                     return;
                 }
-                
+
                 elements.assignedUsersList.innerHTML = Array.from(state.selectedUsers.values())
                     .map(user => `
                         <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
                             <div class="flex-grow-1 ms-2">
                                 <div class="d-flex justify-content-between">
                                     <span class="fw-medium">${user.name || 'Usuario sin nombre'}</span>
-                                    <button type="button" class="btn-remove-user btn btn-sm btn-link text-danger" 
+                                    <button type="button" class="btn-remove-user btn btn-sm btn-link text-danger"
                                             data-user-id="${user.id}">
                                         <i class="fas fa-times"></i>
                                     </button>
@@ -798,7 +989,7 @@
                             </div>
                         </div>`)
                     .join('');
-                
+
                 // Add event listeners to remove buttons
                 elements.assignedUsersList.querySelectorAll('.btn-remove-user').forEach(button => {
                     button.addEventListener('click', (e) => {
@@ -809,27 +1000,27 @@
                         updateAssignButton();
                     });
                 });
-                
+
                 updateAssignButton();
             }
 
             // Update the assign button state
             function updateAssignButton() {
                 if (!elements.assignBtn) return;
-                
+
                 const countBadge = elements.assignBtn.querySelector('.badge');
                 if (countBadge) {
                     countBadge.textContent = state.selectedUsers.size;
                     countBadge.classList.toggle('d-none', state.selectedUsers.size === 0);
                 }
-                
+
                 elements.assignBtn.disabled = state.selectedUsers.size === 0;
             }
 
             // Show loading state
             function showLoading(show) {
                 if (!elements.userList) return;
-                
+
                 if (show) {
                     elements.userList.innerHTML = `
                         <div class="text-center py-3">
@@ -856,17 +1047,17 @@
                 const toastContainer = document.createElement('div');
                 toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
                 toastContainer.style.zIndex = '1100';
-                
+
                 const toast = document.createElement('div');
                 toast.className = `toast show align-items-center text-white bg-${type} border-0`;
                 toast.role = 'alert';
-                
+
                 // Add appropriate icon based on message type
                 let icon = 'check-circle';
                 if (type === 'danger') icon = 'exclamation-circle';
                 else if (type === 'warning') icon = 'exclamation-triangle';
                 else if (type === 'info') icon = 'info-circle';
-                
+
                 toast.innerHTML = `
                     <div class="d-flex">
                         <div class="toast-body d-flex align-items-center">
@@ -875,10 +1066,10 @@
                         </div>
                         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                     </div>`;
-                
+
                 toastContainer.appendChild(toast);
                 document.body.appendChild(toastContainer);
-                
+
                 // Auto-remove toast after 5 seconds
                 setTimeout(() => {
                     toast.classList.remove('show');
@@ -908,7 +1099,178 @@
 
             // Initialize the application
             init();
-                $('#userSearch').val('').trigger('input');
+            $('#userSearch').val('').trigger('input');
+
+            // Assignment form handler
+            document.addEventListener('DOMContentLoaded', function () {
+  const modalEl = document.getElementById('assignTicketModal');
+  const assignForm = document.getElementById('assignTicketForm');
+  const repeater = document.getElementById('assignedUsersHiddenRepeater');
+  const assignedContainer = document.getElementById('assignedUsersContainer');
+
+  // Al enviar el modal "Asignar"
+  if (assignForm) {
+    assignForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const checked = modalEl.querySelectorAll('input[name="assigned_users[]"]:checked');
+      // Limpiamos los hidden anteriores
+      repeater.innerHTML = '';
+
+      // Construimos los hidden que Symfony entiende: ticket[assignedUsers][]
+      const badges = [];
+      checked.forEach(cb => {
+        const id = cb.value;
+        const name = (cb.dataset.userName || '').trim()
+                    || cb.closest('.list-group-item')?.querySelector('.fw-bold')?.textContent?.trim()
+                    || ('Usuario ' + id);
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'ticket[assignedUsers][]';
+        input.value = id;
+        repeater.appendChild(input);
+
+        badges.push(
+          `<span class="badge bg-primary d-flex align-items-center me-1 mb-1" data-user-id="${id}">
+             ${name}
+             <button type="button" class="btn-close btn-close-white btn-sm ms-2" style="font-size:.5rem" data-remove-user="${id}"></button>
+           </span>`
+        );
+      });
+
+      // Pintamos "Asignado a:" (si no hay seleccion, limpiamos)
+      if (badges.length) {
+        assignedContainer.innerHTML =
+          `<div class="assigned-users mb-2">
+             <span class="small text-muted d-block mb-1">Usuarios asignados:</span>
+             <div class="d-flex flex-wrap gap-2">
+               ${badges.join('')}
+             </div>
+           </div>`;
+      } else {
+        assignedContainer.innerHTML = '';
+      }
+
+      // Bind para quitar usuarios desde el badge
+      assignedContainer.querySelectorAll('[data-remove-user]').forEach(btn => {
+        btn.addEventListener('click', function () {
+          const id = this.getAttribute('data-remove-user');
+
+          // 1) remover el hidden de ese user
+          repeater.querySelectorAll('input[name="ticket[assignedUsers][]"]').forEach(inp => {
+            if (inp.value === id) inp.remove();
+          });
+
+          // 2) desmarcar en el modal
+          const cb = modalEl.querySelector(`input[name="assigned_users[]"][value="${id}"]` );
+          if (cb) cb.checked = false;
+
+          // 3) remover el badge
+          this.closest('.badge')?.remove();
+
+          // 4) si ya no quedan badges, limpiamos el contenedor
+          if (!assignedContainer.querySelector('.badge')) {
+            assignedContainer.innerHTML = '';
+          }
+        });
+      });
+
+      // Cerrar modal
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      modal && modal.hide();
+
+      // Toast éxito
+      const toastEl = document.getElementById('toastAssignmentSuccess');
+      if (toastEl) {
+        const countSpan = toastEl.querySelector('#assignedUsersCount');
+        if (countSpan) countSpan.textContent = checked.length;
+        new bootstrap.Toast(toastEl).show();
+      }
+    });
+  }
+});
+                if (assignedUsersInput) {
+                    assignedUsersInput.value = selectedUsers.map(user => user.id).join(',');
+                }
+
+                // Update the selected users display
+                const selectedUsersContainer = document.getElementById('selectedUsers');
+                if (selectedUsersContainer) {
+                    if (selectedUsers.length === 0) {
+                        selectedUsersContainer.innerHTML = '<div class="small text-muted">Ningún usuario seleccionado</div>';
+                    } else {
+                        const badges = selectedUsers.map(user => `
+                            <span class="badge bg-primary me-1 mb-1">
+                                ${user.name}
+                                <button type="button" class="btn-close btn-close-white btn-sm ms-1"
+                                        onclick="removeUser('${user.id}')"
+                                        style="font-size: 0.5rem;">
+                                </button>
+                            </span>
+                        `).join('');
+                        selectedUsersContainer.innerHTML = badges;
+                    }
+                }
+
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
+                if (modal) {
+                    modal.hide();
+                }
+
+                // Show success message
+                const toast = new bootstrap.Toast(document.getElementById('toastAssignmentSuccess'));
+                const countSpan = document.getElementById('assignedUsersCount');
+                if (countSpan) {
+                    countSpan.textContent = selectedUsers.length;
+                }
+                toast.show();
+            };
+
+            // Make removeUser function globally available
+            window.removeUser = function(userId) {
+                const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id }}');
+                if (assignedUsersInput && assignedUsersInput.value) {
+                    const userIds = assignedUsersInput.value.split(',').filter(id => id !== userId);
+                    assignedUsersInput.value = userIds.join(',');
+
+                    // Update the checkbox in the modal
+                    const checkbox = document.querySelector(`#userList input[value="${userId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+
+                    // Update the display
+                    const badge = document.querySelector(`#selectedUsers .badge button[onclick*="${userId}"]`)?.closest('.badge');
+                    if (badge) {
+                        badge.remove();
+                    }
+
+                    // If no users left, show the placeholder
+                    const selectedUsersContainer = document.getElementById('selectedUsers');
+                    if (selectedUsersContainer && selectedUsersContainer.children.length === 0) {
+                        selectedUsersContainer.innerHTML = '<div class="small text-muted">Ningún usuario seleccionado</div>';
+                    }
+                }
+            };
+
+            // Initialize the selected users display on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id }}');
+                if (assignedUsersInput && assignedUsersInput.value) {
+                    const userIds = assignedUsersInput.value.split(',').filter(Boolean);
+                    if (userIds.length > 0) {
+                        // Check the checkboxes in the modal
+                        userIds.forEach(userId => {
+                            const checkbox = document.querySelector(`#userList input[value="${userId}"]`);
+                            if (checkbox) {
+                                checkbox.checked = true;
+                            }
+                        });
+                    }
+                }
+            });
             });
 
             // Quick filter buttons
@@ -1278,335 +1640,50 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Select2 for area of origin with improved search
-            $('select.select2-search').select2({
-                theme: 'bootstrap-5',
-                language: 'es',
-                matcher: function(params, data) {
-                    // If there are no search terms, return all of the data
-                    if ($.trim(params.term) === '') {
-                        return data;
-                    }
-
-                    // Do not display the item if there is no 'text' property
-                    if (typeof data.text === 'undefined') {
-                        return null;
-                    }
-
-                    // Split the search term and get the last part (in case of grouped searches)
-                    const searchTerm = params.term.toLowerCase();
-                    const text = data.text.toLowerCase();
-                    
-                    // Check if the text contains the search term
-                    if (text.indexOf(searchTerm) > -1) {
-                        return data;
-                    }
-
-                    // Check if this is an option inside an optgroup
-                    if (data.element && data.element.parentElement) {
-                        const groupText = data.element.parentElement.getAttribute('label');
-                        if (groupText && groupText.toLowerCase().indexOf(searchTerm) > -1) {
-                            return data;
-                        }
-                    }
-
-                    return null;
-                },
-                templateResult: function(data) {
-                    // Show the option normally if it's selected or if there's no search term
-                    if (data.selected || !$('.select2-search__field').val()) {
-                        return data.text;
-                    }
-                    
-                    // Highlight matching text in the results
-                    const searchTerm = $('.select2-search__field').val().toLowerCase();
-                    const text = data.text;
-                    const index = text.toLowerCase().indexOf(searchTerm);
-                    
-                    if (index >= 0) {
-                        const before = text.substring(0, index);
-                        const match = text.substring(index, index + searchTerm.length);
-                        const after = text.substring(index + searchTerm.length);
-                        return $('<span>').html(before + '<span class="bg-warning text-dark">' + match + '</span>' + after);
-                    }
-                    
-                    return text;
-                },
-                width: '100%',
-                placeholder: 'Buscar área de origen...',
-                allowClear: true,
-                dropdownAutoWidth: true,
-                dropdownParent: $('#assignTicketModal').length ? $('#assignTicketModal') : $(document.body)
-            });
-            
-            // Initialize textarea height
-            const textarea = document.querySelector('textarea[name*="[title]"]');
-            if (textarea) {
-                autoResizeTextarea(textarea);
-                textarea.addEventListener('input', function() {
-                    autoResizeTextarea(this);
-                });
-            }
-
-            // User selection modal functionality
-            const userModal = new bootstrap.Modal(document.getElementById('userSelectionModal'));
-            const assignBtn = document.getElementById('asignarBtn');
-            const userList = document.getElementById('userList');
-            const userSearch = document.getElementById('userSearch');
-            const selectedUsersContainer = document.getElementById('selectedUsers');
-            const selectedCount = document.getElementById('selectedCount');
-            const clearSelectionBtn = document.getElementById('clearSelection');
-            const confirmBtn = document.getElementById('confirmAssignment');
-            const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id|e('js') }}');
-
-            let allUsers = [];
-            let selectedUsers = new Map();
-
-            // Show modal when Assign button is clicked
-            if (assignBtn) {
-                assignBtn.addEventListener('click', function() {
-                    loadUsers();
-                    if (userModal) {
-                        userModal.show();
-                    }
-                });
-            }
-
-            // Load users from API
-            async function loadUsers() {
-                if (!userList) return;
-
-                try {
-                    userList.innerHTML = `
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="mt-2 mb-0">Cargando usuarios...</p>
-                        </div>`;
-
-                    const response = await fetch('/admin/api/users');
-                    if (!response.ok) throw new Error('Error al cargar usuarios');
-
-                    allUsers = await response.json();
-                    renderUserList(allUsers);
-
-                } catch (error) {
-                    console.error('Error loading users:', error);
-                    if (userList) {
-                        userList.innerHTML = `
-                            <div class="alert alert-danger m-3">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                No se pudieron cargar los usuarios. Por favor, intente nuevamente.
-                            </div>`;
-                    }
-                }
-            }
-
-            // Render user list in the modal
-            function renderUserList(usersToShow) {
-                if (!userList) return;
-
-                if (!usersToShow || usersToShow.length === 0) {
-                    userList.innerHTML = `
-                        <div class="text-center py-4">
-                            <i class="fas fa-user-slash text-muted mb-2" style="font-size: 2rem;"></i>
-                            <p class="mb-0">No se encontraron usuarios</p>
-                        </div>`;
-                    return;
-                }
-
-                userList.innerHTML = '';
-
-                usersToShow.forEach(user => {
-                    const isSelected = selectedUsers.has(user.id.toString());
-                    const userElement = document.createElement('div');
-                    userElement.className = `list-group-item list-group-item-action d-flex align-items-center ${isSelected ? 'active' : ''}`;
-                    userElement.innerHTML = `
-                        <div class="form-check flex-grow-1">
-                            <input class="form-check-input" type="checkbox"
-                                   id="user-${user.id}"
-                                   value="${user.id}"
-                                   ${isSelected ? 'checked' : ''}
-                                   onchange="toggleUserSelection(${user.id}, this.checked)">
-                            <label class="form-check-label ms-2" for="user-${user.id}">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-2">
-                                        <span class="avatar avatar-sm rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                            ${user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <div class="fw-medium">${user.name}</div>
-                                        <div class="small text-muted">@${user.username}</div>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                        <div class="badge bg-primary bg-opacity-10 text-primary">
-                            ${user.roles[0].split('_').pop().toLowerCase()}
-                        </div>`;
-
-                    userList.appendChild(userElement);
-                });
-
-                updateSelectedUsersUI();
-            }
-
-            // Toggle user selection
-            window.toggleUserSelection = function(userId, isSelected) {
-                const user = allUsers.find(u => u.id == userId);
-                if (!user) return;
-
-                if (isSelected) {
-                    selectedUsers.set(userId.toString(), user);
-                } else {
-                    selectedUsers.delete(userId.toString());
-                }
-                updateSelectedUsersUI();
-            };
-
-            // Update selected users UI
-            function updateSelectedUsersUI() {
-                if (!selectedCount || !selectedUsersContainer) return;
-
-                selectedCount.textContent = selectedUsers.size;
-                selectedUsersContainer.innerHTML = '';
-
-                if (selectedUsers.size === 0) {
-                    selectedUsersContainer.innerHTML = '<div class="text-muted small">Ningún usuario seleccionado</div>';
-                    updateAssignedUsersInput();
-                    return;
-                }
-
-                // Create badges for selected users
-                selectedUsers.forEach((user, userId) => {
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-primary d-flex align-items-center me-2 mb-2';
-                    badge.innerHTML = `
-                        ${user.name}
-                        <button type="button" class="btn-close btn-close-white btn-close-sm ms-2"
-                                data-user-id="${userId}"
-                                aria-label="Remover"></button>
-                    `;
-
-                    // Add remove handler
-                    const removeBtn = badge.querySelector('.btn-close');
-                    if (removeBtn) {
-                        removeBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            selectedUsers.delete(userId);
-                            updateSelectedUsersUI();
-                            renderUserList(allUsers);
-                        });
-                    }
-
-                    selectedUsersContainer.appendChild(badge);
-                });
-
-                // Update hidden input
-                updateAssignedUsersInput();
-            }
-
-                    assignedUsersInput.value = JSON.stringify(Array.from(selectedUsers.keys()));
-                }
-            }
-
-            // Search functionality
-            if (userSearch) {
-                userSearch.addEventListener('input', function(e) {
-                    const searchTerm = e.target.value.toLowerCase().trim();
-                    if (!searchTerm) {
-                        renderUserList(allUsers);
-                        return;
-                    }
-
-                    const filtered = allUsers.filter(user =>
-                        user.name.toLowerCase().includes(searchTerm) ||
-                        (user.username && user.username.toLowerCase().includes(searchTerm))
-                    );
-                    renderUserList(filtered);
-                });
-            }
-
-            // Clear search when modal is hidden
-            if (userModal && userModal._element) {
-                userModal._element.addEventListener('hidden.bs.modal', function () {
-                    if (userSearch) userSearch.value = '';
-                    renderUserList(allUsers);
-                });
-            }
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Select2 for multiple user selection
+            // Initialize Select2 for user selection
             $('.select2-multiple').select2({
                 theme: 'bootstrap-5',
-                language: 'es',
                 placeholder: 'Seleccione uno o más usuarios',
                 allowClear: true,
                 width: '100%',
-                closeOnSelect: false,
-                templateResult: function(data) {
-                    if (!data.id) { return data.text; }
-                    return $('<span>').text(data.text).addClass('text-truncate d-inline-block');
-                }
+                language: 'es',
+                dropdownParent: $('#ticketForm')
             });
 
-            // Update current time every second
-            function updateCurrentTime() {
-                const timeElement = document.getElementById('fecha-actual');
-                if (!timeElement) return;
+            const form = document.getElementById('ticketForm');
+            const description = document.getElementById('ticket_description');
+            const charCount = document.getElementById('charCount');
+            const maxLength = 5000; // Límite de caracteres
 
-                const now = new Date();
-                const options = {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                    timeZone: 'America/Argentina/Buenos_Aires'
-                };
+            if (description && charCount) {
+                // Actualizar contador al cargar la página
+                updateCharCount();
 
-                try {
-                    const formatter = new Intl.DateTimeFormat('es-AR', options);
-                    timeElement.textContent = formatter.format(now);
-                } catch (e) {
-                    console.error('Error formatting date:', e);
-                    timeElement.textContent = now.toLocaleString('es-AR');
+                // Actualizar contador al escribir
+                description.addEventListener('input', updateCharCount);
+
+                function updateCharCount() {
+                    const remaining = maxLength - description.value.length;
+                    charCount.textContent = `${description.value.length} / ${maxLength} caracteres`;
+                    
+                    if (remaining < 0) {
+                        charCount.classList.add('text-danger');
+                    } else {
+                        charCount.classList.remove('text-danger');
+                    }
                 }
             }
 
-            // Initialize the time and update every second
-            updateCurrentTime();
-            setInterval(updateCurrentTime, 60000); // Update every minute
-
-            // Make sure the function is available globally
-            window.updateCurrentTime = updateCurrentTime;
-
-            // Client-side form validation
-            const forms = document.querySelectorAll('.needs-validation');
-
-            Array.from(forms).forEach(form => {
-                form.addEventListener('submit', event => {
-                    if (!form.checkValidity()) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-
-                    form.classList.add('was-validated');
-                }, false);
-
-                // Auto-resize textarea
-                const textarea = form.querySelector('textarea');
-                if (textarea) {
-                    textarea.addEventListener('input', function() {
-                        this.style.height = 'auto';
-                        this.style.height = (this.scrollHeight) + 'px';
-                    });
-                }
+            // Auto-resize textarea
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+                
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                });
             });
 
             // Focus on the title field when the page loads
