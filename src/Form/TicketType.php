@@ -62,9 +62,10 @@ class TicketType extends AbstractType
                 'required' => false,
                 'attr' => [
                     'class' => 'form-control',
-                    'placeholder' => 'Dejar vacío para caso interno (se generará automáticamente)'
+                    'placeholder' => 'Opcional - Ingrese un ID externo o deje en blanco para generación automática',
+                    'autocomplete' => 'off'
                 ],
-                'help' => 'Si es un caso externo, ingrese el ID. Si es un caso interno, déjelo en blanco.',
+                'help' => 'Ingrese un ID de referencia externo o deje en blanco para generar un ID interno automáticamente',
                 'row_attr' => [
                     'class' => 'mb-3'
                 ]

@@ -733,28 +733,6 @@ class TicketController extends AbstractController
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
     }
 
-    #[Route('/tickets/{id}/take', name: 'ticket_take', methods: ['POST'])]
-    #[IsGranted('ROLE_USER')]
-    public function takeTicket(Ticket $ticket, Request $request): Response
-    {
-        $user = $this->getUser();
-
-        // Check if the ticket is already taken
-        if ($ticket->getTakenBy()) {
-            $this->addFlash('warning', 'Este ticket ya ha sido tomado por otro usuario.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        // Set the current user as the taker
-        $ticket->setTakenBy($user);
-        $ticket->setStatus(self::STATUS_IN_PROGRESS);
-
-        $this->em->persist($ticket);
-        $this->em->flush();
-        
-        $this->addFlash('success', 'Has tomado el ticket correctamente.');
-        return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
-    }
 
     #[Route('/tickets/new', name: 'ticket_new')]
     public function new(Request $request, UserRepository $userRepository): Response
@@ -767,6 +745,35 @@ class TicketController extends AbstractController
 
         $ticket = new Ticket();
         $ticket->setCreatedBy($this->getUser());
+        
+        // Handle external ID from request before creating the form
+        $ticketData = $request->request->all('ticket');
+        $externalId = isset($ticketData['idSistemaInterno']) ? trim($ticketData['idSistemaInterno']) : '';
+        
+        // If external ID is provided, check for duplicates before form validation
+        if (!empty($externalId)) {
+            $existingTicket = $this->ticketRepository->findOneBy(['idSistemaInterno' => $externalId]);
+            if ($existingTicket) {
+                $this->addFlash('error', 'El ID Externo ingresado ya está en uso. Por favor, ingrese un ID único.');
+                // Recreate the form with submitted data
+                $form = $this->createForm(TicketType::class, $ticket, [
+                    'is_admin' => $this->isGranted('ROLE_ADMIN'),
+                    'is_new_ticket' => true
+                ]);
+                $form->handleRequest($request);
+                
+                return $this->render('ticket/new.html.twig', [
+                    'ticket' => $ticket,
+                    'form' => $form->createView(),
+                    'users' => $userRepository->findAll(),
+                    'assigned_users' => []
+                ]);
+            }
+            
+            // If we get here, the external ID is valid and unique
+            $ticket->setIdSistemaInterno($externalId);
+            $this->logger->info('Using provided external ID: ' . $externalId);
+        }
 
         $form = $this->createForm(TicketType::class, $ticket, [
             'is_admin' => $this->isGranted('ROLE_ADMIN'),
@@ -776,14 +783,27 @@ class TicketController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Handle ID generation
-            $externalId = $ticket->getIdSistemaInterno();
+            // Check if there are any assigned users
+            $assignedUsers = $form->get('assignedUsers')->getData();
             
-            if (empty(trim($externalId))) {
-                // Start a transaction
-                $this->em->beginTransaction();
+            // If there are assigned users, update status to IN_PROGRESS
+            if (count($assignedUsers) > 0) {
+                $ticket->setStatus(Ticket::STATUS_IN_PROGRESS);
                 
-                try {
+                // Add assigned users to the ticket
+                foreach ($assignedUsers as $user) {
+                    $ticket->addAssignedTo($user);
+                }
+            } else {
+                $ticket->setStatus(Ticket::STATUS_PENDING);
+            }
+            
+            try {
+                // If no external ID was provided, generate an internal one
+                if (empty($externalId)) {
+                    // Start a transaction for ID generation
+                    $this->em->beginTransaction();
+                    
                     // Get the maximum internal ticket number with INT- prefix
                     $conn = $this->em->getConnection();
                     $sql = "SELECT id_sistema_interno FROM ticket WHERE id_sistema_interno LIKE 'INT-%' ORDER BY id DESC LIMIT 1";
@@ -802,95 +822,39 @@ class TicketController extends AbstractController
                     $ticket->setIdSistemaInterno($newId);
                     
                     // Debug: Log the generated ID
-                    error_log("Generated new ticket ID: " . $newId);
+                    $this->logger->info('Generated new internal ticket ID: ' . $newId);
                     
-                    // Persist and flush in the transaction
-                    $this->em->persist($ticket);
-                    $this->em->flush();
                     $this->em->commit();
-                    
-                    // Redirect after successful save
-                    $this->addFlash('success', '¡Ticket creado exitosamente!');
-                    return $this->redirectToRoute('ticket_index');
-                    
-                } catch (\Exception $e) {
+                }
+            } catch (\Exception $e) {
+                if ($this->em->getConnection()->isTransactionActive()) {
                     $this->em->rollback();
-                    
-                    // Log the actual error
-                    error_log("Error creating ticket: " . $e->getMessage());
-                    error_log("Stack trace: " . $e->getTraceAsString());
-                    
-                    // More detailed error message
-                    $this->addFlash('error', 'Error al generar el ID interno del ticket. Detalles: ' . $e->getMessage());
-                    
-                    return $this->render('ticket/new.html.twig', [
-                        'ticket' => $ticket,
-                        'form' => $form->createView(),
-                    ]);
                 }
                 
-                // If we get here, we've already handled the redirect or error
-                return $this->redirectToRoute('ticket_index');
-            } else {
-                // Check for duplicate external ID
-                $existingTicket = $this->ticketRepository->findOneBy(['idSistemaInterno' => $externalId]);
-                if ($existingTicket) {
-                    $this->addFlash('error', 'El ID Externo ingresado ya está en uso. Por favor, ingrese un ID único.');
-                    return $this->render('ticket/new.html.twig', [
-                        'ticket' => $ticket,
-                        'form' => $form->createView(),
-                    ]);
-                }
+                $this->logger->error('Error processing ticket ID: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
                 
-                // For external IDs, proceed with normal flow
-                $this->em->persist($ticket);
-                $this->em->flush();
+                $this->addFlash('error', 'Error al procesar el ID del ticket: ' . $e->getMessage());
                 
-                $this->addFlash('success', '¡Ticket creado exitosamente!');
-                return $this->redirectToRoute('ticket_index');
+                return $this->render('ticket/new.html.twig', [
+                    'ticket' => $ticket,
+                    'form' => $form->createView(),
+                ]);
             }
 
-            // Handle multiple user assignments
-            $assignedUsers = $form->get('assignedUsers')->getData();
+            // Log the final state before saving
+            $this->logger->info('Final ticket state before save:', [
+                'ticketId' => $ticket->getId(),
+                'status' => $ticket->getStatus(),
+                'assignedUsers' => $ticket->getAssignedUsers()->map(fn($u) => $u->getId())->toArray()
+            ]);
 
-            if ($assignedUsers && count($assignedUsers) > 0) {
-                foreach ($assignedUsers as $user) {
-                    // Verificar si ya existe una asignación para este usuario
-                    $existingAssignment = null;
-                    foreach ($ticket->getTicketAssignments() as $assignment) {
-                        if ($assignment->getUser() === $user) {
-                            $existingAssignment = $assignment;
-                            break;
-                        }
-                    }
-
-                    if (!$existingAssignment) {
-                        $assignment = new TicketAssignment();
-                        $assignment->setTicket($ticket);
-                        $assignment->setUser($user);
-                        $assignment->setAssignedAt(new \DateTimeImmutable());
-                        $this->em->persist($assignment);
-                        $ticket->addTicketAssignment($assignment);
-                    }
-                }
-
-                // Si hay usuarios asignados, establecer el estado a 'En progreso' si está pendiente
-                if ($ticket->getStatus() === Ticket::STATUS_PENDING) {
-                    $ticket->setStatus(Ticket::STATUS_IN_PROGRESS);
-                }
-
-                // Store assigned users in session to show after redirect
-                $assignedUserIds = array_map(function($user) {
-                    return $user->getId();
-                }, $assignedUsers->toArray());
-                $request->getSession()->set('last_assigned_users', $assignedUserIds);
-            }
-
+            // Final save with all changes
             $this->em->persist($ticket);
             $this->em->flush();
 
             $this->addFlash('success', '¡Ticket creado exitosamente!');
-            // Redirigir a la lista de tickets en lugar de mostrar el ticket creado
             return $this->redirectToRoute('ticket_index');
         }
 
@@ -993,12 +957,14 @@ class TicketController extends AbstractController
                 return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
 
-            // Update ticket status if needed
-            if (count($assignedUsers) > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
+            // Update ticket status based on assignments
+            if (count($ticket->getTicketAssignments()) > 0) {
                 $ticket->setStatus(self::STATUS_IN_PROGRESS);
-                $this->em->persist($ticket);
+            } else {
+                $ticket->setStatus(self::STATUS_PENDING);
             }
 
+            $this->em->persist($ticket);
             $this->em->flush();
 
             $this->logger->info('Successfully assigned users to ticket: ' . $ticketId);
@@ -1066,6 +1032,13 @@ class TicketController extends AbstractController
                     break;
                 }
             }
+        }
+
+        // Ensure ticket status is in sync with assignments
+        if ($ticket->getTicketAssignments()->count() > 0 && $ticket->getStatus() === self::STATUS_PENDING) {
+            $ticket->setStatus(self::STATUS_IN_PROGRESS);
+            $this->em->persist($ticket);
+            $this->em->flush();
         }
 
         return $this->render('ticket/show.html.twig', [

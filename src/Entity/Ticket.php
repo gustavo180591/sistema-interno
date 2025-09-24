@@ -8,8 +8,12 @@ use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Entity\TicketAssignment;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
+#[UniqueEntity(fields: ['idSistemaInterno'], message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
 class Ticket
 {
     const STATUS_IN_PROGRESS = 'in_progress';
@@ -17,6 +21,18 @@ class Ticket
     const STATUS_REJECTED = 'rejected';
     const STATUS_DELAYED = 'delayed';
     const STATUS_COMPLETED = 'completed';
+
+    /**
+     * @Assert\Callback
+     */
+    public function validateAssignedUsers(ExecutionContextInterface $context, $payload)
+    {
+        if (!empty($this->getAssignedUsers()->count()) && $this->status === self::STATUS_PENDING) {
+            $context->buildViolation('Un ticket con usuarios asignados no puede estar en estado "Pendiente".')
+                ->atPath('status')
+                ->addViolation();
+        }
+    }
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
@@ -82,8 +98,8 @@ class Ticket
     #[ORM\Column(name: 'area_origen', length: 255, nullable: true)]
     private ?string $area_origen = null;
 
-    #[ORM\Column(length: 50, unique: true, nullable: true)]
-    #[Assert\Unique(message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
+    #[ORM\Column(name: 'id_sistema_interno', length: 50, unique: true, nullable: true)]
+    #[Assert\Callback([self::class, 'validateUniqueIdSistemaInterno'])]
     private ?string $idSistemaInterno = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
@@ -108,6 +124,23 @@ class Ticket
         $this->ticketAssignments = new ArrayCollection();
         $this->updates = new ArrayCollection();
         $this->notes = new ArrayCollection();
+    }
+
+    /**
+     * Validates that the ID is unique
+     * This is called via the Callback constraint
+     * 
+     * @param string|null $idSistemaInterno
+     * @param ExecutionContextInterface $context
+     */
+    public static function validateUniqueIdSistemaInterno($idSistemaInterno, ExecutionContextInterface $context): void
+    {
+        if ($idSistemaInterno === null || $idSistemaInterno === '') {
+            return; // Skip validation if no ID is provided (will be auto-generated)
+        }
+        
+        // The actual uniqueness check is handled by the database unique constraint
+        // This method is kept for any additional validation logic if needed in the future
     }
 
     // Getters and Setters
@@ -335,6 +368,11 @@ class Ticket
     {
         if (!$this->isAssignedToUser($user)) {
             $assignment = new TicketAssignment();
+            
+            // Si el ticket está en estado pendiente, cambiarlo a 'en progreso'
+            if ($this->status === self::STATUS_PENDING) {
+                $this->status = self::STATUS_IN_PROGRESS;
+            }
             $assignment->setUser($user);
             $assignment->setTicket($this);
             $this->ticketAssignments[] = $assignment;

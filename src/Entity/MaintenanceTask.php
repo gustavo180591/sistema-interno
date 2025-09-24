@@ -85,6 +85,12 @@ class MaintenanceTask
     #[ORM\OneToMany(mappedBy: 'task', targetEntity: MaintenanceLog::class, orphanRemoval: true)]
     private $logs;
 
+    #[ORM\Column(type: 'boolean', nullable: true)]
+    private $withinSla = false;
+
+    #[ORM\Column(type: 'boolean')]
+    private $reopened = false;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -311,6 +317,28 @@ class MaintenanceTask
     public function setOffice(?Office $office): self
     {
         $this->office = $office;
+        return $this;
+    }
+
+    public function isWithinSla(): ?bool
+    {
+        return $this->withinSla;
+    }
+
+    public function setWithinSla(?bool $withinSla): self
+    {
+        $this->withinSla = $withinSla;
+        return $this;
+    }
+
+    public function isReopened(): bool
+    {
+        return $this->reopened;
+    }
+
+    public function setReopened(bool $reopened): self
+    {
+        $this->reopened = $reopened;
         return $this;
     }
 

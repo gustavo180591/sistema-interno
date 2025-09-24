@@ -43,9 +43,12 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h3 mb-0 d-flex align-items-center">
                     <span class="me-3">{{ ticket.title }}</span>
-                    <span class="badge rounded-pill {{ ticket.status|status_class }} fs-6">
-                        <i class="fas {{ ticket.status|status_icon }} me-1"></i>
-                        {{ ticket.status|status_label }}
+                    <span class="badge rounded-pill {{ ticket.status == 'in_progress' ? 'bg-primary' : ticket.status|status_class }} fs-6">
+                        <i class="fas {{ ticket.status == 'in_progress' ? 'fa-user-check' : ticket.status|status_icon }} me-1"></i>
+                        {{ ticket.status == 'in_progress' ? 'En Proceso' : ticket.status|status_label }}
+                        {% if ticket.status == 'in_progress' and ticket.takenBy %}
+                            <span class="ms-1">({{ ticket.takenBy.getFullName() }})</span>
+                        {% endif %}
                     </span>
                 </h1>
                 <div class="btn-group">
@@ -81,6 +84,13 @@
                             <button type="button" class="btn btn-outline-primary btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#scheduleTicketModal">
                                 <i class="far fa-calendar-alt me-1"></i> Agendar
                             </button>
+                            
+                            {# Assignment status indicator #}
+                            {% if ticket.status == 'in_progress' and isAssigned %}
+                                <button type="button" class="btn btn-primary btn-sm ms-1" disabled>
+                                    <i class="fas fa-user-check me-1"></i> En Proceso
+                                </button>
+                            {% endif %}
                         {% endif %}
                     {% endif %}
                 </div>
@@ -481,7 +491,7 @@
 {% block javascripts %}
 {{ parent() }}
 <script>
-// Ticket Assignment Form Handler
+// Initialize scheduling form
 document.addEventListener('DOMContentLoaded', function() {
     // Set default date and time for scheduling
     const today = new Date();

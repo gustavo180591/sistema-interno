@@ -245,7 +245,8 @@
                             'class': 'needs-validation',
                             'novalidate': 'novalidate',
                             'id': 'ticketForm'
-                        }
+                        },
+                        'method': 'POST'
                     }) }}
     <div id="form-errors" class="alert alert-danger d-none"></div>
                             {# NO renderizamos el widget real para que no pise el valor #}
@@ -265,21 +266,41 @@
                                         <div class="row g-4">
                                             <!-- ID Externo y Botón de Asignar -->
                                             <div class="col-md-6">
-                                                <div class="d-flex align-items-start gap-3">
-                                                    <div class="flex-grow-1">
-                                                        {{ form_label(form.idSistemaInterno, 'ID Externo', {'label_attr': {
-                                                            'class': 'form-label fw-medium text-muted small mb-2'
-                                                        }}) }}
-                                                        {{ form_widget(form.idSistemaInterno, {'attr': {
-                                                            'class': 'form-control form-control-lg',
-                                                            'placeholder': 'Ingrese el ID externo'
-                                                        }}) }}
-                                                    </div>
-                                                    <div class="mt-4 pt-2 d-flex align-items-center">
-                                                        <button type="button" class="btn btn-sm btn-outline-info" title="Asignar" data-bs-toggle="modal" data-bs-target="#assignTicketModal" data-ticket-id="new">
-                                                            <i class="fas fa-user-plus me-1"></i> Asignar
-                                                        </button>
-                                                    </div>
+                                                <div class="form-group">
+                                                    <label class="form-label">
+                                                        ID <small class="text-muted">(Opcional)</small>
+                                                        <i class="fas fa-info-circle text-primary ms-1" 
+                                                           data-bs-toggle="tooltip" 
+                                                           title="Deje vacío para ID interno automático o ingrese un ID externo">
+                                                        </i>
+                                                    </label>
+                                                    {{ form_widget(form.idSistemaInterno, {
+                                                        'attr': {
+                                                            'class': 'form-control',
+                                                            'autocomplete': 'off',
+                                                            'placeholder': 'Dejar vacío para ID automático',
+                                                            'data-toggle': 'tooltip',
+                                                            'title': 'Deje vacío para ID automático o ingrese un ID externo'
+                                                        }
+                                                    }) }}
+                                                    <small class="form-text text-muted">
+                                                        <i class="fas fa-lightbulb text-warning"></i> 
+                                                        Deje vacío para ID interno automático o ingrese un ID externo
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Asignación de Usuarios -->
+                                            <div class="col-12">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Asignar a</label>
+                                                    {{ form_widget(form.assignedUsers, {
+                                                        'attr': {
+                                                            'class': 'form-select select2-multiple',
+                                                            'multiple': 'multiple',
+                                                            'id': 'ticket_assignedUsers'
+                                                        }
+                                                    }) }}
                                                 </div>
                                             </div>
 
@@ -303,27 +324,9 @@
                                             <!-- Título -->
                                             <div class="col-12">
                                                 <div class="mb-3">
-                                                    <!-- Assigned Users Display -->
-                                                    <div id="assignedUsersContainer" class="mb-3">
-                                                        {% if assigned_users is defined and assigned_users|length > 0 %}
-                                                            <div class="assigned-users mb-2">
-                                                                <span class="small text-muted d-block mb-1">Usuarios asignados:</span>
-                                                                <div class="d-flex flex-wrap gap-2">
-                                                                    {% for user in assigned_users %}
-                                                                        <span class="badge bg-primary d-flex align-items-center">
-                                                                            {{ user.nombre }} {{ user.apellido }}
-                                                                            <button type="button" class="btn-close btn-close-white btn-sm ms-2" data-user-id="{{ user.id }}" style="font-size: 0.5rem;"></button>
-                                                                        </span>
-                                                                    {% endfor %}
-                                                                </div>
-                                                            </div>
-                                                        {% endif %}
-                                                    </div>
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        {{ form_label(form.title, 'Título del Ticket', {'label_attr': {
-                                                            'class': 'form-label fw-medium text-muted small mb-0'
-                                                        }}) }}
-                                                    </div>
+                                                    {{ form_label(form.title, 'Título del Ticket', {'label_attr': {
+                                                        'class': 'form-label fw-medium text-muted small mb-0'
+                                                    }}) }}
                                                     {{ form_widget(form.title, {
                                                         'attr': {
                                                             'class': 'form-control form-control-lg',
@@ -791,6 +794,7 @@
                                     <span class="fw-bold">${user.name || 'Usuario sin nombre'}</span>
                                     <span class="badge bg-${user.roles && user.roles.includes('ROLE_AUDITOR') ? 'info' : 'secondary'} ms-2">
                                         ${user.roles && user.roles.includes('ROLE_AUDITOR') ? 'Auditor' : 'Usuario'}
+                                        ${isSelected ? '(Asignado)' : ''}
                                     </span>
                                 </div>
                                 ${user.username ? `<div class="text-muted small">@${user.username}</div>` : ''}
@@ -849,15 +853,11 @@
                     if (modal) modal.hide();
 
                     // Show success toast
-                    const toastElement = document.getElementById('toastAssignmentSuccess');
-                    const toastBody = toastElement.querySelector('.toast-body');
-                    const countSpan = toastElement.querySelector('#assignedUsersCount');
-
+                    const toast = new bootstrap.Toast(document.getElementById('toastAssignmentSuccess'));
+                    const countSpan = document.getElementById('assignedUsersCount');
                     if (countSpan) {
                         countSpan.textContent = selectedUsers.length;
                     }
-
-                    const toast = new bootstrap.Toast(toastElement);
                     toast.show();
 
                 } catch (error) {
@@ -1640,335 +1640,50 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Select2 for area of origin with improved search
-            $('select.select2-search').select2({
-                theme: 'bootstrap-5',
-                language: 'es',
-                matcher: function(params, data) {
-                    // If there are no search terms, return all of the data
-                    if ($.trim(params.term) === '') {
-                        return data;
-                    }
-
-                    // Do not display the item if there is no 'text' property
-                    if (typeof data.text === 'undefined') {
-                        return null;
-                    }
-
-                    // Split the search term and get the last part (in case of grouped searches)
-                    const searchTerm = params.term.toLowerCase();
-                    const text = data.text.toLowerCase();
-
-                    // Check if the text contains the search term
-                    if (text.indexOf(searchTerm) > -1) {
-                        return data;
-                    }
-
-                    // Check if this is an option inside an optgroup
-                    if (data.element && data.element.parentElement) {
-                        const groupText = data.element.parentElement.getAttribute('label');
-                        if (groupText && groupText.toLowerCase().indexOf(searchTerm) > -1) {
-                            return data;
-                        }
-                    }
-
-                    return null;
-                },
-                templateResult: function(data) {
-                    // Show the option normally if it's selected or if there's no search term
-                    if (data.selected || !$('.select2-search__field').val()) {
-                        return data.text;
-                    }
-
-                    // Highlight matching text in the results
-                    const searchTerm = $('.select2-search__field').val().toLowerCase();
-                    const text = data.text;
-                    const index = text.toLowerCase().indexOf(searchTerm);
-
-                    if (index >= 0) {
-                        const before = text.substring(0, index);
-                        const match = text.substring(index, index + searchTerm.length);
-                        const after = text.substring(index + searchTerm.length);
-                        return $('<span>').html(before + '<span class="bg-warning text-dark">' + match + '</span>' + after);
-                    }
-
-                    return text;
-                },
-                width: '100%',
-                placeholder: 'Buscar área de origen...',
-                allowClear: true,
-                dropdownAutoWidth: true,
-                dropdownParent: $('#assignTicketModal').length ? $('#assignTicketModal') : $(document.body)
-            });
-
-            // Initialize textarea height
-            const textarea = document.querySelector('textarea[name*="[title]"]');
-            if (textarea) {
-                autoResizeTextarea(textarea);
-                textarea.addEventListener('input', function() {
-                    autoResizeTextarea(this);
-                });
-            }
-
-            // User selection modal functionality
-            const userModal = new bootstrap.Modal(document.getElementById('userSelectionModal'));
-            const assignBtn = document.getElementById('asignarBtn');
-            const userList = document.getElementById('userList');
-            const userSearch = document.getElementById('userSearch');
-            const selectedUsersContainer = document.getElementById('selectedUsers');
-            const selectedCount = document.getElementById('selectedCount');
-            const clearSelectionBtn = document.getElementById('clearSelection');
-            const confirmBtn = document.getElementById('confirmAssignment');
-            const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id|e('js') }}');
-
-            let allUsers = [];
-            let selectedUsers = new Map();
-
-            // Show modal when Assign button is clicked
-            if (assignBtn) {
-                assignBtn.addEventListener('click', function() {
-                    loadUsers();
-                    if (userModal) {
-                        userModal.show();
-                    }
-                });
-            }
-
-            // Load users from API
-            async function loadUsers() {
-                if (!userList) return;
-
-                try {
-                    userList.innerHTML = `
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="mt-2 mb-0">Cargando usuarios...</p>
-                        </div>`;
-
-                    const response = await fetch('/admin/api/users');
-                    if (!response.ok) throw new Error('Error al cargar usuarios');
-
-                    allUsers = await response.json();
-                    renderUserList(allUsers);
-
-                } catch (error) {
-                    console.error('Error loading users:', error);
-                    if (userList) {
-                        userList.innerHTML =
-                            '<div class="alert alert-danger m-3">' +
-                            '<i class="fas fa-exclamation-triangle me-2"></i>' +
-                            'No se pudieron cargar los usuarios. Por favor, intente nuevamente.' +
-                            '</div>';
-                    }
-                }
-            }
-
-            // Render user list in the modal
-            function renderUserList(usersToShow) {
-                if (!userList) return;
-
-                if (!usersToShow || usersToShow.length === 0) {
-                    userList.innerHTML = `
-                        <div class="text-center py-4">
-                            <i class="fas fa-user-slash text-muted mb-2" style="font-size: 2rem;"></i>
-                            <p class="mb-0">No se encontraron usuarios</p>
-                        </div>`;
-                    return;
-                }
-
-                userList.innerHTML = '';
-
-                usersToShow.forEach(user => {
-                    const isSelected = selectedUsers.has(user.id.toString());
-                    const userElement = document.createElement('div');
-                    userElement.className = `list-group-item list-group-item-action d-flex align-items-center ${isSelected ? 'active' : ''}`;
-                    userElement.innerHTML = `
-                        <div class="form-check flex-grow-1">
-                            <input class="form-check-input" type="checkbox"
-                                   id="user-${user.id}"
-                                   value="${user.id}"
-                                   ${isSelected ? 'checked' : ''}
-                                   onchange="toggleUserSelection(${user.id}, this.checked)">
-                            <label class="form-check-label ms-2" for="user-${user.id}">
-                                <div class="d-flex align-items-center">
-                                    <div class="me-2">
-                                        <span class="avatar avatar-sm rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
-                                            ${user.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <div class="fw-medium">${user.name}</div>
-                                        <div class="small text-muted">@${user.username}</div>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                        <div class="badge bg-primary bg-opacity-10 text-primary">
-                            ${user.roles[0].split('_').pop().toLowerCase()}
-                        </div>`;
-
-                    userList.appendChild(userElement);
-                });
-
-                updateSelectedUsersUI();
-            }
-
-            // Toggle user selection
-            window.toggleUserSelection = function(userId, isSelected) {
-                const user = allUsers.find(u => u.id == userId);
-                if (!user) return;
-
-                if (isSelected) {
-                    selectedUsers.set(userId.toString(), user);
-                } else {
-                    selectedUsers.delete(userId.toString());
-                }
-                updateSelectedUsersUI();
-            };
-
-            // Update selected users UI
-            function updateSelectedUsersUI() {
-                if (!selectedCount || !selectedUsersContainer) return;
-
-                selectedCount.textContent = selectedUsers.size;
-                selectedUsersContainer.innerHTML = '';
-
-                if (selectedUsers.size === 0) {
-                    selectedUsersContainer.innerHTML = '<div class="text-muted small">Ningún usuario seleccionado</div>';
-                    updateAssignedUsersInput();
-                    return;
-                }
-
-                // Create badges for selected users
-                selectedUsers.forEach((user, userId) => {
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-primary d-flex align-items-center me-2 mb-2';
-                    badge.innerHTML = `
-                        ${user.name}
-                        <button type="button" class="btn-close btn-close-white btn-close-sm ms-2"
-                                data-user-id="${userId}"
-                                aria-label="Remover"></button>
-                    `;
-
-                    // Add remove handler
-                    const removeBtn = badge.querySelector('.btn-close');
-                    if (removeBtn) {
-                        removeBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            selectedUsers.delete(userId);
-                            updateSelectedUsersUI();
-                            renderUserList(allUsers);
-                        });
-                    }
-
-                    selectedUsersContainer.appendChild(badge);
-                });
-
-                // Update hidden input
-                updateAssignedUsersInput();
-            }
-
-                    assignedUsersInput.value = JSON.stringify(Array.from(selectedUsers.keys()));
-
-
-
-            // Search functionality
-            if (userSearch) {
-                userSearch.addEventListener('input', function(e) {
-                    const searchTerm = e.target.value.toLowerCase().trim();
-                    if (!searchTerm) {
-                        renderUserList(allUsers);
-                        return;
-                    }
-
-                    const filtered = allUsers.filter(user =>
-                        user.name.toLowerCase().includes(searchTerm) ||
-                        (user.username && user.username.toLowerCase().includes(searchTerm))
-                    );
-                    renderUserList(filtered);
-                });
-            }
-
-            // Clear search when modal is hidden
-            if (userModal && userModal._element) {
-                userModal._element.addEventListener('hidden.bs.modal', function () {
-                    if (userSearch) userSearch.value = '';
-                    renderUserList(allUsers);
-                });
-            }
-        );
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Select2 for multiple user selection
+            // Initialize Select2 for user selection
             $('.select2-multiple').select2({
                 theme: 'bootstrap-5',
-                language: 'es',
                 placeholder: 'Seleccione uno o más usuarios',
                 allowClear: true,
                 width: '100%',
-                closeOnSelect: false,
-                templateResult: function(data) {
-                    if (!data.id) { return data.text; }
-                    return $('<span>').text(data.text).addClass('text-truncate d-inline-block');
-                }
+                language: 'es',
+                dropdownParent: $('#ticketForm')
             });
 
-            // Update current time every second
-            function updateCurrentTime() {
-                const timeElement = document.getElementById('fecha-actual');
-                if (!timeElement) return;
+            const form = document.getElementById('ticketForm');
+            const description = document.getElementById('ticket_description');
+            const charCount = document.getElementById('charCount');
+            const maxLength = 5000; // Límite de caracteres
 
-                const now = new Date();
-                const options = {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                    timeZone: 'America/Argentina/Buenos_Aires'
-                };
+            if (description && charCount) {
+                // Actualizar contador al cargar la página
+                updateCharCount();
 
-                try {
-                    const formatter = new Intl.DateTimeFormat('es-AR', options);
-                    timeElement.textContent = formatter.format(now);
-                } catch (e) {
-                    console.error('Error formatting date:', e);
-                    timeElement.textContent = now.toLocaleString('es-AR');
+                // Actualizar contador al escribir
+                description.addEventListener('input', updateCharCount);
+
+                function updateCharCount() {
+                    const remaining = maxLength - description.value.length;
+                    charCount.textContent = `${description.value.length} / ${maxLength} caracteres`;
+                    
+                    if (remaining < 0) {
+                        charCount.classList.add('text-danger');
+                    } else {
+                        charCount.classList.remove('text-danger');
+                    }
                 }
             }
 
-            // Initialize the time and update every second
-            updateCurrentTime();
-            setInterval(updateCurrentTime, 60000); // Update every minute
-
-            // Make sure the function is available globally
-            window.updateCurrentTime = updateCurrentTime;
-
-            // Client-side form validation
-            const forms = document.querySelectorAll('.needs-validation');
-
-            Array.from(forms).forEach(form => {
-                form.addEventListener('submit', event => {
-                    if (!form.checkValidity()) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                    }
-
-                    form.classList.add('was-validated');
-                }, false);
-
-                // Auto-resize textarea
-                const textarea = form.querySelector('textarea');
-                if (textarea) {
-                    textarea.addEventListener('input', function() {
-                        this.style.height = 'auto';
-                        this.style.height = (this.scrollHeight) + 'px';
-                    });
-                }
+            // Auto-resize textarea
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+                
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = (this.scrollHeight) + 'px';
+                });
             });
 
             // Focus on the title field when the page loads

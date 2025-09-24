@@ -8,5 +8,4 @@ app_admin_user:
 app_admin_performance:
     resource: '../../src/Controller/Admin/PerformanceController.php'
     type: attribute
-    prefix: /admin
     name_prefix: admin_

@@ -2,153 +2,152 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\MaintenanceTask;
-use App\Entity\Ticket;
 use App\Entity\User;
 use App\Repository\MaintenanceTaskRepository;
-use App\Repository\UserRepository;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Service\PerformanceMetricsService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/admin/performance')]
-#[IsGranted('ROLE_AUDITOR')]
+#[Route('/performance', name: 'admin_performance_')]
 class PerformanceController extends AbstractController
 {
     public function __construct(
-        private EntityManagerInterface $entityManager,
-        private UserRepository $userRepository,
-        private MaintenanceTaskRepository $taskRepository
+        private MaintenanceTaskRepository $taskRepository,
+        private PerformanceMetricsService $metrics
     ) {}
 
     #[Route('', name: 'dashboard')]
-    #[Route('/dashboard', name: 'admin_performance_dashboard')]
     public function dashboard(Request $request): Response
     {
-        $now = new \DateTimeImmutable('now');
-        $from = $request->query->get('from') 
-            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
-            : $now->modify('first day of this month')->setTime(0, 0);
-            
-        $to = $request->query->get('to')
-            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
-            : $now->modify('last day of this month')->setTime(23, 59, 59);
+        $from = new \DateTime($request->query->get('from', 'first day of this month 00:00'));
+        $to = new \DateTime($request->query->get('to', 'last day of this month 23:59:59'));
 
+        // Get performance data
         $summary = $this->taskRepository->getPerformanceSummary($from, $to);
-        $assignedUsersPerformance = $this->taskRepository->getAssignedUsersPerformance($from, $to);
+        $users = $this->taskRepository->getAssignedUsersPerformance($from, $to);
+        $ranking = $this->metrics->rankUsers($users);
 
         return $this->render('admin/performance/dashboard.html.twig', [
             'from' => $from,
             'to' => $to,
             'summary' => $summary,
-            'assignedUsersPerformance' => $assignedUsersPerformance,
-            'allUsers' => $this->userRepository->findAll(),
+            'ranking' => $ranking
         ]);
     }
-    
-    #[Route('/users', name: 'users_summary')]
-    #[Route('/users/summary', name: 'admin_performance_users_summary')]
-    public function usersSummary(Request $request): Response
+
+    #[Route('/export', name: 'export', methods: ['GET'])]
+    public function export(Request $request): Response
     {
-        $now = new \DateTimeImmutable('now');
-        $from = $request->query->get('from') 
-            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
-            : $now->modify('first day of this month')->setTime(0, 0);
-            
-        $to = $request->query->get('to')
-            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
-            : $now->modify('last day of this month')->setTime(23, 59, 59);
+        $from = new \DateTime($request->query->get('from', 'first day of this month 00:00'));
+        $to = new \DateTime($request->query->get('to', 'last day of this month 23:59:59'));
 
-        // Get all users with their performance data
-        $users = $this->userRepository->findAll();
-        $usersPerformance = [];
-        
-        foreach ($users as $user) {
-            $performance = $this->taskRepository->getUserPerformance($user, $from, $to);
-            $usersPerformance[] = [
-                'user' => $user,
-                'totalTasks' => count($performance),
-                'completedTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'completed')),
-                'inProgressTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'in_progress')),
-                'pendingTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'pending')),
-                'avgCompletionTime' => $this->calculateAverageCompletionTime($performance)
-            ];
+        // Get the data to export
+        $users = $this->taskRepository->getAssignedUsersPerformance($from, $to);
+        $ranking = $this->metrics->rankUsers($users);
+
+        // Generate CSV content
+        $lines = ["Usuario;Cerrados;TMR(h);SLA(%);Reabiertos(%);Score"];
+        foreach ($ranking as $r) {
+            $s = $r['score'];
+            $name = trim(($r['nombre'] ?? '').' '.($r['apellido'] ?? '')) ?: ($r['username'] ?? 'N/D');
+            $lines[] = sprintf(
+                "%s;%d;%.1f;%.0f;%.1f;%.1f",
+                $name, $s['raw']['cerr'], $s['raw']['tmr'], $s['raw']['sla'], $s['raw']['reab'], $s['final']
+            );
         }
+        $csv = implode("\n", $lines);
 
-        return $this->render('admin/performance/users_summary.html.twig', [
-            'usersPerformance' => $usersPerformance,
-            'from' => $from,
-            'to' => $to
-        ]);
+        return new Response(
+            $csv,
+            200,
+            [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="performance_'.date('Y-m-d').'.csv"',
+            ]
+        );
     }
-    
-    #[Route('/user/{id}', name: 'user')]
-    #[Route('/users/{id}', name: 'admin_performance_user')]
+
     /**
      * Calculate average completion time in hours and minutes
      */
     private function calculateAverageCompletionTime(array $tasks): ?string
     {
         $completedTasks = array_filter($tasks, fn($task) => $task['status'] === 'completed' && isset($task['completedAt']) && $task['completedAt'] !== null);
-        
+
         if (empty($completedTasks)) {
             return null;
         }
-        
+
         $totalSeconds = 0;
         $count = 0;
-        
+
         foreach ($completedTasks as $task) {
             $start = $task['startedAt'] ?? $task['createdAt'];
             $end = $task['completedAt'];
-            
+
             if ($start && $end) {
                 $totalSeconds += $end->getTimestamp() - $start->getTimestamp();
                 $count++;
             }
         }
-        
+
         if ($count === 0) {
             return null;
         }
-        
+
         $averageSeconds = $totalSeconds / $count;
         $hours = floor($averageSeconds / 3600);
         $minutes = floor(($averageSeconds % 3600) / 60);
-        
+
         return sprintf('%02d:%02d', $hours, $minutes);
     }
-    
-    public function userPerformance(int $id, Request $request): Response
+
+    #[Route('/user/{id}', name: 'performance_user', methods: ['GET'])]
+    public function user(int $id, Request $request): Response
     {
-        $user = $this->userRepository->find($id);
+        $from = new \DateTime($request->query->get('from', 'first day of this month 00:00'));
+        $to = new \DateTime($request->query->get('to', 'last day of this month 23:59:59'));
+
+        // Get user details and performance metrics
+        $user = $this->getDoctrine()->getRepository(User::class)->find($id);
         if (!$user) {
             throw $this->createNotFoundException('Usuario no encontrado');
         }
 
-        $now = new \DateTimeImmutable('now');
-        $from = $request->query->get('from') 
-            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
-            : $now->modify('first day of this month')->setTime(0, 0);
-            
-        $to = $request->query->get('to')
-            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
-            : $now->modify('last day of this month')->setTime(23, 59, 59);
+        // Get user's performance data
+        $user = $this->taskRepository->getUserPerformance($user, $from, $to);
+        $ranking = $this->metrics->rankUsers([$user]);
+        $userScore = !empty($ranking) ? $ranking[0] : null;
 
-        $detail = $this->taskRepository->getUserPerformance($user, $from, $to);
-        
-        // Get task status distribution for the chart
-        $statusDistribution = $this->taskRepository->getUserTaskStatusDistribution($user, $from, $to);
+        // Get user's tasks for the period using QueryBuilder for proper date range filtering
+        $qb = $this->taskRepository->createQueryBuilder('t')
+            ->andWhere('t.assignedTo = :user')
+            ->andWhere('t.status = :status')
+            ->andWhere('t.closedAt BETWEEN :from AND :to')
+            ->setParameter('user', $user)
+            ->setParameter('status', 'CLOSED')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->orderBy('t.closedAt', 'DESC');
+
+        $tasks = $qb->getQuery()->getResult();
+
+        // Get task status distribution for the chart if the method exists
+        $statusDistribution = [];
+        if (method_exists($this->taskRepository, 'getUserTaskStatusDistribution')) {
+            $statusDistribution = $this->taskRepository->getUserTaskStatusDistribution($user, $from, $to);
+        }
 
         return $this->render('admin/performance/user.html.twig', [
             'user' => $user,
             'from' => $from,
             'to' => $to,
-            'detail' => $detail,
-            'status_distribution' => $statusDistribution,
+            'performance' => $userScore,
+            'tasks' => $tasks,
+            'status_distribution' => $statusDistribution
         ]);
     }
 
@@ -240,6 +239,7 @@ class PerformanceController extends AbstractController
                 }
                 $end = $task->getCompletedAt() ?? $task->getUpdatedAt() ?? $task->getCreatedAt();
                 $durationMin = max(0, (int) floor(($end->getTimestamp() - $start->getTimestamp()) / 60));
+                $u['avgDurationMin'] = ($u['avgDurationMin'] * ($u['completed'] - 1) + $durationMin) / $u['completed'];
                 $u['totalDurationMin'] += $durationMin;
                 // SLA simple: 48h
                 $u['slaTotal']++;
