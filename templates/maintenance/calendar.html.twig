@@ -33,6 +33,8 @@
     {{ parent() }}
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
     <style>
         #calendar {
             background-color: #fff;
@@ -301,8 +303,8 @@
                         <!-- Área de Origen -->
                         <div class="mb-3">
                             <label for="area" class="form-label fw-bold">Área de Origen</label>
-                            <select class="form-select" id="area" name="area" required>
-                                <option value="">Seleccione un área...</option>
+                            <select class="form-control select2-area" id="area" name="area" required style="width: 100%;">
+                                <option value="">Buscar o seleccionar un área...</option>
                                 <!-- Concejales -->
                                 <optgroup label="Concejales">
                                     <option value="Concejal Almiron Samira">Concejal Almiron Samira</option>
@@ -395,7 +397,7 @@
                             <label for="externalTicketId" class="form-label fw-bold">ID del Ticket Externo</label>
                             <input type="text" class="form-control" id="externalTicketId" name="external_ticket_id" required>
                         </div>
-                        
+
 <!-- Descripción del Trabajo -->
                         <div class="mb-3">
                             <label for="description" class="form-label fw-bold">Descripción del Trabajo</label>
@@ -411,16 +413,53 @@
             </div>
         </div>
     </div>
+
+    <!-- Event Details Modal -->
+    <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="eventDetailsModalLabel">Detalles del Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="#" class="btn btn-primary" id="viewTicketBtn">Ver Ticket Completo</a>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <!-- Load scripts only once -->
+    {% if not app.request.attributes.get('_route') == 'maintenance_calendar_events' %}
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+        <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js'></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+        <script>
+            // Make flatpickr available globally
+            window.flatpickr = flatpickr;
+        </script>
+    {% endif %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Check if we have new event data from the session
+            const newEventData = {{ app.session.get('new_event_data')|default('null')|json_encode|raw }};
+            
+            // Clear the session data so it doesn't persist on refresh
+            {% if app.session.has('new_event_data') %}
+                {{ app.session.remove('new_event_data') }}
+            {% endif %}
+            
             // Initialize tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -431,54 +470,198 @@
             const taskModal = new bootstrap.Modal(document.getElementById('taskModal'));
 
             // Calendar initialization
-            let calendarEl = document.getElementById('calendar');
-            let calendar;
-
+            var calendarEl = document.getElementById('calendar');
+            var calendar = null; // Initialize as null
+            
+            // Function to open the new task modal with pre-filled data
+            function openNewTaskModal(start, end, title, description, ticketId) {
+                // Format the date and time for the form
+                const startDate = new Date(start);
+                const endDate = new Date(end);
+                
+                // Calculate duration in minutes
+                const duration = Math.round((endDate - startDate) / (1000 * 60));
+                
+                // Set form values
+                document.getElementById('taskDate').value = startDate.toISOString().split('T')[0];
+                document.getElementById('taskTime').value = startDate.toTimeString().substring(0, 5);
+                document.getElementById('duration').value = duration;
+                
+                // Set ticket ID if available
+                if (ticketId) {
+                    const externalTicketId = document.getElementById('externalTicketId');
+                    if (externalTicketId) externalTicketId.value = ticketId;
+                    
+                    // Set the title to the ticket ID if no title is provided
+                    if (!title) {
+                        title = 'Ticket #' + ticketId;
+                    }
+                }
+                
+                // Set title and description
+                const titleField = document.getElementById('taskTitle');
+                if (titleField) titleField.value = title || '';
+                
+                const descriptionField = document.getElementById('description');
+                if (descriptionField) descriptionField.value = description || '';
+                
+                // Open the modal
+                const modal = new bootstrap.Modal(document.getElementById('newTaskFromTicketModal'));
+                modal.show();
+            }
+            
             // Filter variables
             let showCompleted = true;
             let categoryFilter = '';
 
             // Initialize the calendar
             function initCalendar() {
-                calendar = new FullCalendar.Calendar(calendarEl, {
-                    dateClick: function(info) {
-                        // Prevent default behavior
-                        info.jsEvent.preventDefault();
-                        
-                        // Get the clicked date
-                        const clickedDate = info.date;
-                        
-                        // Format date as YYYY-MM-DD
-                        const y = clickedDate.getFullYear();
-                        const m = String(clickedDate.getMonth() + 1).padStart(2, '0');
-                        const d = String(clickedDate.getDate()).padStart(2, '0');
-                        const formattedDate = `${y}-${m}-${d}`;
-                        
-                        // Set date and default time (09:00)
-                        document.getElementById('taskDate').value = formattedDate;
-                        document.getElementById('taskTime').value = '09:00';
-                        
-                        // Update the hidden datetime field
-                        if (typeof updateScheduledDateTime === 'function') {
-                            updateScheduledDateTime();
+                // Destroy existing calendar if it exists (avoid collision with DOM id 'calendar')
+                if (window.fcCalendar && typeof window.fcCalendar.destroy === 'function') {
+                    window.fcCalendar.destroy();
+                }
+                
+                // If we have new event data, open the modal immediately
+                if (newEventData) {
+                    // Use setTimeout to ensure the calendar is fully initialized first
+                    setTimeout(() => {
+                        if (newEventData.start && newEventData.end) {
+                            openNewTaskModal(
+                                newEventData.start,
+                                newEventData.end,
+                                newEventData.title || '',
+                                newEventData.description || '',
+                                newEventData.ticketId || null
+                            );
                         }
+                    }, 500);
+                }
+                
+                // Destroy existing calendar instance if it exists (avoid collision with DOM id 'calendar')
+                if (window.fcCalendar && typeof window.fcCalendar.destroy === 'function') {
+                    window.fcCalendar.destroy();
+                }
+
+                // Create calendar instance and store it both locally and globally (under a safe name)
+                calendar = new FullCalendar.Calendar(calendarEl, {
+                    // Manejador para hacer clic en cualquier parte del día
+                    dateClick: function(info) {
+                        // Prevenir el comportamiento por defecto
+                        info.jsEvent.preventDefault();
+                        info.jsEvent.stopPropagation();
                         
-                        // Format date for display
-                        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-                        const formattedDateText = clickedDate.toLocaleDateString('es-ES', options);
+                        console.log('Date clicked:', info.date);
+
+                        // Obtener la fecha clickeada y establecer la hora de fin 1 hora después
+                        const startDate = info.date;
+                        const endDate = new Date(startDate);
+                        endDate.setHours(endDate.getHours() + 1);
                         
-                        // Update modal title
+                        // Formatear la fecha para mostrar
+                        const options = { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        };
+                        const formattedDateText = startDate.toLocaleDateString('es-ES', options);
+
+                        // Actualizar el título del modal
                         const modalTitle = document.getElementById('newTaskFromTicketModalLabel');
                         if (modalTitle) {
                             modalTitle.textContent = `Agendar para ${formattedDateText}`;
                         }
                         
-                        // Show the modal
+                        // Actualizar los campos de fecha y hora ocultos
+                        const formattedDate = startDate.toISOString().split('T')[0];
+                        const formattedTime = startDate.toTimeString().substring(0, 5);
+                        
+                        document.getElementById('scheduledDate').value = formattedDate;
+                        document.getElementById('scheduledTime').value = formattedTime;
+                        
+                        // Actualizar los campos visibles si existen
+                        const taskDateInput = document.getElementById('taskDate');
+                        const taskTimeInput = document.getElementById('taskTime');
+                        
+                        if (taskDateInput) taskDateInput.value = formattedDate;
+                        if (taskTimeInput) taskTimeInput.value = formattedTime;
+
+                        // Mostrar el modal
                         const modalElement = document.getElementById('newTaskFromTicketModal');
                         if (modalElement) {
-                            const modal = new bootstrap.Modal(modalElement);
+                            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
                             modal.show();
                         }
+                    },
+                    
+                    // Manejador para hacer clic en un evento existente
+                    eventClick: function(info) {
+                        // Prevenir la navegación por defecto
+                        info.jsEvent.preventDefault();
+                        info.jsEvent.stopPropagation();
+                        
+                        const event = info.event;
+                        const ticketId = event.extendedProps.ticketId || event.id;
+                        const startDate = event.start ? new Date(event.start) : null;
+                        const endDate = event.end ? new Date(event.end) : null;
+                        
+                        // Format dates for display
+                        const formatDate = (date) => {
+                            if (!date) return 'No especificado';
+                            return date.toLocaleString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        };
+                        
+                        // Update modal content with event details
+                        const detailsContent = `
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Título:</h6>
+                                <p>${event.title || 'Sin título'}</p>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Descripción:</h6>
+                                <p>${event.extendedProps?.description || 'No hay descripción disponible'}</p>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Inicio:</h6>
+                                    <p>${formatDate(startDate)}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Fin:</h6>
+                                    <p>${formatDate(endDate)}</p>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Estado:</h6>
+                                <span class="badge bg-${event.extendedProps?.status === 'completed' ? 'success' : 'primary'}">
+                                    ${event.extendedProps?.status === 'completed' ? 'Completado' : 'Pendiente'}
+                                </span>
+                            </div>
+                        `;
+                        
+                        // Set the content
+                        document.getElementById('eventDetailsContent').innerHTML = detailsContent;
+                        
+                        // Update the view ticket button if we have a ticket ID
+                        const viewTicketBtn = document.getElementById('viewTicketBtn');
+                        if (ticketId) {
+                            viewTicketBtn.href = `/tickets/${ticketId}`;
+                            viewTicketBtn.style.display = 'inline-block';
+                        } else {
+                            viewTicketBtn.style.display = 'none';
+                        }
+                        
+                        // Show the modal
+                        const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+                        modal.show();
                     },
                     locale: 'es',
                     firstDay: 1, // Monday
@@ -497,21 +680,27 @@
                         minute: '2-digit',
                         hour12: false
                     },
-                    events: function(fetchInfo, successCallback, failureCallback) {
-                        // Get events via AJAX
-                        fetch('{{ path('maintenance_maintenance_calendar_events') }}' +
-                              '?start=' + fetchInfo.start.toISOString() +
-                              '&end=' + fetchInfo.end.toISOString() +
-                              '&showCompleted=' + showCompleted +
-                              '&category=' + categoryFilter)
-                            .then(response => response.json())
-                            .then(data => {
-                                successCallback(data);
-                            })
-                            .catch(error => {
-                                console.error('Error fetching events:', error);
-                                failureCallback(error);
-                            });
+                    events: {
+                        url: '{{ path('maintenance_maintenance_calendar_events') }}',
+                        method: 'GET',
+                        // FullCalendar automatically sends `start` and `end` parameters.
+                        // We only send additional filter params here.
+                        extraParams: function() {
+                            const showCompletedEl = document.getElementById('showCompleted');
+                            const categoryEl = document.getElementById('categoryFilter');
+                            return {
+                                showCompleted: showCompletedEl ? String(showCompletedEl.checked) : 'true',
+                                category: categoryEl ? categoryEl.value : ''
+                            };
+                        },
+                        failure: function(error) {
+                            console.error('Error fetching events:', error);
+                            
+                            // Show error toast
+                            const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+                            document.querySelector('#errorToast .toast-body').textContent = 'Error al cargar los eventos del calendario';
+                            toast.show();
+                        }
                     },
                     eventDidMount: function(info) {
                         // Add tooltip to events
@@ -535,57 +724,8 @@
                         }
 
                     },
-                    eventClick: function(info) {
-                        // Show task details in modal
-                        const taskId = info.event.id;
-                        const modal = document.getElementById('taskModal');
-                        const modalBody = document.getElementById('taskModalBody');
-                        const editBtn = document.getElementById('editTaskBtn');
-
-                        // Set edit button href
-                        editBtn.href = `{{ path('maintenance_maintenance_task_edit', {id: 'PLACEHOLDER_ID'}) }}`.replace('PLACEHOLDER_ID', taskId);
-
-                        // Show loading state
-                        modalBody.innerHTML = `
-                            <div class="text-center my-5">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Cargando...</span>
-                                </div>
-                                <p class="mt-2">Cargando detalles de la tarea...</p>
-                            </div>
-                        `;
-
-                        // Fetch task details
-                        fetch(`{{ path('maintenance_maintenance_task_details', {id: 'PLACEHOLDER_ID'}) }}`.replace('PLACEHOLDER_ID', taskId))
-                            .then(response => response.text())
-                            .then(html => {
-                                modalBody.innerHTML = html;
-                                // Reinitialize tooltips in modal
-                                var tooltipTriggerList = [].slice.call(modalBody.querySelectorAll('[data-bs-toggle="tooltip"]'));
-                                tooltipTriggerList.map(function (tooltipTriggerEl) {
-                                    return new bootstrap.Tooltip(tooltipTriggerEl);
-                                });
-                            })
-                            .catch(error => {
-                                console.error('Error loading task details:', error);
-                                modalBody.innerHTML = `
-                                    <div class="alert alert-danger">
-                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                        Error al cargar los detalles de la tarea. Por favor, intente nuevamente.
-                                    </div>
-                                `;
-                            });
-
-                        // Show modal
-                        taskModal.show();
-
-                        // Prevent default behavior
-                        info.jsEvent.preventDefault();
-                    },
-                    dateClick: function(info) {
-                        // Handle date click (e.g., create new task)
-                        window.location.href = `{{ path('maintenance_maintenance_task_new') }}?date=${info.dateStr}`;
-                    },
+                    // Los manejadores eventClick y dateClick han sido movidos más arriba en el código
+                    // para manejar tanto clics en días como en eventos de manera consistente
                     viewDidMount: function(view) {
                         // Update current view text
                         const viewName = view.view.type;
@@ -599,6 +739,8 @@
                     }
                 });
 
+                // Expose globally under a safe name
+                window.fcCalendar = calendar;
                 calendar.render();
 
                 // Set today button text
@@ -642,29 +784,28 @@
             // Handle form submission
             document.getElementById('newTaskFromTicketForm').addEventListener('submit', function(e) {
                 e.preventDefault();
-                
+
                 const form = e.target;
-                
+
                 // Update hidden fields with current date/time values
                 updateScheduledDateTime();
-                
+
+                // Show loading state
+                const submitButton = form.querySelector('button[type="submit"]');
+                const originalButtonText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+
                 // Get all form data including CSRF token
                 const formData = new FormData(form);
-                
-                // Log form data for debugging
-                const formDataObj = {};
-                formData.forEach((value, key) => {
-                    formDataObj[key] = value;
-                    console.log(key + ': ' + value);
-                });
-                
-                // Ensure CSRF token is included
-                if (!formData.has('_token')) {
-                    const csrfToken = document.querySelector('input[name="_token"]').value;
-                    formData.append('_token', csrfToken);
-                    console.log('Added CSRF token:', csrfToken);
+
+                // Add ticket ID if it exists in the URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const ticketId = urlParams.get('ticket_id');
+                if (ticketId) {
+                    formData.append('ticket_id', ticketId);
                 }
-                
+
                 fetch(form.action, {
                     method: 'POST',
                     body: new URLSearchParams(formData).toString(),
@@ -676,16 +817,20 @@
                     credentials: 'same-origin'
                 })
                 .then(async response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                        return;
-                    }
-                    
                     const contentType = response.headers.get('content-type');
+                    
+                    // Handle redirects (for non-AJAX requests)
+                    if (response.redirected) {
+                        // If we have a ticket ID, we want to stay on the page to show the success message
+                        if (!ticketId) {
+                            window.location.href = response.url;
+                        }
+                        return null;
+                    }
+
                     if (contentType && contentType.includes('application/json')) {
                         return response.json();
                     } else {
-                        // If the response is not JSON, try to get the text and log it
                         const text = await response.text();
                         console.error('Unexpected response (not JSON):', text);
                         throw new Error('El servidor devolvió una respuesta inesperada. Por favor, inténtalo de nuevo.');
@@ -693,38 +838,119 @@
                 })
                 .then(data => {
                     if (data && data.success) {
+                        // Show success message
+                        const successToast = new bootstrap.Toast(document.getElementById('successToast'));
+                        document.querySelector('#successToast .toast-body').textContent = 'Tarea programada correctamente';
+                        successToast.show();
+                        
                         // Add the new event to the calendar
-                        calendar.addEvent({
-                            id: data.task.id,
-                            title: data.task.title,
-                            start: data.task.scheduledDate,
-                            allDay: false,
-                            extendedProps: {
-                                status: data.task.status,
-                                description: data.task.description
-                            }
-                        });
+                        if (calendar && data.task) {
+                            calendar.addEvent({
+                                id: data.task.id,
+                                title: data.task.title,
+                                start: data.task.scheduledDate,
+                                allDay: false,
+                                extendedProps: {
+                                    status: data.task.status,
+                                    description: data.task.description
+                                }
+                            });
+                        }
                         
                         // Close the modal
                         const modal = bootstrap.Modal.getInstance(document.getElementById('newTaskFromTicketModal'));
-                        modal.hide();
+                        if (modal) {
+                            modal.hide();
+                        }
                         
-                        // Show success message
-                        const toast = new bootstrap.Toast(document.getElementById('successToast'));
-                        document.getElementById('toastMessage').textContent = 'Tarea agendada exitosamente';
-                        toast.show();
+                        // If we came from a ticket, redirect back to it
+                        if (ticketId) {
+                            // Add a small delay to show the success message
+                            setTimeout(() => {
+                                window.location.href = `/tickets/${ticketId}?scheduled=1`;
+                            }, 1000);
+                            return;
+                        }
+                        
+                        // Otherwise, refresh the calendar
+                        if (calendar) {
+                            calendar.refetchEvents();
+                        }
+                        
+                        // Reset the form
+                        form.reset();
+                    } else if (data) {
+                        // Show error message
+                        const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                        document.querySelector('#errorToast .toast-body').textContent = data.message || 'Error al programar la tarea';
+                        errorToast.show();
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    const toast = new bootstrap.Toast(document.getElementById('errorToast'));
-                    document.getElementById('errorToastMessage').textContent = 'Error al agendar la tarea';
-                    toast.show();
+                    const errorToast = new bootstrap.Toast(document.getElementById('errorToast'));
+                    document.querySelector('#errorToast .toast-body').textContent = 'Error al procesar la solicitud. Por favor, inténtalo de nuevo.';
+                    errorToast.show();
+                })
+                .finally(() => {
+                    // Re-enable the submit button
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonText;
+                    }
                 });
             });
 
+            // Add error toast element if it doesn't exist
+            if (!document.getElementById('errorToast')) {
+                const toastContainer = document.createElement('div');
+                toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '11';
+                toastContainer.innerHTML = `
+                    <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-danger text-white">
+                            <strong class="me-auto">Error</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body"></div>
+                    </div>`;
+                document.body.appendChild(toastContainer);
+            }
+
             // Initialize the calendar
             initCalendar();
+            
+            // Inicializar Select2 cuando el DOM esté completamente cargado
+            document.addEventListener('DOMContentLoaded', function() {
+                // Función para inicializar Select2
+                function initializeSelect2() {
+                    console.log('Inicializando Select2...');
+                    $('.select2-area').select2({
+                        theme: 'bootstrap-5',
+                        language: 'es',
+                        placeholder: 'Buscar área...',
+                        allowClear: true,
+                        width: '100%',
+                        dropdownParent: $('#newTaskFromTicketModal')
+                    });
+                }
+
+                // Inicializar después de que el modal se muestre
+                const modal = document.getElementById('newTaskFromTicketModal');
+                if (modal) {
+                    modal.addEventListener('shown.bs.modal', function() {
+                        // Destruir instancia anterior si existe
+                        if ($('.select2-area').hasClass('select2-hidden-accessible')) {
+                            $('.select2-area').select2('destroy');
+                        }
+                        // Inicializar Select2
+                        initializeSelect2();
+                    });
+                }
+
+                // Inicializar en la carga de la página
+                initializeSelect2();
+            });
 
             // Set today's date as default in the date picker
             document.addEventListener('DOMContentLoaded', function() {

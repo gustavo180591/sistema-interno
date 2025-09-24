@@ -1,0 +1,75 @@
+/* Estilos personalizados para el paginador */
+.pagination {
+    margin: 0;
+}
+
+.pagination .page-item {
+    margin: 0 2px;
+}
+
+.pagination .page-link {
+    border-radius: 4px;
+    min-width: 38px;
+    text-align: center;
+    color: #4a5568;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.pagination .page-link:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e0;
+}
+
+.pagination .page-item.active .page-link:hover {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #a0aec0;
+    background-color: #f7fafc;
+    border-color: #e2e8f0;
+}
+
+/* Estilos para el dropdown de elementos por página */
+.page-size-dropdown .dropdown-toggle::after {
+    display: none;
+}
+
+.page-size-dropdown .dropdown-menu {
+    min-width: 80px;
+}
+
+.page-size-dropdown .dropdown-item {
+    padding: 0.25rem 1rem;
+}
+
+.page-size-dropdown .dropdown-item i {
+    font-size: 0.75rem;
+}
+
+/* Ajustes para móviles */
+@media (max-width: 767.98px) {
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .pagination .page-item {
+        margin-bottom: 0.25rem;
+    }
+    
+    .pagination-info {
+        margin-bottom: 1rem;
+        text-align: center;
+        width: 100%;
+    }
+}

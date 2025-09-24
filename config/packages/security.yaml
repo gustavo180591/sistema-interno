@@ -57,6 +57,8 @@ security:
     access_control:
         # Public access for testing and API endpoints
         - { path: ^/test, roles: PUBLIC_ACCESS }
+        - { path: ^/calendar, roles: PUBLIC_ACCESS }
+        - { path: ^/api/calendar/events, roles: PUBLIC_ACCESS, methods: [GET] }
         - { path: ^/admin/maintenance/api/calendar/events, roles: PUBLIC_ACCESS, methods: [GET] }
         
         # Login and registration
@@ -87,6 +89,12 @@ security:
         - { path: ^/admin/maintenance/categories, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
         - { path: ^/admin/maintenance/reports, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
         - { path: ^/admin/maintenance/settings, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
+        
+        # Performance routes
+        # Allow any authenticated user to view individual user performance pages
+        - { path: ^/performance/user, roles: ROLE_USER }
+        # Keep other performance routes for admin/auditor only
+        - { path: ^/performance, roles: [ROLE_ADMIN, ROLE_AUDITOR] }
         
         # Catch-all for other maintenance routes
         - { path: ^/admin/maintenance, roles: [ROLE_ADMIN, ROLE_AUDITOR] }

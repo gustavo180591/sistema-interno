@@ -1,5 +1,5 @@
 <!-- Assign Ticket Modal -->
-<div class="modal fade" id="assignTicketModal" tabindex="-1" aria-labelledby="assignTicketModalLabel" aria-hidden="true">
+<div class="modal fade" id="assignTicketModal" tabindex="-1" role="dialog" aria-labelledby="assignTicketModalLabel" aria-hidden="false" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-primary text-white">
@@ -304,12 +304,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Form submitted with ticket ID:', document.getElementById('assign_ticket_id').value);
             });
         }
-    }
+    });
+
+    // Initialize selected users on page load
+    updateSelectedUsers();
 });
+
+function updateSelectedUsers() {
+    const selectedUsers = [];
+    document.querySelectorAll('.user-checkbox:checked').forEach(checkbox => {
+        const item = checkbox.closest('.user-item');
+        selectedUsers.push({
+            id: item.dataset.userId,
+            name: item.dataset.userName,
+            email: item.dataset.email,
+            role: item.dataset.role
+        });
+    });
+
+    // Update selected users pills
+    const noUsersSelected = document.getElementById('noUsersSelected');
+    if (selectedUsers.length > 0) {
+        noUsersSelected.classList.add('d-none');
+        // Update the UI with selected users
+    } else {
+        noUsersSelected.classList.remove('d-none');
+    }
+}
 </script>
 
 <!-- Sugerencia de Rechazo Modal -->
-<div class="modal fade" id="suggestRejectModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="suggestRejectModal" tabindex="-1" role="dialog" aria-labelledby="suggestRejectModalLabel" aria-modal="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="{{ path('ticket_suggest_rejection', {'id': ticket.id}) }}" method="post">
@@ -379,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Sugerencia de Completado Modal -->
-<div class="modal fade" id="suggestCompleteModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="suggestCompleteModal" tabindex="-1" role="dialog" aria-labelledby="suggestCompleteModalLabel" aria-modal="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="{{ path('ticket_suggest_status', {'id': ticket.id, 'statusType': 'completado'}) }}" method="post">
@@ -454,7 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Auditor Complete Modal -->
-<div class="modal fade" id="auditorCompleteModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="auditorCompleteModal" tabindex="-1" role="dialog" aria-labelledby="auditorCompleteModalLabel" aria-modal="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="{{ path('ticket_auditor_action', {'id': ticket.id}) }}" method="post">

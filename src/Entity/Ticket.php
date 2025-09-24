@@ -8,8 +8,12 @@ use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Entity\TicketAssignment;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity(repositoryClass: TicketRepository::class)]
+#[UniqueEntity(fields: ['idSistemaInterno'], message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
 class Ticket
 {
     const STATUS_IN_PROGRESS = 'in_progress';
@@ -17,6 +21,18 @@ class Ticket
     const STATUS_REJECTED = 'rejected';
     const STATUS_DELAYED = 'delayed';
     const STATUS_COMPLETED = 'completed';
+
+    /**
+     * @Assert\Callback
+     */
+    public function validateAssignedUsers(ExecutionContextInterface $context, $payload)
+    {
+        if (!empty($this->getAssignedUsers()->count()) && $this->status === self::STATUS_PENDING) {
+            $context->buildViolation('Un ticket con usuarios asignados no puede estar en estado "Pendiente".')
+                ->atPath('status')
+                ->addViolation();
+        }
+    }
 
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
@@ -79,11 +95,11 @@ class Ticket
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $takenAt = null;
 
-    #[ORM\Column(length: 100, nullable: true)]
-    private ?string $areaOrigen = null;
+    #[ORM\Column(name: 'area_origen', length: 255, nullable: true)]
+    private ?string $area_origen = null;
 
-    #[ORM\Column(length: 50, unique: true, nullable: true)]
-    #[Assert\Unique(message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
+    #[ORM\Column(name: 'id_sistema_interno', length: 50, unique: true, nullable: true)]
+    #[Assert\Callback([self::class, 'validateUniqueIdSistemaInterno'])]
     private ?string $idSistemaInterno = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
@@ -102,65 +118,29 @@ class Ticket
     #[ORM\JoinColumn(nullable: true)]
     private ?User $assignedTo = null;
 
-    /**
-     * @var Collection|User[]
-     */
-    private Collection $formAssignedUsers;
-
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->ticketAssignments = new ArrayCollection();
         $this->updates = new ArrayCollection();
         $this->notes = new ArrayCollection();
-        $this->formAssignedUsers = new ArrayCollection();
     }
 
     /**
-     * @return Collection|User[]
+     * Validates that the ID is unique
+     * This is called via the Callback constraint
+     * 
+     * @param string|null $idSistemaInterno
+     * @param ExecutionContextInterface $context
      */
-    public function getFormAssignedUsers(): Collection
+    public static function validateUniqueIdSistemaInterno($idSistemaInterno, ExecutionContextInterface $context): void
     {
-        if ($this->formAssignedUsers === null) {
-            $this->formAssignedUsers = new ArrayCollection();
-        }
-        return $this->formAssignedUsers;
-    }
-
-    /**
-     * @param User[]|Collection|User|null $assignedUsers
-     */
-    public function setFormAssignedUsers($assignedUsers): self
-    {
-        if ($assignedUsers === null) {
-            $assignedUsers = [];
-        } elseif ($assignedUsers instanceof Collection) {
-            $assignedUsers = $assignedUsers->toArray();
-        } elseif (!is_array($assignedUsers)) {
-            $assignedUsers = [$assignedUsers];
+        if ($idSistemaInterno === null || $idSistemaInterno === '') {
+            return; // Skip validation if no ID is provided (will be auto-generated)
         }
         
-        // Ensure we only have User objects
-        $assignedUsers = array_filter($assignedUsers, function($user) {
-            return $user instanceof User;
-        });
-        
-        $this->formAssignedUsers = new ArrayCollection($assignedUsers);
-        return $this;
-    }
-
-    public function addFormAssignedUser(User $user): self
-    {
-        if (!$this->getFormAssignedUsers()->contains($user)) {
-            $this->getFormAssignedUsers()->add($user);
-        }
-        return $this;
-    }
-
-    public function removeFormAssignedUser(User $user): self
-    {
-        $this->getFormAssignedUsers()->removeElement($user);
-        return $this;
+        // The actual uniqueness check is handled by the database unique constraint
+        // This method is kept for any additional validation logic if needed in the future
     }
 
     // Getters and Setters
@@ -238,6 +218,17 @@ class Ticket
         return $this->priority;
     }
 
+    public function getAreaOrigen(): ?string
+    {
+        return $this->area_origen;
+    }
+
+    public function setAreaOrigen(?string $area_origen): self
+    {
+        $this->area_origen = $area_origen;
+        return $this;
+    }
+
     public function setPriority(string $priority): self
     {
         $this->priority = $priority;
@@ -256,19 +247,66 @@ class Ticket
     }
 
     /**
-     * @return Collection|User[]
-     */
-    public function getAssignedUsers(): Collection
-    {
-        return $this->ticketAssignments->map(fn(TicketAssignment $assignment) => $assignment->getUser());
-    }
-
-    /**
      * @return Collection|TicketAssignment[]
      */
     public function getTicketAssignments(): Collection
     {
         return $this->ticketAssignments;
+    }
+
+    /**
+     * Get assigned users
+     *
+     * @return Collection|User[]
+     */
+    public function getAssignedUsers(): Collection
+    {
+        $users = new ArrayCollection();
+        foreach ($this->ticketAssignments as $assignment) {
+            $users->add($assignment->getUser());
+        }
+        return $users;
+    }
+
+    /**
+     * Set assigned users
+     *
+     * @param Collection|User[] $users
+     * @return self
+     */
+    public function setAssignedUsers(Collection $users): self
+    {
+        // Clear existing assignments
+        foreach ($this->ticketAssignments as $assignment) {
+            $this->removeTicketAssignment($assignment);
+        }
+
+        // Add new assignments
+        foreach ($users as $user) {
+            $assignment = new TicketAssignment();
+            $assignment->setUser($user);
+            $assignment->setTicket($this);
+            $assignment->setAssignedAt(new \DateTimeImmutable());
+            $this->addTicketAssignment($assignment);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Check if user is assigned to this ticket
+     *
+     * @param User $user
+     * @return bool
+     */
+    public function hasUserAssignment(User $user): bool
+    {
+        foreach ($this->ticketAssignments as $assignment) {
+            if ($assignment->getUser() === $user) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -285,6 +323,23 @@ class Ticket
     public function getNotes(): Collection
     {
         return $this->notes;
+    }
+
+    public function hasUnreadNotes(User $user): bool
+    {
+        foreach ($this->notes as $note) {
+            $isRead = false;
+            foreach ($note->getReadStatuses() as $readStatus) {
+                if ($readStatus->getUser() === $user && $readStatus->getIsRead()) {
+                    $isRead = true;
+                    break;
+                }
+            }
+            if (!$isRead && $note->getCreatedBy() !== $user) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function addNote(Note $note): self
@@ -313,6 +368,11 @@ class Ticket
     {
         if (!$this->isAssignedToUser($user)) {
             $assignment = new TicketAssignment();
+            
+            // Si el ticket está en estado pendiente, cambiarlo a 'en progreso'
+            if ($this->status === self::STATUS_PENDING) {
+                $this->status = self::STATUS_IN_PROGRESS;
+            }
             $assignment->setUser($user);
             $assignment->setTicket($this);
             $this->ticketAssignments[] = $assignment;
@@ -393,16 +453,17 @@ class Ticket
         return $this->updatedAt;
     }
 
-    public function getAreaOrigen(): ?string
+    public function getarea_origen(): ?string
     {
-        return $this->areaOrigen;
+        return $this->area_origen;
     }
 
-    public function setAreaOrigen(?string $areaOrigen): self
+    public function setarea_origen(?string $area_origen): self
     {
-        $this->areaOrigen = $areaOrigen;
+        $this->area_origen = $area_origen;
         return $this;
     }
+
 
     public function getIdSistemaInterno(): ?string
     {
@@ -486,7 +547,7 @@ class Ticket
     {
         $this->takenBy = $takenBy;
         $this->takenAt = $takenBy ? new \DateTimeImmutable() : null;
-        
+
         return $this;
     }
 
@@ -498,7 +559,7 @@ class Ticket
     public function setTakenAt(\DateTimeInterface $takenAt): self
     {
         $this->takenAt = $takenAt;
-        
+
         return $this;
     }
 

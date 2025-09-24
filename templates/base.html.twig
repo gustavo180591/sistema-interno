@@ -13,6 +13,7 @@
 
         {% block stylesheets %}
             {{ encore_entry_link_tags('app') }}
+            <link rel="stylesheet" href="{{ asset('assets/styles/pagination.css') }}">
         {% endblock %}
 
 {% block javascripts %}
@@ -136,7 +137,7 @@
 
                         {% if is_granted('ROLE_USER') %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ path('maintenance_maintenance_calendar') }}">
+                            <a class="nav-link" href="{{ path('app_calendar') }}">
                                 <i class="far fa-calendar-alt me-1"></i> Calendario
                             </a>
                         </li>
@@ -149,7 +150,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ path('admin_dashboard') }}">
+                            <a class="nav-link" href="{{ path('admin_admin_performance_dashboard') }}">
                                 <i class="fas fa-chart-line me-1"></i> Rendimiento
                             </a>
                         </li>

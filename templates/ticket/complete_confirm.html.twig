@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Confirmar completar Ticket #{{ ticket.id }}{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Confirmar completar Ticket <span class="text-muted">#{{ ticket.idSistemaInterno ?? ticket.id }}</span></h1>
+        <a href="{{ path('ticket_show', { id: ticket.id }) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver al ticket
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="alert alert-warning d-flex align-items-start" role="alert">
+                <i class="fas fa-exclamation-triangle me-2 mt-1"></i>
+                <div>
+                    <strong>Vas a marcar este ticket como completado.</strong><br>
+                    Esta acción está restringida a <em>AUDITOR</em> o <em>ADMIN</em> y registrará una nota con el usuario que realiza el cierre.
+                </div>
+            </div>
+
+            <form method="post" action="{{ path('ticket_complete', { id: ticket.id }) }}">
+                <input type="hidden" name="_complete_token" value="{{ csrf_token('ticket_complete_' ~ ticket.id) }}">
+
+                <div class="mb-3">
+                    <label for="notes" class="form-label fw-semibold">Notas de cierre (opcional)</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="4" placeholder="Detalle brevemente el cierre si lo creés necesario..."></textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i> Confirmar completar
+                    </button>
+                    <a href="{{ path('ticket_show', { id: ticket.id }) }}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
