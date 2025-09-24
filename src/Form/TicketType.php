@@ -59,11 +59,12 @@ class TicketType extends AbstractType
             ])
             ->add('idSistemaInterno', TextType::class, [
                 'label' => 'ID Externo',
-                'required' => true,
+                'required' => false,
                 'attr' => [
                     'class' => 'form-control',
-                    'placeholder' => 'Ingrese el ID del sistema externo'
+                    'placeholder' => 'Dejar vacío para caso interno (se generará automáticamente)'
                 ],
+                'help' => 'Si es un caso externo, ingrese el ID. Si es un caso interno, déjelo en blanco.',
                 'row_attr' => [
                     'class' => 'mb-3'
                 ]

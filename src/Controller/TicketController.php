@@ -775,9 +775,63 @@ class TicketController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Check for duplicate external ID
+            // Handle ID generation
             $externalId = $ticket->getIdSistemaInterno();
-            if ($externalId) {
+            
+            if (empty(trim($externalId))) {
+                // Start a transaction
+                $this->em->beginTransaction();
+                
+                try {
+                    // Get the maximum internal ticket number with INT- prefix
+                    $conn = $this->em->getConnection();
+                    $sql = "SELECT id_sistema_interno FROM ticket WHERE id_sistema_interno LIKE 'INT-%' ORDER BY id DESC LIMIT 1";
+                    $stmt = $conn->prepare($sql);
+                    $result = $stmt->executeQuery();
+                    $lastId = $result->fetchOne();
+                    
+                    // Extract the highest number
+                    $nextNumber = 1;
+                    if ($lastId && preg_match('/^INT-(\d+)$/', $lastId, $matches)) {
+                        $nextNumber = (int)$matches[1] + 1;
+                    }
+                    
+                    // Set the new ID in format INT-1, INT-2, etc.
+                    $newId = 'INT-' . $nextNumber;
+                    $ticket->setIdSistemaInterno($newId);
+                    
+                    // Debug: Log the generated ID
+                    error_log("Generated new ticket ID: " . $newId);
+                    
+                    // Persist and flush in the transaction
+                    $this->em->persist($ticket);
+                    $this->em->flush();
+                    $this->em->commit();
+                    
+                    // Redirect after successful save
+                    $this->addFlash('success', '¡Ticket creado exitosamente!');
+                    return $this->redirectToRoute('ticket_index');
+                    
+                } catch (\Exception $e) {
+                    $this->em->rollback();
+                    
+                    // Log the actual error
+                    error_log("Error creating ticket: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    
+                    // More detailed error message
+                    $this->addFlash('error', 'Error al generar el ID interno del ticket. Detalles: ' . $e->getMessage());
+                    
+                    return $this->render('ticket/new.html.twig', [
+                        'ticket' => $ticket,
+                        'form' => $form->createView(),
+                    ]);
+                }
+                
+                // If we get here, we've already handled the redirect or error
+                return $this->redirectToRoute('ticket_index');
+            } else {
+                // Check for duplicate external ID
                 $existingTicket = $this->ticketRepository->findOneBy(['idSistemaInterno' => $externalId]);
                 if ($existingTicket) {
                     $this->addFlash('error', 'El ID Externo ingresado ya está en uso. Por favor, ingrese un ID único.');
@@ -786,6 +840,13 @@ class TicketController extends AbstractController
                         'form' => $form->createView(),
                     ]);
                 }
+                
+                // For external IDs, proceed with normal flow
+                $this->em->persist($ticket);
+                $this->em->flush();
+                
+                $this->addFlash('success', '¡Ticket creado exitosamente!');
+                return $this->redirectToRoute('ticket_index');
             }
 
             // Handle multiple user assignments
