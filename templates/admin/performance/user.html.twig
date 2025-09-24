@@ -34,7 +34,10 @@
                                 }
                             },
                             dataLabels: { enabled: false },
-                            legend: { position: 'right' },
+                            legend: {
+                                position: 'right',
+                                labels: { colors: '#6c757d' }
+                            },
                             xaxis: { type: 'category' },
                             yaxis: { show: false },
                             grid: { padding: { top: 0, right: 0, bottom: 0, left: 0 } }
@@ -71,6 +74,21 @@
                                 borderColor: '#f8f9fa',
                                 strokeDashArray: 5,
                                 padding: { top: 0, right: 30, bottom: 0, left: 30 }
+                            },
+                            fill: {
+                                type: 'gradient',
+                                gradient: {
+                                    shade: 'light',
+                                    type: 'vertical',
+                                    shadeIntensity: 0.35,
+                                    opacityFrom: 0.9,
+                                    opacityTo: 0.65,
+                                    stops: [0, 60, 100]
+                                }
+                            },
+                            states: {
+                                hover: { filter: { type: 'darken', value: 0.9 } },
+                                active: { filter: { type: 'none' } }
                             }
                         }, false, false, true);
                     }
@@ -81,7 +99,7 @@
                     series: statusData.data,
                     chart: {
                         type: 'donut',
-                        height: 350,
+                        height: 360,
                         fontFamily: 'Nunito, sans-serif',
                         toolbar: {
                             show: true,
@@ -95,10 +113,18 @@
                                 reset: false
                             }
                         },
+                        dropShadow: {
+                            enabled: true,
+                            top: 2,
+                            left: 2,
+                            blur: 4,
+                            color: '#000',
+                            opacity: 0.08
+                        },
                         animations: {
                             enabled: true,
                             easing: 'easeinout',
-                            speed: 800,
+                            speed: 900,
                             animateGradually: { enabled: true, delay: 150 },
                             dynamicAnimation: { enabled: true, speed: 350 }
                         },
@@ -111,7 +137,7 @@
                             }
                         }
                     },
-                    colors: statusData.colors,
+                    colors: statusData.colors.length ? statusData.colors : ['#4e79a7','#59a14f','#f28e2b','#e15759','#76b7b2','#edc948','#af7aa1','#ff9da7'],
                     labels: statusData.labels,
                     dataLabels: { enabled: false },
                     legend: {
@@ -130,7 +156,7 @@
                     plotOptions: {
                         pie: {
                             donut: {
-                                size: '65%',
+                                size: '68%',
                                 labels: {
                                     show: true,
                                     name: {
@@ -142,7 +168,7 @@
                                     },
                                     value: {
                                         show: true,
-                                        fontSize: '24px',
+                                        fontSize: '26px',
                                         fontFamily: 'Nunito, sans-serif',
                                         color: '#4e73df',
                                         offsetY: -10,
@@ -161,7 +187,7 @@
                             }
                         }
                     },
-                    stroke: { show: false },
+                    stroke: { show: true, width: 1, colors: ['#fff'] },
                     tooltip: {
                         fillSeriesColor: false,
                         y: {
@@ -172,7 +198,7 @@
                     responsive: [{
                         breakpoint: 768,
                         options: {
-                            chart: { height: 300 },
+                            chart: { height: 320 },
                             legend: { position: 'bottom' }
                         }
                     }]
@@ -220,6 +246,51 @@
                     });
                 });
             }
+
+            // Initialize Ticket Status Chart (from userTickets metrics)
+            if (document.getElementById('ticketStatusChart') && {{ userTickets is defined ? 'true' : 'false' }}) {
+                const tkCompletedPeriod = {{ userTickets.ticketsCompleted|default(0) }};
+                const tkOpenCurrent = {{ userTickets.openAssigned|default(0) }};
+                const tkData = {
+                    labels: ['Completados (período)', 'Abiertos (actuales)'],
+                    data: [tkCompletedPeriod, tkOpenCurrent],
+                    colors: ['#198754', '#0d6efd']
+                };
+
+                const totalTk = tkData.data.reduce((a,b)=>a+b,0);
+                const optionsTk = {
+                    series: tkData.data,
+                    chart: {
+                        type: 'donut',
+                        height: 280,
+                        fontFamily: 'Nunito, sans-serif',
+                        animations: { enabled: true }
+                    },
+                    labels: tkData.labels,
+                    colors: tkData.colors,
+                    dataLabels: { enabled: false },
+                    legend: { position: 'bottom' },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '70%',
+                                labels: {
+                                    show: true,
+                                    total: {
+                                        show: true,
+                                        label: 'Total',
+                                        formatter: function() { return totalTk; }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    tooltip: { y: { formatter: (v)=> v + ' ticket' + (v!==1?'s':'') } }
+                };
+
+                const chartTk = new ApexCharts(document.querySelector('#ticketStatusChart'), optionsTk);
+                chartTk.render();
+            }
         });
     </script>
 {% endblock %}
@@ -253,12 +324,12 @@
 {% block body %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h4 mb-0">
-        <a href="{{ path('admin_dashboard') }}" class="text-decoration-none text-muted me-2">
+        <a href="{{ path('admin_admin_performance_dashboard') }}" class="text-decoration-none text-muted me-2">
             <i class="fas fa-arrow-left"></i>
         </a>
         Rendimiento de {{ user.nombre }} {{ user.apellido }}
     </h1>
-    <a href="{{ path('admin_dashboard') }}" class="btn btn-outline-secondary">
+    <a href="{{ path('admin_admin_performance_dashboard') }}" class="btn btn-outline-secondary">
         <i class="fas fa-arrow-left me-1"></i> Volver al Resumen
     </a>
 </div>
@@ -281,33 +352,11 @@
                 </button>
             </div>
             <div class="col-md-2">
-                <a href="{{ path('admin_user', {'id': user.id}) }}" class="btn btn-outline-secondary w-100">
+                <a href="{{ path('admin_admin_performance_performance_user', {'id': user.id}) }}" class="btn btn-outline-secondary w-100">
                     <i class="fas fa-sync-alt me-1"></i>Restablecer
                 </a>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Task Status Distribution Chart -->
-<div class="card mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="fas fa-chart-pie me-2 text-primary"></i>
-            Distribución de Tareas
-        </h5>
-        <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-outline-secondary chart-type-btn active" data-type="donut">
-                <i class="fas fa-chart-pie"></i>
-            </button>
-            <button type="button" class="btn btn-outline-secondary chart-type-btn" data-type="bar">
-                <i class="fas fa-chart-bar"></i>
-            </button>
-        </div>
-    </div>
-    <div class="card-body">
-        <div id="taskStatusChart" class="chart-container"></div>
-        <div class="chart-legend text-center"></div>
     </div>
 </div>
 
@@ -316,155 +365,112 @@
     <div class="col-md-4">
         <div class="card kpi-card h-100 border-0 shadow-sm">
             <div class="card-body text-center">
-                <div class="kpi-value text-primary">
-                    {{ detail|filter(t => t.status == 'completed')|length }}
-                </div>
-                <div class="kpi-label">Tareas Completadas</div>
-                <div class="small text-muted mt-1">
-                    <i class="fas fa-check-circle text-success me-1"></i>
-                    {{ (detail|length > 0 ? ((detail|filter(t => t.status == 'completed')|length / detail|length) * 100)|number_format(1) : 0) }}% de efectividad
-                </div>
+                <div class="text-muted small">Tickets cerrados (período)</div>
+                <div class="display-6">{{ userTickets.ticketsCompleted|default(0) }}</div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card kpi-card h-100 border-0 shadow-sm">
             <div class="card-body text-center">
-                <div class="kpi-value text-info">
-                    {% set completedTasks = detail|filter(t => t.status == 'completed' and t.durationMin is not null) %}
-                    {{ completedTasks|length > 0 ? (completedTasks|reduce((sum, t) => sum + t.durationMin, 0) / completedTasks|length)|number_format(1, ',', '.') : '-' }}
-                </div>
-                <div class="kpi-label">Promedio por tarea (min)</div>
-                <div class="small text-muted mt-1">
-                    <i class="fas fa-clock me-1"></i>
-                    Basado en {{ completedTasks|length }} tareas completadas
-                </div>
+                <div class="text-muted small">TMR (horas)</div>
+                {% set tmrMin = userTickets.ticketAvgResolutionMin|default(0) %}
+                <div class="display-6">{{ (tmrMin / 60)|number_format(1, '.', ',') }}</div>
             </div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="card kpi-card h-100 border-0 shadow-sm">
             <div class="card-body text-center">
-                <div class="kpi-value text-warning">
-                    {{ detail|filter(t => t.status == 'in_progress')|length }}
-                </div>
-                <div class="kpi-label">En Progreso</div>
-                <div class="small text-muted mt-1">
-                    <i class="fas fa-spinner me-1"></i>
-                    {{ detail|filter(t => t.status == 'pending')|length }} pendientes
-                </div>
+                <div class="text-muted small">Tickets asignados (período)</div>
+                {% set tkAssigned = userTickets.ticketsAssigned|default(0) %}
+                {% set tkCompleted = userTickets.ticketsCompleted|default(0) %}
+                {% set tkInProcess = tkAssigned - tkCompleted %}
+                <div class="display-6">{{ tkAssigned }}</div>
+                <div class="small text-muted">En proceso (período): {{ tkInProcess > 0 ? tkInProcess : 0 }}</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Tasks Table -->
+<!-- Score -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <h6 class="mb-3">Score</h6>
+        {% if performance is defined and performance.score is defined %}
+            {% set s = performance.score %}
+            <div class="d-flex align-items-center gap-3">
+                <div class="progress flex-grow-1" style="height:10px;">
+                    <div class="progress-bar bg-{{ s.final > 80 ? 'success' : (s.final > 60 ? 'warning' : 'danger') }}" style="width: {{ s.final }}%"></div>
+                </div>
+                <span class="badge bg-{{ s.final > 80 ? 'success' : (s.final > 60 ? 'warning' : 'danger') }}">
+                    {{ s.final|number_format(1) }}
+                </span>
+            </div>
+            <div class="text-muted small mt-2">
+                Prod {{ s.prod }} · Cal {{ s.calidad }} · Col {{ s.colaboracion }}
+            </div>
+        {% else %}
+            <div class="text-muted">Sin datos de score para el período seleccionado</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Tickets Detail -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
-            <i class="fas fa-tasks me-2 text-primary"></i>
-            Detalle de Tareas ({{ detail|length }})
+            <i class="fas fa-ticket-alt me-2 text-primary"></i>
+            Detalle de Tickets Completados (período) ({{ userTicketsDetail|length|default(0) }})
         </h5>
-        <div class="small">
-            <span class="badge bg-success bg-opacity-10 text-success me-2">
-                {{ detail|filter(t => t.status == 'completed')|length }} Completadas
-            </span>
-            <span class="badge bg-primary bg-opacity-10 text-primary me-2">
-                {{ detail|filter(t => t.status == 'in_progress')|length }} En Progreso
-            </span>
-            <span class="badge bg-secondary bg-opacity-10 text-secondary">
-                {{ detail|filter(t => t.status == 'pending')|length }} Pendientes
-            </span>
-        </div>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>ID</th>
-                    <th>Descripción</th>
-                    <th class="text-center">Estado</th>
+                    <th>ID Ext.</th>
+                    <th>Área de origen</th>
                     <th class="text-center">Creación</th>
-                    <th class="text-center">Inicio</th>
-                    <th class="text-center">Completada</th>
-                    <th class="text-center">Duración (min)</th>
+                    <th class="text-center">Completado</th>
+                    <th class="text-center">Asignados</th>
+                    <th class="text-center">Resolución</th>
                 </tr>
             </thead>
             <tbody>
-                {% if detail|length > 0 %}
-                    {% for task in detail %}
+                {% if userTicketsDetail is defined and userTicketsDetail|length > 0 %}
+                    {% for tk in userTicketsDetail %}
                         <tr>
-                            <td class="fw-medium">#{{ task.id }}</td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1">
-                                        <div class="fw-medium" title="{{ task.description }}">
-                                            {{ task.description|length > 50 ? task.description|slice(0, 50) ~ '...' : task.description }}
-                                        </div>
-                                        {% if task.category is defined and task.category %}
-                                            <small class="text-muted">
-                                                {{ task.category is iterable ? task.category.name : task.category }}
-                                            </small>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                            <td>{{ tk.externo ?? '-' }}</td>
+                            <td>{{ tk.areaOrigen ?? '-' }}</td>
+                            <td class="text-center text-nowrap">
+                                <div>{{ tk.createdAt|date('d/m/Y') }}</div>
+                                <small class="text-muted">{{ tk.createdAt|date('H:i') }}</small>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <div>{{ tk.completadoEl|date('d/m/Y') }}</div>
+                                <small class="text-muted">{{ tk.completadoEl|date('H:i') }}</small>
                             </td>
                             <td class="text-center">
-                                <span class="status-badge badge bg-{{ 
-                                    task.status == 'completed' ? 'success' : 
-                                    (task.status == 'in_progress' ? 'primary' : 'secondary') 
-                                }}">
-                                    {{ task.status|replace({'_': ' '})|title }}
-                                </span>
-                            </td>
-                            <td class="text-center text-nowrap">
-                                <div>{{ task.createdAt|date('d/m/Y') }}</div>
-                                <small class="text-muted">{{ task.createdAt|date('H:i') }}</small>
-                            </td>
-                            <td class="text-center text-nowrap">
-                                {% if task.startedAt is defined and task.startedAt %}
-                                    <div>{{ task.startedAt|date('d/m/Y') }}</div>
-                                    <small class="text-muted">{{ task.startedAt|date('H:i') }}</small>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center text-nowrap">
-                                {% if task.completedAt %}
-                                    <div>{{ task.completedAt|date('d/m/Y') }}</div>
-                                    <small class="text-muted">{{ task.completedAt|date('H:i') }}</small>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
+                                {% if tk.asignados|length > 0 %}
+                                    <span class="text-muted small">{{ tk.asignados|join(', ') }}</span>
+                                {% else %}-{% endif %}
                             </td>
                             <td class="text-center fw-medium">
-                                {% if task.durationMin is not null %}
-                                    {{ task.durationMin|number_format(0, ',', '.') }}
-                                    <div class="progress mt-1" style="height: 4px;">
-                                        {% set progress = (task.durationMin / 480) * 100 %}
-                                        <div class="progress-bar bg-{{ progress > 100 ? 'danger' : 'success' }}" 
-                                             role="progressbar" 
-                                             style="width: {{ min(progress, 100) }}%" 
-                                             aria-valuenow="{{ progress }}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">{{ (task.durationMin / 60)|number_format(1, ',', '.') }} horas</small>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
+                                {% set rmin = tk.resolucionMin|default(0) %}
+                                {% set rh = (rmin / 60)|round(0, 'floor') %}
+                                {% set rm = (rmin - (rh * 60))|round(0, 'floor') %}
+                                {{ rh }}h {{ rm }}m
                             </td>
                         </tr>
                     {% endfor %}
                 {% else %}
                     <tr>
-                        <td colspan="7" class="text-center py-5 text-muted">
+                        <td colspan="6" class="text-center py-5 text-muted">
                             <div class="mb-2">
                                 <i class="fas fa-inbox fa-3x opacity-25 mb-3"></i>
                             </div>
-                            <h6 class="mb-1">No hay tareas registradas</h6>
-                            <p class="small mb-0">No se encontraron tareas para el rango de fechas seleccionado.</p>
+                            <h6 class="mb-1">No hay tickets completados en el período</h6>
+                            <p class="small mb-0">Ajustá el rango de fechas para ver resultados.</p>
                         </td>
                     </tr>
                 {% endif %}
@@ -473,19 +479,56 @@
     </div>
 </div>
 
+<!-- Tickets Distribution -->
+<div class="card mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-pie me-2 text-primary"></i>
+            Distribución de Tickets (período vs actuales)
+        </h5>
+    </div>
+    <div class="card-body">
+        <div id="ticketStatusChart" class="chart-container"></div>
+        <div class="text-muted small mt-2">
+            {% if userTickets is defined %}
+                {% set tkAssigned = userTickets.ticketsAssigned|default(0) %}
+                {% set tkCompleted = userTickets.ticketsCompleted|default(0) %}
+                {% set tkInProcess = tkAssigned - tkCompleted %}
+                Completados (período): {{ tkCompleted }} · En proceso (período): {{ tkInProcess > 0 ? tkInProcess : 0 }} · Abiertos (actuales): {{ userTickets.openAssigned|default(0) }} · Asignados (período): {{ tkAssigned }}
+            {% else %}
+                No hay datos disponibles para este período.
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
 <div class="card">
     <div class="card-body">
         <div class="row">
             <div class="col-md-4 text-center">
                 <div class="h5 text-muted mb-1">Tareas Completadas</div>
-                <div class="h3">{{ detail|filter(t => t.status == 'completed')|length }}</div>
+                {% set tasksCompleted = detail|filter(t => t.status == 'completed')|length %}
+                {% set tasksCompletedFromTicket = detail|filter(t => t.status == 'completed' and t.fromTicket)|length %}
+                {% set tasksCompletedAutonomous = tasksCompleted - tasksCompletedFromTicket %}
+                {% set ticketsCompleted = userTickets.ticketsCompleted|default(0) %}
+                <div class="h3">{{ (tasksCompleted + ticketsCompleted) }}</div>
+                <div class="small text-muted">
+                    Tareas: {{ tasksCompleted }} (de Ticket: {{ tasksCompletedFromTicket }} · Autónomas: {{ tasksCompletedAutonomous }}) · Tickets: {{ ticketsCompleted }}
+                </div>
             </div>
             <div class="col-md-4 text-center">
                 <div class="h5 text-muted mb-1">Tiempo Promedio</div>
                 <div class="h3">
                     {% set completedTasks = detail|filter(t => t.status == 'completed' and t.durationMin is not null) %}
                     {% if completedTasks|length > 0 %}
-                        {{ (completedTasks|reduce((sum, t) => sum + t.durationMin, 0) / completedTasks|length)|number_format(1, ',', '.') }} min
+                        {% set avgTaskMin = (completedTasks|reduce((sum, t) => sum + t.durationMin, 0) / completedTasks|length) %}
+                        {{ avgTaskMin|number_format(1, ',', '.') }} min (tareas)
+                    {% elseif userTickets.ticketsCompleted|default(0) > 0 %}
+                        {% set tAvgMin = userTickets.ticketAvgResolutionMin|default(0) %}
+                        {% set tH = (tAvgMin / 60)|round(0, 'floor') %}
+                        {% set tM = (tAvgMin - (tH * 60))|round(0, 'floor') %}
+                        {{ tH }}h {{ tM }}m (tickets)
                     {% else %}
                         -
                     {% endif %}
@@ -493,7 +536,14 @@
             </div>
             <div class="col-md-4 text-center">
                 <div class="h5 text-muted mb-1">Tareas en Progreso</div>
-                <div class="h3">{{ detail|filter(t => t.status == 'in_progress')|length }}</div>
+                {% set tasksInProgress = detail|filter(t => t.status == 'in_progress')|length %}
+                {% set tasksInProgressFromTicket = detail|filter(t => t.status == 'in_progress' and t.fromTicket)|length %}
+                {% set tasksInProgressAutonomous = tasksInProgress - tasksInProgressFromTicket %}
+                {% set ticketsOpen = userTickets.openAssigned|default(0) %}
+                <div class="h3">{{ tasksInProgress + ticketsOpen }}</div>
+                <div class="small text-muted">
+                    Tareas: {{ tasksInProgress }} (de Ticket: {{ tasksInProgressFromTicket }} · Autónomas: {{ tasksInProgressAutonomous }}) · Tickets abiertos: {{ ticketsOpen }}
+                </div>
             </div>
         </div>
     </div>

@@ -413,18 +413,43 @@
             </div>
         </div>
     </div>
+
+    <!-- Event Details Modal -->
+    <div class="modal fade" id="eventDetailsModal" tabindex="-1" aria-labelledby="eventDetailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="eventDetailsModalLabel">Detalles del Ticket</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <a href="#" class="btn btn-primary" id="viewTicketBtn">Ver Ticket Completo</a>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
-    <!-- Asegurarse de que jQuery se cargue primero -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js'></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <!-- Load scripts only once -->
+    {% if not app.request.attributes.get('_route') == 'maintenance_calendar_events' %}
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+        <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js'></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+        <script>
+            // Make flatpickr available globally
+            window.flatpickr = flatpickr;
+        </script>
+    {% endif %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Check if we have new event data from the session
@@ -446,7 +471,7 @@
 
             // Calendar initialization
             var calendarEl = document.getElementById('calendar');
-            var calendar;
+            var calendar = null; // Initialize as null
             
             // Function to open the new task modal with pre-filled data
             function openNewTaskModal(start, end, title, description, ticketId) {
@@ -491,20 +516,33 @@
 
             // Initialize the calendar
             function initCalendar() {
+                // Destroy existing calendar if it exists (avoid collision with DOM id 'calendar')
+                if (window.fcCalendar && typeof window.fcCalendar.destroy === 'function') {
+                    window.fcCalendar.destroy();
+                }
+                
                 // If we have new event data, open the modal immediately
                 if (newEventData) {
                     // Use setTimeout to ensure the calendar is fully initialized first
                     setTimeout(() => {
-                        openNewTaskModal(
-                            newEventData.start,
-                            newEventData.end,
-                            newEventData.title,
-                            newEventData.description,
-                            newEventData.ticketId
-                        );
+                        if (newEventData.start && newEventData.end) {
+                            openNewTaskModal(
+                                newEventData.start,
+                                newEventData.end,
+                                newEventData.title || '',
+                                newEventData.description || '',
+                                newEventData.ticketId || null
+                            );
+                        }
                     }, 500);
                 }
                 
+                // Destroy existing calendar instance if it exists (avoid collision with DOM id 'calendar')
+                if (window.fcCalendar && typeof window.fcCalendar.destroy === 'function') {
+                    window.fcCalendar.destroy();
+                }
+
+                // Create calendar instance and store it both locally and globally (under a safe name)
                 calendar = new FullCalendar.Calendar(calendarEl, {
                     // Manejador para hacer clic en cualquier parte del día
                     dateClick: function(info) {
@@ -564,31 +602,66 @@
                         info.jsEvent.preventDefault();
                         info.jsEvent.stopPropagation();
                         
-                        // Obtener la fecha del evento y abrir el modal de agendamiento
-                        const startDate = info.event.start;
-                        const endDate = info.event.end || new Date(startDate.getTime() + (60 * 60 * 1000)); // 1 hora por defecto
+                        const event = info.event;
+                        const ticketId = event.extendedProps.ticketId || event.id;
+                        const startDate = event.start ? new Date(event.start) : null;
+                        const endDate = event.end ? new Date(event.end) : null;
                         
-                        // Abrir el modal con los datos del evento
-                        openNewTaskModal(
-                            startDate, 
-                            endDate, 
-                            info.event.title || '', 
-                            info.event.extendedProps.description || '',
-                            info.event.extendedProps.ticketId || null
-                        );
+                        // Format dates for display
+                        const formatDate = (date) => {
+                            if (!date) return 'No especificado';
+                            return date.toLocaleString('es-ES', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        };
                         
-                        // Actualizar el título del modal
-                        const modalTitle = document.getElementById('newTaskFromTicketModalLabel');
-                        if (modalTitle) {
-                            modalTitle.textContent = `Editar evento: ${info.event.title || 'Sin título'}`;
+                        // Update modal content with event details
+                        const detailsContent = `
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Título:</h6>
+                                <p>${event.title || 'Sin título'}</p>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Descripción:</h6>
+                                <p>${event.extendedProps?.description || 'No hay descripción disponible'}</p>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Inicio:</h6>
+                                    <p>${formatDate(startDate)}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Fin:</h6>
+                                    <p>${formatDate(endDate)}</p>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Estado:</h6>
+                                <span class="badge bg-${event.extendedProps?.status === 'completed' ? 'success' : 'primary'}">
+                                    ${event.extendedProps?.status === 'completed' ? 'Completado' : 'Pendiente'}
+                                </span>
+                            </div>
+                        `;
+                        
+                        // Set the content
+                        document.getElementById('eventDetailsContent').innerHTML = detailsContent;
+                        
+                        // Update the view ticket button if we have a ticket ID
+                        const viewTicketBtn = document.getElementById('viewTicketBtn');
+                        if (ticketId) {
+                            viewTicketBtn.href = `/tickets/${ticketId}`;
+                            viewTicketBtn.style.display = 'inline-block';
+                        } else {
+                            viewTicketBtn.style.display = 'none';
                         }
                         
-                        // Mostrar el modal
-                        const modalElement = document.getElementById('newTaskFromTicketModal');
-                        if (modalElement) {
-                            const modal = new bootstrap.Modal(modalElement);
-                            modal.show();
-                        }
+                        // Show the modal
+                        const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+                        modal.show();
                     },
                     locale: 'es',
                     firstDay: 1, // Monday
@@ -607,21 +680,27 @@
                         minute: '2-digit',
                         hour12: false
                     },
-                    events: function(fetchInfo, successCallback, failureCallback) {
-                        // Get events via AJAX
-                        fetch('{{ path('maintenance_maintenance_calendar_events') }}' +
-                              '?start=' + fetchInfo.start.toISOString() +
-                              '&end=' + fetchInfo.end.toISOString() +
-                              '&showCompleted=' + showCompleted +
-                              '&category=' + categoryFilter)
-                            .then(response => response.json())
-                            .then(data => {
-                                successCallback(data);
-                            })
-                            .catch(error => {
-                                console.error('Error fetching events:', error);
-                                failureCallback(error);
-                            });
+                    events: {
+                        url: '{{ path('maintenance_maintenance_calendar_events') }}',
+                        method: 'GET',
+                        // FullCalendar automatically sends `start` and `end` parameters.
+                        // We only send additional filter params here.
+                        extraParams: function() {
+                            const showCompletedEl = document.getElementById('showCompleted');
+                            const categoryEl = document.getElementById('categoryFilter');
+                            return {
+                                showCompleted: showCompletedEl ? String(showCompletedEl.checked) : 'true',
+                                category: categoryEl ? categoryEl.value : ''
+                            };
+                        },
+                        failure: function(error) {
+                            console.error('Error fetching events:', error);
+                            
+                            // Show error toast
+                            const toast = new bootstrap.Toast(document.getElementById('errorToast'));
+                            document.querySelector('#errorToast .toast-body').textContent = 'Error al cargar los eventos del calendario';
+                            toast.show();
+                        }
                     },
                     eventDidMount: function(info) {
                         // Add tooltip to events
@@ -660,6 +739,8 @@
                     }
                 });
 
+                // Expose globally under a safe name
+                window.fcCalendar = calendar;
                 calendar.render();
 
                 // Set today button text
@@ -819,6 +900,22 @@
                     }
                 });
             });
+
+            // Add error toast element if it doesn't exist
+            if (!document.getElementById('errorToast')) {
+                const toastContainer = document.createElement('div');
+                toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '11';
+                toastContainer.innerHTML = `
+                    <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header bg-danger text-white">
+                            <strong class="me-auto">Error</strong>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                        <div class="toast-body"></div>
+                    </div>`;
+                document.body.appendChild(toastContainer);
+            }
 
             // Initialize the calendar
             initCalendar();

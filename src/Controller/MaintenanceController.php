@@ -230,7 +230,6 @@ class MaintenanceController extends AbstractController
      * @Route("/calendar", name="app_calendar", methods={"GET"})
      */
     #[Route('/calendar', name: 'app_calendar', methods: ['GET'])]
-    #[IsGranted('ROLE_USER')]
     public function calendar(Request $request): Response
     {
         $categories = $this->categoryRepository->findAll();
@@ -293,48 +292,76 @@ class MaintenanceController extends AbstractController
     #[Route(['/api/calendar/events', '/admin/maintenance/api/calendar/events'], name: 'maintenance_calendar_events', methods: ['GET'])]
     public function getCalendarEvents(Request $request): Response
     {
-        $start = new \DateTime($request->query->get('start'));
-        $end = new \DateTime($request->query->get('end'));
-        $showCompleted = $request->query->get('showCompleted', 'true') === 'true';
-        $priorities = $request->query->get('priorities', '');
-        $categoryId = $request->query->get('category');
+        try {
+            $startParam = (string) $request->query->get('start', '');
+            $endParam = (string) $request->query->get('end', '');
 
-        $category = $categoryId ? $this->categoryRepository->find($categoryId) : null;
+            if ($startParam === '' || $endParam === '') {
+                return $this->json([
+                    'success' => false,
+                    'error' => 'Missing required parameters',
+                    'message' => 'Parameters start and end are required.'
+                ], 400);
+            }
 
-        $tasks = $this->taskRepository->findTasksForCalendar(
-            $start,
-            $end,
-            $showCompleted,
-            $category
-        );
+            $start = new \DateTime($startParam);
+            $end = new \DateTime($endParam);
+            $showCompleted = $request->query->get('showCompleted', 'true') === 'true';
+            $categoryId = $request->query->get('category');
 
-        $events = [];
-        $now = new \DateTime();
+            $category = $categoryId ? $this->categoryRepository->find($categoryId) : null;
 
-        foreach ($tasks as $task) {
-            $isOverdue = $task->getStatus() !== 'completed' &&
-                         $task->getScheduledDate() < $now;
+            $tasks = $this->taskRepository->findTasksForCalendar(
+                $start,
+                $end,
+                $showCompleted,
+                $category
+            );
 
-            $events[] = [
-                'id' => $task->getId(),
-                'title' => $task->getTitle(),
-                'start' => $task->getScheduledDate()->format('Y-m-d\TH:i:s'),
-                'end' => $task->getCompletedAt() ? $task->getCompletedAt()->format('Y-m-d\TH:i:s') :
-                          ($task->getScheduledDate() ? $task->getScheduledDate()->modify('+1 hour')->format('Y-m-d\TH:i:s') : null),
-                'allDay' => false,
-                'color' => '#6c757d',
-                'textColor' => '#ffffff',
-                'extendedProps' => [
-                    'description' => $task->getDescription(),
-                    'status' => $task->getStatus(),
-                    'isOverdue' => $isOverdue,
-                    'category' => $task->getCategory() ? $task->getCategory()->getName() : null,
-                    'assignedTo' => $task->getAssignedTo() ? $task->getAssignedTo()->getFullName() : null,
-                ]
-            ];
+            $events = [];
+            $now = new \DateTime();
+
+            foreach ($tasks as $task) {
+                $scheduled = $task->getScheduledDate();
+                if (!$scheduled instanceof \DateTimeInterface) {
+                    continue; // skip tasks without a scheduled date
+                }
+
+                $isOverdue = $task->getStatus() !== 'completed' && $scheduled < $now;
+
+                // compute end without mutating the entity date
+                $endDate = $task->getCompletedAt() instanceof \DateTimeInterface
+                    ? $task->getCompletedAt()
+                    : (clone $scheduled)->modify('+1 hour');
+
+                $events[] = [
+                    'id' => $task->getId(),
+                    'title' => $task->getTitle(),
+                    'start' => $scheduled->format('Y-m-d\TH:i:s'),
+                    'end' => $endDate ? $endDate->format('Y-m-d\TH:i:s') : null,
+                    'allDay' => false,
+                    'color' => '#6c757d',
+                    'textColor' => '#ffffff',
+                    'extendedProps' => [
+                        'description' => $task->getDescription(),
+                        'status' => $task->getStatus(),
+                        'isOverdue' => $isOverdue,
+                        'category' => $task->getCategory() ? $task->getCategory()->getName() : null,
+                        'assignedTo' => $task->getAssignedTo() ? $task->getAssignedTo()->getFullName() : null,
+                    ]
+                ];
+            }
+
+            return $this->json($events);
+        } catch (\Throwable $e) {
+            // Log error and return JSON with 500 to avoid white screen
+            error_log('[CalendarEvents] ' . $e->getMessage());
+            return $this->json([
+                'success' => false,
+                'error' => 'Internal Server Error',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        return $this->json($events);
     }
 
 #[Route('/tasks', name: 'maintenance_tasks')]

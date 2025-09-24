@@ -51,24 +51,63 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         return (array) $qb->getQuery()->getSingleResult(\Doctrine\ORM\Query::HYDRATE_ARRAY);
     }
 
-    // Detalle de un usuario
+    // Detalle de un usuario (cálculo en PHP para mayor compatibilidad)
     public function getUserPerformance(int $userId, \DateTimeInterface $from, \DateTimeInterface $to): array
     {
         $qb = $this->createQueryBuilder('t')
-            ->select('u as user')
-            ->addSelect('COUNT(t.id) AS cerrados')
-            ->addSelect('AVG(TIMESTAMPDIFF(HOUR, t.createdAt, t.completedAt)) AS tmrHoras')
-            ->addSelect('100.0 * SUM(CASE WHEN t.withinSla = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(t.id),0) AS slaPct')
-            ->addSelect('100.0 * SUM(CASE WHEN t.reopened = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(t.id),0) AS reabPct')
             ->leftJoin('t.assignedTo', 'u')
+            ->addSelect('u')
             ->where('u.id = :uid')
             ->andWhere('t.completedAt BETWEEN :f AND :t')
-            ->groupBy('u.id')
             ->setParameter('uid', $userId)
             ->setParameter('f', $from)
             ->setParameter('t', $to);
 
-        return (array) $qb->getQuery()->getOneOrNullResult(\Doctrine\ORM\Query::HYDRATE_ARRAY) ?: [];
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
+
+        $cerr = 0;
+        $sumHours = 0.0;
+        $slaTotal = 0;
+        $slaMet = 0;
+        $reab = 0;
+        $username = null; $nombre = null; $apellido = null;
+
+        foreach ($tasks as $task) {
+            $user = $task->getAssignedTo();
+            if ($user instanceof User) {
+                $username = method_exists($user, 'getUsername') ? $user->getUsername() : ($user->getEmail() ?? $username);
+                $nombre = method_exists($user, 'getNombre') ? $user->getNombre() : $nombre;
+                $apellido = method_exists($user, 'getApellido') ? $user->getApellido() : $apellido;
+            }
+
+            $createdAt = $task->getCreatedAt();
+            $completedAt = $task->getCompletedAt();
+            if ($createdAt instanceof \DateTimeInterface && $completedAt instanceof \DateTimeInterface) {
+                $cerr++;
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $hours = $diffSeconds / 3600.0;
+                $sumHours += $hours;
+                $slaTotal++;
+                if ($hours <= 48.0) { $slaMet++; }
+            }
+            if ($task->isReopened()) { $reab++; }
+        }
+
+        $tmr = $cerr > 0 ? ($sumHours / $cerr) : 0.0;
+        $slaPct = $slaTotal > 0 ? (100.0 * $slaMet / $slaTotal) : 0.0;
+        $reabPct = $cerr > 0 ? (100.0 * $reab / $cerr) : 0.0;
+
+        return [
+            'userId' => $userId,
+            'username' => $username,
+            'nombre' => $nombre,
+            'apellido' => $apellido,
+            'cerrados' => $cerr,
+            'tmrHoras' => $tmr,
+            'slaPct' => $slaPct,
+            'reabPct' => $reabPct,
+        ];
     }
 
     // Tasa de finalización (opcional)
@@ -180,5 +219,158 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
         }
         
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Find tasks for calendar view within a date range.
+     *
+     * @param \DateTimeInterface $start
+     * @param \DateTimeInterface $end
+     * @param bool $showCompleted Include completed tasks if true
+     * @param MaintenanceCategory|null $category Filter by category if provided
+     * @return MaintenanceTask[]
+     */
+    public function findTasksForCalendar(
+        \DateTimeInterface $start,
+        \DateTimeInterface $end,
+        bool $showCompleted = true,
+        ?MaintenanceCategory $category = null
+    ): array {
+        $qb = $this->createQueryBuilder('t')
+            ->where('t.scheduledDate BETWEEN :start AND :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->orderBy('t.scheduledDate', 'ASC');
+
+        if (!$showCompleted) {
+            $qb->andWhere('t.status != :completed')
+               ->setParameter('completed', 'completed');
+        }
+
+        if ($category !== null) {
+            $qb->andWhere('t.category = :category')
+               ->setParameter('category', $category);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Portable summary computed in PHP for any database engine.
+     * Returns keys: totalCerrados, tmrHoras, reabiertos.
+     */
+    public function getPerformanceSummaryPhp(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->andWhere('t.completedAt BETWEEN :f AND :t')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
+
+        $totalCerrados = 0;
+        $sumHours = 0.0;
+        $reabiertos = 0;
+
+        foreach ($tasks as $task) {
+            $completedAt = $task->getCompletedAt();
+            $createdAt = $task->getCreatedAt();
+            if ($completedAt instanceof \DateTimeInterface && $createdAt instanceof \DateTimeInterface) {
+                $totalCerrados++;
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $sumHours += $diffSeconds / 3600.0;
+            }
+            if ($task->isReopened()) {
+                $reabiertos++;
+            }
+        }
+
+        $tmrHoras = $totalCerrados > 0 ? $sumHours / $totalCerrados : 0.0;
+
+        return [
+            'totalCerrados' => $totalCerrados,
+            'tmrHoras' => $tmrHoras,
+            'reabiertos' => $reabiertos,
+        ];
+    }
+
+    /**
+     * Portable per-user performance rows computed in PHP.
+     * Each row contains: userId, username, nombre, apellido, cerrados, tmrHoras, slaPct, reabPct.
+     */
+    public function getAssignedUsersPerformancePhp(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        $qb = $this->createQueryBuilder('t')
+            ->leftJoin('t.assignedTo', 'u')
+            ->addSelect('u')
+            ->andWhere('t.completedAt BETWEEN :f AND :t')
+            ->andWhere('t.assignedTo IS NOT NULL')
+            ->setParameter('f', $from)
+            ->setParameter('t', $to);
+
+        /** @var MaintenanceTask[] $tasks */
+        $tasks = $qb->getQuery()->getResult();
+
+        // Aggregate per user
+        $agg = [];
+        foreach ($tasks as $task) {
+            $user = $task->getAssignedTo();
+            if (!$user instanceof User) { continue; }
+            $uid = (int) $user->getId();
+            if (!isset($agg[$uid])) {
+                $agg[$uid] = [
+                    'userId' => $uid,
+                    'username' => method_exists($user, 'getUsername') ? $user->getUsername() : ($user->getEmail() ?? ''),
+                    'nombre' => method_exists($user, 'getNombre') ? $user->getNombre() : null,
+                    'apellido' => method_exists($user, 'getApellido') ? $user->getApellido() : null,
+                    'cerrados' => 0,
+                    'sumHours' => 0.0,
+                    'slaTotal' => 0,
+                    'slaMet' => 0,
+                    'reabiertos' => 0,
+                ];
+            }
+
+            $agg[$uid]['cerrados']++;
+
+            $createdAt = $task->getCreatedAt();
+            $completedAt = $task->getCompletedAt();
+            if ($createdAt instanceof \DateTimeInterface && $completedAt instanceof \DateTimeInterface) {
+                $diffSeconds = max(0, $completedAt->getTimestamp() - $createdAt->getTimestamp());
+                $hours = $diffSeconds / 3600.0;
+                $agg[$uid]['sumHours'] += $hours;
+
+                // SLA simple 48h
+                $agg[$uid]['slaTotal']++;
+                if ($hours <= 48.0) { $agg[$uid]['slaMet']++; }
+            }
+
+            if ($task->isReopened()) {
+                $agg[$uid]['reabiertos']++;
+            }
+        }
+
+        // Finalize rows
+        $rows = [];
+        foreach ($agg as $row) {
+            $cerr = max(0, (int) $row['cerrados']);
+            $tmr = $cerr > 0 ? ($row['sumHours'] / $cerr) : 0.0;
+            $slaPct = $row['slaTotal'] > 0 ? (100.0 * $row['slaMet'] / $row['slaTotal']) : 0.0;
+            $reabPct = $cerr > 0 ? (100.0 * $row['reabiertos'] / $cerr) : 0.0;
+
+            $rows[] = [
+                'userId' => $row['userId'],
+                'username' => $row['username'],
+                'nombre' => $row['nombre'],
+                'apellido' => $row['apellido'],
+                'cerrados' => $cerr,
+                'tmrHoras' => $tmr,
+                'slaPct' => $slaPct,
+                'reabPct' => $reabPct,
+            ];
+        }
+
+        return $rows;
     }
 }

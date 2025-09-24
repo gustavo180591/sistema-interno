@@ -91,6 +91,10 @@ class MaintenanceTask
     #[ORM\Column(type: 'boolean')]
     private $reopened = false;
 
+    #[ORM\ManyToOne(targetEntity: Ticket::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Ticket $originTicket = null;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -401,6 +405,17 @@ class MaintenanceTask
             self::STATUS_OVERDUE => 'Atrasada',
             self::STATUS_SKIPPED => 'Omitida'
         ];
+    }
+
+    public function getOriginTicket(): ?Ticket
+    {
+        return $this->originTicket;
+    }
+
+    public function setOriginTicket(?Ticket $originTicket): self
+    {
+        $this->originTicket = $originTicket;
+        return $this;
     }
 
     public function __toString(): string

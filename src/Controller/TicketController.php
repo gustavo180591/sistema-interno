@@ -1078,6 +1078,12 @@ class TicketController extends AbstractController
         }
         $this->denyAccessUnlessGranted('complete', $ticket);
 
+        // Optional CSRF validation scoped to a dedicated field to avoid collisions with other forms
+        $submittedToken = $request->request->get('_complete_token');
+        if ($submittedToken !== null && !$this->isCsrfTokenValid('ticket_complete_' . $ticket->getId(), $submittedToken)) {
+            throw $this->createAccessDeniedException('Token CSRF inválido');
+        }
+
         $notes = $request->request->get('notes', '');
 
         // Update the ticket's description with the completion notes
@@ -1090,6 +1096,21 @@ class TicketController extends AbstractController
 
         $this->addFlash('success', 'El ticket ha sido marcado como completado.');
         return $this->redirectToRoute('ticket_show', ['id' => $ticket->getId()]);
+    }
+
+    #[Route('/tickets/{id}/complete/confirm', name: 'ticket_complete_confirm', methods: ['GET'])]
+    public function completeConfirm(Ticket $ticket): Response
+    {
+        if (!$this->isGranted('ROLE_ADMIN') && !$this->isGranted('ROLE_AUDITOR')) {
+            throw $this->createAccessDeniedException('No tienes permiso para realizar esta acción');
+        }
+
+        // Reuse voter to ensure consistent rules
+        $this->denyAccessUnlessGranted('complete', $ticket);
+
+        return $this->render('ticket/complete_confirm.html.twig', [
+            'ticket' => $ticket,
+        ]);
     }
 
     #[Route('/tickets/{id}/reject-proposal', name: 'ticket_reject_proposal', methods: ['POST'])]

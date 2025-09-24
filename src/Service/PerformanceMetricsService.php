@@ -41,13 +41,18 @@ class PerformanceMetricsService
     {
         $ranked = [];
         foreach ($rows as $r) {
-            $ranked[] = [
+            $item = [
                 'userId' => $r['userId'],
                 'username' => $r['username'] ?? null,
                 'nombre' => $r['nombre'] ?? null,
                 'apellido' => $r['apellido'] ?? null,
                 'score' => $this->scoreUser($r),
             ];
+            // Preserve extra fields if present
+            foreach (['ticketsAssigned','ticketsCompleted','ticketAvgResolutionMin','lastTicketUpdate'] as $k) {
+                if (array_key_exists($k, $r)) { $item[$k] = $r[$k]; }
+            }
+            $ranked[] = $item;
         }
         usort($ranked, fn($a, $b) => $b['score']['final'] <=> $a['score']['final']);
         return $ranked;

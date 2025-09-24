@@ -64,7 +64,7 @@
             });
 
             // Initialize date/time pickers
-            if (flatpickr) {
+            if (typeof flatpickr !== 'undefined') {
                 flatpickr('.js-datetime-picker', {
                     enableTime: true,
                     dateFormat: 'Y-m-d H:i',
