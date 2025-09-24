@@ -96,8 +96,8 @@ class TicketVoter extends Voter
 
     private function canEdit(Ticket $ticket, User $user): bool
     {
-        // Admins can edit any ticket
-        if ($this->security->isGranted('ROLE_ADMIN')) {
+        // Admins and Auditors can edit any ticket
+        if ($this->security->isGranted('ROLE_ADMIN') || $this->security->isGranted('ROLE_AUDITOR')) {
             return true;
         }
 

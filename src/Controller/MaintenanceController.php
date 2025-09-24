@@ -226,17 +226,71 @@ class MaintenanceController extends AbstractController
         ]);
     }
 
-    #[Route('/calendar', name: 'maintenance_calendar')]
-    public function calendar(): Response
+    /**
+     * @Route("/calendar", name="app_calendar", methods={"GET"})
+     */
+    #[Route('/calendar', name: 'app_calendar', methods: ['GET'])]
+    #[IsGranted('ROLE_USER')]
+    public function calendar(Request $request): Response
     {
         $categories = $this->categoryRepository->findAll();
+        
+        // Get ticket ID from query parameters if it exists
+        $ticketId = $request->query->get('ticket_id');
+        $scheduledDate = $request->query->get('date');
+        $scheduledTime = $request->query->get('time');
+        $duration = $request->query->get('duration', 60); // Default to 60 minutes
+        $description = $request->query->get('description', '');
+        
+        $ticket = null;
+        if ($ticketId) {
+            // Get ticket details if needed
+            $ticket = $this->entityManager->getRepository(\App\Entity\Ticket::class)->find($ticketId);
+        }
+        
+        // Format the scheduled date and time for the calendar
+        $initialDate = null;
+        if ($scheduledDate && $scheduledTime) {
+            try {
+                $dateTime = new \DateTime($scheduledDate . ' ' . $scheduledTime);
+                $initialDate = $dateTime->format('Y-m-d\TH:i:s');
+                
+                // Add duration to get end time
+                $endTime = clone $dateTime;
+                $endTime->add(new \DateInterval('PT' . $duration . 'M'));
+                
+                // Store in session for the calendar to use
+                $this->get('session')->set('new_event_data', [
+                    'title' => $ticket ? 'Ticket #' . $ticket->getId() : 'Nuevo evento',
+                    'start' => $dateTime->format('Y-m-d\TH:i:s'),
+                    'end' => $endTime->format('Y-m-d\TH:i:s'),
+                    'description' => $description,
+                    'ticketId' => $ticketId
+                ]);
+                
+            } catch (\Exception $e) {
+                // Invalid date/time format, just ignore
+            }
+        }
 
         return $this->render('maintenance/calendar.html.twig', [
             'categories' => $categories,
+            'initialDate' => $initialDate,
+            'ticket' => $ticket,
+            'description' => $description
         ]);
     }
+    
+    /**
+     * @Route("/admin/maintenance/calendar", name="maintenance_calendar_redirect", methods={"GET"})
+     */
+    #[Route('/admin/maintenance/calendar', name: 'maintenance_calendar_redirect', methods: ['GET'])]
+    public function maintenanceCalendar(): Response
+    {
+        return $this->redirectToRoute('app_calendar');
+    }
 
-    #[Route('/api/calendar/events', name: 'maintenance_calendar_events', methods: ['GET'])]
+    #[Route(['/api/calendar/events', '/admin/maintenance/api/calendar/events'], name: 'maintenance_calendar_events', methods: ['GET'])]
     public function getCalendarEvents(Request $request): Response
     {
         $start = new \DateTime($request->query->get('start'));

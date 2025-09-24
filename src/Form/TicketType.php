@@ -80,13 +80,25 @@ class TicketType extends AbstractType
                     'Rechazado' => Ticket::STATUS_REJECTED,
                     'Retrasado' => Ticket::STATUS_DELAYED,
                 ],
+                'choice_label' => function($value) {
+                    $statusLabels = [
+                        Ticket::STATUS_PENDING => 'Pendiente',
+                        Ticket::STATUS_IN_PROGRESS => 'En progreso',
+                        Ticket::STATUS_COMPLETED => 'Completado',
+                        Ticket::STATUS_REJECTED => 'Rechazado',
+                        Ticket::STATUS_DELAYED => 'Retrasado',
+                    ];
+                    return $statusLabels[$value] ?? $value;
+                },
                 'attr' => [
-                    'class' => 'form-select'
+                    'class' => 'form-select',
+                    'data-style' => 'btn-select'
                 ],
                 'row_attr' => [
                     'class' => 'mb-3'
                 ],
-                'required' => true
+                'required' => true,
+                'placeholder' => 'Seleccionar estado',
             ]);
         };
 

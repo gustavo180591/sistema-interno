@@ -90,6 +90,13 @@
                                                 title="Haz clic para ordenar por asignado">
                                                 Asignado
                                             </th>
+                                            <th class="sortable" 
+                                                data-sort="area_origen" 
+                                                style="cursor: pointer;"
+                                                data-bs-toggle="tooltip" 
+                                                title="Área de origen del ticket">
+                                                Área de origen
+                                            </th>
                                             <th class="sortable {{ sort == 'createdAt' ? 'active-sort' : '' }}" 
                                                 data-sort="createdAt" 
                                                 style="cursor: pointer;"
@@ -134,54 +141,19 @@
                                                     {% endif %}
                                                 </td>
                                                 <td>
+                                                    {{ ticket.area_origen ?? '<span class="text-muted">No especificada</span>'|raw }}
+                                                </td>
+                                                <td>
                                                     <div>{{ ticket.createdAt|date('d/m/Y') }}</div>
                                                     <small class="text-muted">{{ ticket.createdAt|date('H:i') }}</small>
                                                 </td>
                                                 <td>
-                                                    {% set statusConfig = {
-                                                        'pending': {
-                                                            'class': 'bg-info bg-opacity-10 text-info border border-info',
-                                                            'icon': 'fa-clock',
-                                                            'text': 'Pendiente',
-                                                            'description': 'El ticket está esperando ser atendido'
-                                                        },
-                                                        'in_progress': {
-                                                            'class': 'bg-warning bg-opacity-10 text-warning border border-warning',
-                                                            'icon': 'fa-spinner fa-spin',
-                                                            'text': 'En progreso',
-                                                            'description': 'El ticket está siendo atendido actualmente'
-                                                        },
-                                                        'completed': {
-                                                            'class': 'bg-success bg-opacity-10 text-success border border-success',
-                                                            'icon': 'fa-check-circle',
-                                                            'text': 'Terminado',
-                                                            'description': 'El ticket ha sido completado exitosamente'
-                                                        },
-                                                        'rejected': {
-                                                            'class': 'bg-danger bg-opacity-10 text-danger border border-danger',
-                                                            'icon': 'fa-times-circle',
-                                                            'text': 'Rechazado',
-                                                            'description': 'El ticket ha sido rechazado'
-                                                        },
-                                                        'delayed': {
-                                                            'class': 'bg-warning bg-opacity-20 text-warning border border-warning',
-                                                            'icon': 'fa-clock',
-                                                            'text': 'Demorado',
-                                                            'description': 'El ticket ha sido retrasado'
-                                                        }
-                                                    }[ticket.status] ?? {
-                                                        'class': 'bg-secondary bg-opacity-10 text-secondary border border-secondary',
-                                                        'icon': 'fa-question-circle',
-                                                        'text': 'Desconocido',
-                                                        'description': 'Estado desconocido'
-                                                    } %}
-
-                                                    <span class="badge {{ statusConfig.class }} d-inline-flex align-items-center"
+                                                    <span class="badge {{ ticket.status|status_class }} d-inline-flex align-items-center"
                                                           data-bs-toggle="tooltip" 
                                                           data-bs-placement="top"
-                                                          title="{{ statusConfig.description }}">
-                                                        <i class="fas {{ statusConfig.icon }} me-1"></i>
-                                                        {{ statusConfig.text }}
+                                                          title="{{ ticket.status|status_description }}">
+                                                        <i class="fas {{ ticket.status|status_icon }} me-1"></i>
+                                                        {{ ticket.status|status_label }}
                                                     </span>
                                                 </td>
                                                 <td>

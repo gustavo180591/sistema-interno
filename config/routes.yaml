@@ -51,3 +51,16 @@ maintenance_controller:
     resource: '../src/Controller/MaintenanceController.php'
     type: attribute
     name_prefix: maintenance_
+    exclude: ['/calendar', '/calendar/*']
+
+# Define the calendar route at the root level
+app_calendar:
+    path: /calendar
+    controller: App\Controller\MaintenanceController::calendar
+    methods: [GET]
+
+# Redirect old calendar URL to the new one
+maintenance_calendar_redirect:
+    path: /admin/maintenance/calendar
+    controller: App\Controller\MaintenanceController::maintenanceCalendar
+    methods: [GET]

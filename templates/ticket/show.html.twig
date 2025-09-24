@@ -43,18 +43,9 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h3 mb-0 d-flex align-items-center">
                     <span class="me-3">{{ ticket.title }}</span>
-                    <span class="badge rounded-pill bg-{{
-                        ticket.status == 'in_progress' ? 'warning' :
-                        (ticket.status == 'pending' ? 'info' :
-                        (ticket.status == 'rejected' ? 'danger' :
-                        (ticket.status == 'completed' ? 'success' : 'secondary')))
-                    }} fs-6">
-                        {{ ({
-                            'in_progress': 'En progreso',
-                            'pending': 'Pendiente',
-                            'rejected': 'Rechazado',
-                            'completed': 'Terminado'
-                        })[ticket.status] }}
+                    <span class="badge rounded-pill {{ ticket.status|status_class }} fs-6">
+                        <i class="fas {{ ticket.status|status_icon }} me-1"></i>
+                        {{ ticket.status|status_label }}
                     </span>
                 </h1>
                 <div class="btn-group">
@@ -78,13 +69,17 @@
                                     <i class="fas fa-user-plus me-1"></i> Asignar Ticket
                                 </button>
                             {% endif %}
-                            
+
                             <button type="button" class="btn btn-outline-danger btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#rejectTicketModal">
                                 <i class="fas fa-times me-1"></i> Rechazar
                             </button>
 
                             <button type="button" class="btn btn-outline-success btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#completeTicketModal">
                                 <i class="fas fa-check me-1"></i> Completar
+                            </button>
+                            
+                            <button type="button" class="btn btn-outline-primary btn-sm ms-1" data-bs-toggle="modal" data-bs-target="#scheduleTicketModal">
+                                <i class="far fa-calendar-alt me-1"></i> Agendar
                             </button>
                         {% endif %}
                     {% endif %}
@@ -192,10 +187,17 @@
                     <!-- ID interno/externo -->
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">ID Interno / Externo</small>
-                        <div class="fw-bold d-flex align-items-center">
-                            <span class="me-2">#{{ '%04d'|format(ticket.id) }}</span>
-                            {% if ticket.idSistemaInterno %}
-                                <span class="badge bg-secondary">{{ ticket.idSistemaInterno }}</span>
+                        <div class="fw-bold">
+                            <div>#{{ '%04d'|format(ticket.id) }}
+                                {% if ticket.idSistemaInterno %}
+                                    <span class="badge bg-secondary ms-2">{{ ticket.idSistemaInterno }}</span>
+                                {% endif %}
+                            </div>
+                            {% if ticket.area_origen is not empty %}
+                                <div class="mt-1">
+                                    <small class="text-muted">Área de origen:</small>
+                                    <span class="ms-1">{{ ticket.area_origen }}</span>
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -257,7 +259,7 @@
                         {% if ticket.updatedBy is defined and ticket.updatedBy is not null %}
                             {% set updatedBy = ticket.updatedBy %}
                             <small class="text-muted">
-                                por {{ updatedBy.apellido is defined ? updatedBy.apellido : '' }} 
+                                por {{ updatedBy.apellido is defined ? updatedBy.apellido : '' }}
                                 {{ updatedBy.nombre is defined ? updatedBy.nombre : (updatedBy.username is defined ? updatedBy.username : '') }}
                             </small>
                         {% endif %}
@@ -419,6 +421,61 @@
 {{ parent() }}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
+<!-- Schedule Ticket Modal -->
+<div class="modal fade" id="scheduleTicketModal" tabindex="-1" aria-labelledby="scheduleTicketModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="scheduleTicketModalLabel">
+                    <i class="far fa-calendar-alt me-2"></i>Agendar Ticket
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="scheduleTicketForm" action="{{ path('app_calendar') }}" method="GET">
+                <div class="modal-body">
+                    <input type="hidden" name="ticket_id" value="{{ ticket.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="scheduledDate" class="form-label fw-bold">Fecha</label>
+                        <input type="date" class="form-control" id="scheduledDate" name="date" required 
+                               min="{{ 'now'|date('Y-m-d') }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="scheduledTime" class="form-label fw-bold">Hora</label>
+                        <input type="time" class="form-control" id="scheduledTime" name="time" required
+                               value="09:00">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="duration" class="form-label fw-bold">Duración (minutos)</label>
+                        <select class="form-select" id="duration" name="duration">
+                            <option value="30">30 minutos</option>
+                            <option value="60" selected>1 hora</option>
+                            <option value="90">1 hora 30 minutos</option>
+                            <option value="120">2 horas</option>
+                            <option value="180">3 horas</option>
+                            <option value="240">4 horas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label fw-bold">Descripción (opcional)</label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="Agregue detalles sobre la cita..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="far fa-calendar-plus me-1"></i> Agendar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
@@ -426,29 +483,49 @@
 <script>
 // Ticket Assignment Form Handler
 document.addEventListener('DOMContentLoaded', function() {
+    // Set default date and time for scheduling
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Format date as YYYY-MM-DD
+    const formattedDate = tomorrow.toISOString().split('T')[0];
+    
+    // Set default date (tomorrow) if not already set
+    const dateInput = document.getElementById('scheduledDate');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = formattedDate;
+    }
+    
+    // Set default time to 9:00 AM if not already set
+    const timeInput = document.getElementById('scheduledTime');
+    if (timeInput && !timeInput.value) {
+        timeInput.value = '09:00';
+    }
+    
     const assignForm = document.getElementById('assignTicketForm');
     const errorDiv = document.getElementById('userSelectionError');
-    
+
     if (assignForm) {
         assignForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             // Reset error state
             errorDiv.classList.add('d-none');
-            
+
             // Get selected users
             const selectedUsers = Array.from(assignForm.querySelectorAll('option:checked'));
             if (selectedUsers.length === 0) {
                 errorDiv.classList.remove('d-none');
                 return;
             }
-            
+
             // Show loading state
             const submitBtn = assignForm.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Asignando...';
-            
+
             try {
                 const formData = new FormData(assignForm);
                 const response = await fetch(assignForm.action, {
@@ -458,24 +535,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
-                
+
                 if (!response.ok) {
                     throw new Error('Error en la respuesta del servidor');
                 }
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // Success - show toast and reload
                     const toastEl = document.getElementById('toastSuccess');
                     const toast = new bootstrap.Toast(toastEl);
                     document.getElementById('toastMessage').textContent = 'Usuarios asignados correctamente';
                     toast.show();
-                    
+
                     // Close modal and reload page after a short delay
                     const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
                     if (modal) modal.hide();
-                    
+
                     setTimeout(() => {
                         window.location.reload();
                     }, 1500);
@@ -494,7 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.innerHTML = originalBtnText;
             }
         });
-        
+
         // Initialize select2 for user selection if available
         if (typeof $.fn.select2 !== 'undefined') {
             $('select[name="assigned_users[]"]').select2({
@@ -505,14 +582,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-    
+
     // Add Note Form Handler
     document.addEventListener('DOMContentLoaded', function() {
         // Show toast notification
         function showToast(type, message) {
             const toastEl = type === 'success' ? document.getElementById('toastSuccess') : document.getElementById('toastError');
             const toastBody = toastEl.querySelector('.toast-body');
-            
+
             toastBody.textContent = message;
             const toast = new bootstrap.Toast(toastEl);
             toast.show();
@@ -544,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
 
                     const data = await response.json();
-                    
+
                     if (response.ok && data.success) {
                         showToast('success', 'Nota agregada correctamente');
                         // Clear the form
@@ -588,7 +665,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
 
                     const data = await response.json();
-                    
+
                     if (response.ok && data.success) {
                         showToast('success', 'Nota eliminada correctamente');
                         // Remove the note element from the DOM
@@ -616,7 +693,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const noteId = button.dataset.noteId;
                 const noteContentEl = document.querySelector(`#note-content-${noteId}`);
                 const currentContent = noteContentEl.textContent.trim();
-                
+
                 // Create form
                 const form = document.createElement('form');
                 form.className = 'edit-note-form';
@@ -646,7 +723,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const content = form.querySelector('textarea').value.trim();
-                    
+
                     if (!content) return;
 
                     const submitButton = form.querySelector('button[type="submit"]');
@@ -666,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
 
                         const data = await response.json();
-                        
+
                         if (response.ok && data.success) {
                             showToast('success', 'Nota actualizada correctamente');
                             // Update the note content in the DOM

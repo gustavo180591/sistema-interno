@@ -56,20 +56,21 @@ class TicketController extends AbstractController
         $sort = in_array($sort, $validSorts) ? $sort : 'createdAt';
         $direction = strtoupper($direction) === 'ASC' ? 'ASC' : 'DESC';
         
-        // Get total count of all tickets (matching HomeController logic)
-        $statusCounts = $this->em->createQueryBuilder()
+        // Initialize the count query builder
+        $countQb = $this->em->createQueryBuilder()
             ->select('COUNT(t.id) as count')
             ->from(Ticket::class, 't')
-            ->getQuery()
-            ->getSingleScalarResult();
-            
-        $totalTickets = (int) $statusCounts;
+            ->leftJoin('t.ticketAssignments', 'ta')
+            ->leftJoin('ta.user', 'assignedUser');
             
         // Apply the same filters to the count query
         if ($status) {
             $countQb->andWhere('t.status = :status')
                    ->setParameter('status', $status);
         }
+        
+        // Get the total count after applying status filter
+        $totalTickets = (int) $countQb->getQuery()->getSingleScalarResult();
         
         if ($search) {
             $countQb->andWhere(
@@ -954,18 +955,25 @@ class TicketController extends AbstractController
             $this->logger->info('Processing assignment for ticket: ' . $ticketId);
             $this->logger->info('Selected users: ' . print_r($userIds, true));
 
-            // Check if ticket already has assignments
-            if (count($ticket->getTicketAssignments()) > 0) {
-                $this->logger->warning('Ticket already has assignments');
-                $this->addFlash('warning', 'Este ticket ya ha sido asignado anteriormente. No se puede asignar nuevamente.');
-                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
+            // Get existing assignments to prevent duplicates
+            $existingAssignments = [];
+            foreach ($ticket->getTicketAssignments() as $assignment) {
+                $existingAssignments[$assignment->getUser()->getId()] = true;
             }
 
             // Process user assignments
             $assignedUsers = [];
+            $newAssignments = 0;
+            
             foreach ($userIds as $userId) {
                 $user = $this->userRepository->find($userId);
                 if ($user) {
+                    // Skip if user is already assigned
+                    if (isset($existingAssignments[$user->getId()])) {
+                        $this->logger->info(sprintf('User %s is already assigned to ticket %s', $user->getId(), $ticketId));
+                        continue;
+                    }
+                    
                     $assignedUsers[] = $user;
 
                     // Create new assignment
@@ -975,7 +983,14 @@ class TicketController extends AbstractController
                     $assignment->setAssignedAt(new \DateTimeImmutable());
 
                     $this->em->persist($assignment);
+                    $newAssignments++;
                 }
+            }
+            
+            if ($newAssignments === 0) {
+                $this->logger->warning('No new users to assign to ticket');
+                $this->addFlash('warning', 'Los usuarios seleccionados ya están asignados a este ticket.');
+                return $this->redirectToRoute('ticket_show', ['id' => $ticketId]);
             }
 
             // Update ticket status if needed
@@ -1025,7 +1040,10 @@ class TicketController extends AbstractController
         // Get notes ordered by creation date (newest first)
         $notes = $ticket->getNotes()->toArray();
         usort($notes, function($a, $b) {
-            return $b->getCreatedAt() <=> $a->getCreatedAt();
+            if ($a->getCreatedAt() === $b->getCreatedAt()) {
+                return 0;
+            }
+            return ($a->getCreatedAt() < $b->getCreatedAt()) ? 1 : -1;
         });
 
         // Filter users by role

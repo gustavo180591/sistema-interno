@@ -23,3 +23,7 @@ services:
     App\EventListener\EntityNotFoundListener:
         tags:
             - { name: kernel.event_listener, event: kernel.exception, priority: 10 }
+            
+    # Register Twig extensions
+    App\Twig\AppExtension:
+        tags: ['twig.extension']
