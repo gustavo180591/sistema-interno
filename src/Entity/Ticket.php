@@ -79,8 +79,8 @@ class Ticket
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $takenAt = null;
 
-    #[ORM\Column(length: 100, nullable: true)]
-    private ?string $areaOrigen = null;
+    #[ORM\Column(name: 'area_origen', length: 255, nullable: true)]
+    private ?string $area_origen = null;
 
     #[ORM\Column(length: 50, unique: true, nullable: true)]
     #[Assert\Unique(message: 'Este ID Externo ya está en uso. Por favor, ingrese un ID único.')]
@@ -185,6 +185,17 @@ class Ticket
         return $this->priority;
     }
 
+    public function getAreaOrigen(): ?string
+    {
+        return $this->area_origen;
+    }
+
+    public function setAreaOrigen(?string $area_origen): self
+    {
+        $this->area_origen = $area_origen;
+        return $this;
+    }
+
     public function setPriority(string $priority): self
     {
         $this->priority = $priority;
@@ -209,7 +220,7 @@ class Ticket
     {
         return $this->ticketAssignments;
     }
-    
+
     /**
      * Get assigned users
      *
@@ -223,7 +234,7 @@ class Ticket
         }
         return $users;
     }
-    
+
     /**
      * Set assigned users
      *
@@ -236,7 +247,7 @@ class Ticket
         foreach ($this->ticketAssignments as $assignment) {
             $this->removeTicketAssignment($assignment);
         }
-        
+
         // Add new assignments
         foreach ($users as $user) {
             $assignment = new TicketAssignment();
@@ -245,10 +256,10 @@ class Ticket
             $assignment->setAssignedAt(new \DateTimeImmutable());
             $this->addTicketAssignment($assignment);
         }
-        
+
         return $this;
     }
-    
+
     /**
      * Check if user is assigned to this ticket
      *
@@ -279,6 +290,23 @@ class Ticket
     public function getNotes(): Collection
     {
         return $this->notes;
+    }
+
+    public function hasUnreadNotes(User $user): bool
+    {
+        foreach ($this->notes as $note) {
+            $isRead = false;
+            foreach ($note->getReadStatuses() as $readStatus) {
+                if ($readStatus->getUser() === $user && $readStatus->getIsRead()) {
+                    $isRead = true;
+                    break;
+                }
+            }
+            if (!$isRead && $note->getCreatedBy() !== $user) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function addNote(Note $note): self
@@ -387,16 +415,17 @@ class Ticket
         return $this->updatedAt;
     }
 
-    public function getAreaOrigen(): ?string
+    public function getarea_origen(): ?string
     {
-        return $this->areaOrigen;
+        return $this->area_origen;
     }
 
-    public function setAreaOrigen(?string $areaOrigen): self
+    public function setarea_origen(?string $area_origen): self
     {
-        $this->areaOrigen = $areaOrigen;
+        $this->area_origen = $area_origen;
         return $this;
     }
+
 
     public function getIdSistemaInterno(): ?string
     {
@@ -480,7 +509,7 @@ class Ticket
     {
         $this->takenBy = $takenBy;
         $this->takenAt = $takenBy ? new \DateTimeImmutable() : null;
-        
+
         return $this;
     }
 
@@ -492,7 +521,7 @@ class Ticket
     public function setTakenAt(\DateTimeInterface $takenAt): self
     {
         $this->takenAt = $takenAt;
-        
+
         return $this;
     }
 

@@ -14,7 +14,7 @@
         button[title="Asignar"] {
             display: none !important;
         }
-        
+
         :root {
             --primary-color: #2c3e50;
             --secondary-color: #3498db;
@@ -253,7 +253,7 @@
                             <div id="assignedUsersHiddenRepeater"
                                  data-full-name="{{ form.assignedUsers.vars.full_name }}">
                             </div>
-                            
+
                             <div class="row g-4">
                             <!-- Left Column -->
                             <div class="col-lg-8">
@@ -286,10 +286,10 @@
                                             <!-- Área de Origen -->
                                             <div class="col-md-6">
                                                 <div class="mb-3">
-                                                    {{ form_label(form.areaOrigen, 'Área de Origen', {'label_attr': {
+                                                    {{ form_label(form.area_origen, 'Área de Origen', {'label_attr': {
                                                         'class': 'form-label fw-medium text-muted small mb-2'
                                                     }}) }}
-                                                    {{ form_widget(form.areaOrigen, {
+                                                    {{ form_widget(form.area_origen, {
                                                         'attr': {
                                                             'class': 'form-select form-select-lg area-origen-select w-100',
                                                             'data-placeholder': 'Seleccione un área de origen...',
@@ -458,12 +458,12 @@
             form.addEventListener('submit', function(e) {
                 console.log('Form submitted');
                 console.log('Form data:', new FormData(form));
-                
+
                 // Validate required fields
                 const requiredFields = form.querySelectorAll('[required]');
                 let isValid = true;
                 const errors = [];
-                
+
                 requiredFields.forEach(field => {
                     if (!field.value.trim()) {
                         field.classList.add('is-invalid');
@@ -473,7 +473,7 @@
                         field.classList.remove('is-invalid');
                     }
                 });
-                
+
                 if (!isValid) {
                     e.preventDefault();
                     const errorContainer = document.getElementById('form-errors');
@@ -490,7 +490,7 @@
     <!-- Select2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
-    
+
     <!-- Initialize Select2 for Área de Origen -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -505,7 +505,7 @@
             minimumInputLength: 0,
             dropdownParent: $('body')
         });
-        
+
         // Ensure the dropdown is visible when clicking the search input
         $('.area-origen-select').on('select2:open', function() {
             setTimeout(function() {
@@ -514,7 +514,7 @@
         });
     });
     </script>
-    
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Elements
@@ -530,7 +530,7 @@
             userSearchInput.addEventListener('input', function(e) {
                 const searchTerm = e.target.value.toLowerCase();
                 const userItems = userList.querySelectorAll('.user-item');
-                
+
                 userItems.forEach(item => {
                     const userName = item.textContent.toLowerCase();
                     item.style.display = userName.includes(searchTerm) ? '' : 'none';
@@ -543,7 +543,7 @@
             assignForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const checked = modalEl.querySelectorAll('input[name="assigned_users[]"]:checked');
-                
+
                 // Clear previous hidden inputs
                 repeater.innerHTML = '';
                 const badges = [];
@@ -555,20 +555,20 @@
                     // Get the user item and extract both first and last name
                     const userItem = cb.closest('.list-group-item');
                     let fullName = `Usuario ${id}`;
-                    
+
                     if (userItem) {
                         const nameElement = userItem.querySelector('.fw-bold');
                         if (nameElement) {
                             fullName = nameElement.textContent.trim();
                         }
                     }
-                    
+
                     // Add hidden input for form submission
                     const input = document.createElement('input');
                     input.type = 'hidden';
                     // Get the full name from data attribute or use default
-                    const hiddenName = repeater.dataset.fullName 
-                        ? repeater.dataset.fullName + '[]' 
+                    const hiddenName = repeater.dataset.fullName
+                        ? repeater.dataset.fullName + '[]'
                         : 'ticket[assignedUsers][]';
                     input.name = hiddenName;
                     input.value = id;
@@ -580,9 +580,9 @@
                         badges.push(`
                             <span class="badge bg-primary d-flex align-items-center me-1 mb-1" data-user-id="${id}">
                                 ${fullName}
-                                <button type="button" class="btn-close btn-close-white btn-sm ms-2" 
-                                        style="font-size:.5rem" 
-                                        data-remove-user="${id}" 
+                                <button type="button" class="btn-close btn-close-white btn-sm ms-2"
+                                        style="font-size:.5rem"
+                                        data-remove-user="${id}"
                                         title="Quitar usuario"></button>
                             </span>
                         `);
@@ -591,13 +591,13 @@
 
                 // Update UI with selected users
                 updateAssignedUsersUI(badges);
-                
+
                 // Close modal and show success message
                 const modal = bootstrap.Modal.getInstance(modalEl);
                 if (modal) modal.hide();
-                
+
                 showSuccessToast(checked.length);
-                
+
                 // Reset search
                 if (userSearchInput) userSearchInput.value = '';
                 if (userList) {
@@ -611,7 +611,7 @@
         // Update the assigned users display
         function updateAssignedUsersUI(badges) {
             if (!assignedContainer) return;
-            
+
             if (badges.length) {
                 assignedContainer.innerHTML = `
                     <div class="assigned-users mb-2">
@@ -620,24 +620,24 @@
                             ${badges.join('')}
                         </div>
                     </div>`;
-                
+
                 // Add event listeners to remove buttons
                 assignedContainer.querySelectorAll('[data-remove-user]').forEach(btn => {
                     btn.addEventListener('click', function(e) {
                         e.stopPropagation();
                         const userId = this.getAttribute('data-remove-user');
-                        
+
                         // Remove corresponding hidden input
                         const inputs = repeater.querySelectorAll('input[value="' + userId + '"]');
                         inputs.forEach(input => input.remove());
-                        
+
                         // Uncheck in modal
                         const checkbox = modalEl.querySelector(`input[type="checkbox"][value="${userId}"]`);
                         if (checkbox) checkbox.checked = false;
-                        
+
                         // Remove badge
                         this.closest('.badge')?.remove();
-                        
+
                         // Update UI if no more users
                         if (!assignedContainer.querySelector('.badge')) {
                             assignedContainer.innerHTML = '';
@@ -648,15 +648,15 @@
                 assignedContainer.innerHTML = '';
             }
         }
-        
+
         // Show success toast
         function showSuccessToast(count) {
             const toastEl = document.getElementById('toastAssignmentSuccess');
             if (!toastEl) return;
-            
+
             const countSpan = toastEl.querySelector('#assignedUsersCount');
             if (countSpan) countSpan.textContent = count;
-            
+
             const toast = new bootstrap.Toast(toastEl);
             toast.show();
         }
@@ -1100,7 +1100,7 @@
             // Initialize the application
             init();
             $('#userSearch').val('').trigger('input');
-            
+
             // Assignment form handler
             document.addEventListener('DOMContentLoaded', function () {
   const modalEl = document.getElementById('assignTicketModal');
@@ -1193,7 +1193,7 @@
                 if (assignedUsersInput) {
                     assignedUsersInput.value = selectedUsers.map(user => user.id).join(',');
                 }
-                
+
                 // Update the selected users display
                 const selectedUsersContainer = document.getElementById('selectedUsers');
                 if (selectedUsersContainer) {
@@ -1203,8 +1203,8 @@
                         const badges = selectedUsers.map(user => `
                             <span class="badge bg-primary me-1 mb-1">
                                 ${user.name}
-                                <button type="button" class="btn-close btn-close-white btn-sm ms-1" 
-                                        onclick="removeUser('${user.id}')" 
+                                <button type="button" class="btn-close btn-close-white btn-sm ms-1"
+                                        onclick="removeUser('${user.id}')"
                                         style="font-size: 0.5rem;">
                                 </button>
                             </span>
@@ -1212,13 +1212,13 @@
                         selectedUsersContainer.innerHTML = badges;
                     }
                 }
-                
+
                 // Close the modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('assignTicketModal'));
                 if (modal) {
                     modal.hide();
                 }
-                
+
                 // Show success message
                 const toast = new bootstrap.Toast(document.getElementById('toastAssignmentSuccess'));
                 const countSpan = document.getElementById('assignedUsersCount');
@@ -1227,26 +1227,26 @@
                 }
                 toast.show();
             };
-            
+
             // Make removeUser function globally available
             window.removeUser = function(userId) {
                 const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id }}');
                 if (assignedUsersInput && assignedUsersInput.value) {
                     const userIds = assignedUsersInput.value.split(',').filter(id => id !== userId);
                     assignedUsersInput.value = userIds.join(',');
-                    
+
                     // Update the checkbox in the modal
                     const checkbox = document.querySelector(`#userList input[value="${userId}"]`);
                     if (checkbox) {
                         checkbox.checked = false;
                     }
-                    
+
                     // Update the display
                     const badge = document.querySelector(`#selectedUsers .badge button[onclick*="${userId}"]`)?.closest('.badge');
                     if (badge) {
                         badge.remove();
                     }
-                    
+
                     // If no users left, show the placeholder
                     const selectedUsersContainer = document.getElementById('selectedUsers');
                     if (selectedUsersContainer && selectedUsersContainer.children.length === 0) {
@@ -1254,7 +1254,7 @@
                     }
                 }
             };
-            
+
             // Initialize the selected users display on page load
             document.addEventListener('DOMContentLoaded', function() {
                 const assignedUsersInput = document.getElementById('{{ form.assignedUsers.vars.id }}');
@@ -1756,7 +1756,7 @@
                 } catch (error) {
                     console.error('Error loading users:', error);
                     if (userList) {
-                        userList.innerHTML = 
+                        userList.innerHTML =
                             '<div class="alert alert-danger m-3">' +
                             '<i class="fas fa-exclamation-triangle me-2"></i>' +
                             'No se pudieron cargar los usuarios. Por favor, intente nuevamente.' +

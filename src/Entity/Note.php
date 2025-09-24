@@ -33,9 +33,46 @@ class Note
     #[ORM\JoinColumn(nullable: false)]
     private ?User $createdBy = null;
 
+    /**
+     * @var Collection|NoteReadStatus[]
+     */
+    #[ORM\OneToMany(mappedBy: 'note', targetEntity: NoteReadStatus::class, cascade: ['persist'], orphanRemoval: true)]
+    private Collection $readStatuses;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        $this->readStatuses = new ArrayCollection();
+    }
+
+    /**
+     * @return Collection|NoteReadStatus[]
+     */
+    public function getReadStatuses(): Collection
+    {
+        return $this->readStatuses;
+    }
+
+    public function addReadStatus(NoteReadStatus $readStatus): self
+    {
+        if (!$this->readStatuses->contains($readStatus)) {
+            $this->readStatuses[] = $readStatus;
+            $readStatus->setNote($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReadStatus(NoteReadStatus $readStatus): self
+    {
+        if ($this->readStatuses->removeElement($readStatus)) {
+            // set the owning side to null (unless already changed)
+            if ($readStatus->getNote() === $this) {
+                $readStatus->setNote(null);
+            }
+        }
+
+        return $this;
     }
 
     public function getId(): ?int

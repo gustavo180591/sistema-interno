@@ -15,10 +15,11 @@ app_admin_user:
     prefix: /admin/user
     name_prefix: admin_
 
-# Import NoteController (no prefix)
-note_controller:
-    resource: '../src/Controller/NoteController.php'
+# Import API Controllers
+api_ticket_notes:
+    resource: '../src/Controller/Api/TicketNotesApiController.php'
     type: attribute
+    prefix: /api
 
 # Import Maintenance OfficeController
 maintenance_office:

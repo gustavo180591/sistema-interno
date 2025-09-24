@@ -189,90 +189,94 @@
                     <h6 class="mb-0"><i class="fas fa-info text-primary me-2"></i>Información del Ticket</h6>
                 </div>
                 <div class="card-body">
+                    <!-- ID interno/externo -->
                     <div class="mb-3">
-                        <small class="text-muted text-uppercase">Estado</small>
-                        <div class="fw-bold">{{ ({
-                            'in_progress': 'En progreso',
-                            'pending': 'Pendiente',
-                            'rejected': 'Rechazado',
-                            'completed': 'Terminado'
-                        })[ticket.status] }}</div>
-                    </div>
-
-                    {% if ticket.takenBy %}
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Tarea realizada por</small>
-                        <div class="fw-bold">
-                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
-                            {% if ticket.takenAt %}
-                                <small class="text-muted d-block">el {{ ticket.takenAt|date('d/m/Y') }} a las {{ ticket.takenAt|date('H:i') }}</small>
+                        <small class="text-muted text-uppercase">ID Interno / Externo</small>
+                        <div class="fw-bold d-flex align-items-center">
+                            <span class="me-2">#{{ '%04d'|format(ticket.id) }}</span>
+                            {% if ticket.idSistemaInterno %}
+                                <span class="badge bg-secondary">{{ ticket.idSistemaInterno }}</span>
                             {% endif %}
                         </div>
                     </div>
-                    {% endif %}
 
-                    {% if ticket.status == 'completed' and ticket.completedBy %}
+                    <!-- Fecha de creación -->
                     <div class="mb-3">
-                        <small class="text-muted text-uppercase">Ticket cerrado por</small>
+                        <small class="text-muted text-uppercase">Fecha de creación</small>
                         <div class="fw-bold">
-                            {{ ticket.completedBy.nombre ?? ticket.completedBy.username }}
-                            {% if ticket.updatedAt %}
-                                <small class="text-muted d-block">el {{ ticket.updatedAt|date('d/m/Y') }} a las {{ ticket.updatedAt|date('H:i') }}</small>
-                            {% endif %}
+                            {{ ticket.createdAt|date('d/m/Y H:i') }}
+                        </div>
+                        <small class="text-muted">por {{ ticket.createdBy.apellido ?? '' }} {{ ticket.createdBy.nombre ?? ticket.createdBy.username }}</small>
+                    </div>
+
+                    <!-- Asignados -->
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Asignados</small>
+                        {% if ticket.ticketAssignments|length > 0 %}
+                            <div class="fw-bold">
+                                {% for assignment in ticket.ticketAssignments %}
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-user-circle me-2 text-muted"></i>
+                                        {{ assignment.user.apellido }} {{ assignment.user.nombre }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-muted">Sin asignar</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Estado actual -->
+                    <div class="mb-3">
+                        <small class="text-muted text-uppercase">Estado actual</small>
+                        <div>
+                            <span class="badge text-black bg-{
+                                ticket.status == 'in_progress' ? 'warning' :
+                                (ticket.status == 'pending' ? 'info' :
+                                (ticket.status == 'rejected' ? 'danger' :
+                                (ticket.status == 'completed' ? 'success' : 'secondary')))
+                            } p-2">
+                                <span class="fw-bold">
+                                {{ {
+                                    'in_progress': 'EN PROGRESO',
+                                    'pending': 'PENDIENTE',
+                                    'rejected': 'RECHAZADO',
+                                    'completed': 'COMPLETADO'
+                                }[ticket.status] }}
+                                </span>
+                            </span>
                         </div>
                     </div>
-                    {% endif %}
 
-
-
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Creado por</small>
-                        <div class="fw-bold">
-                            {{ ticket.createdBy.nombre ?? '' }} {{ ticket.createdBy.apellido ?? ticket.createdBy.username }}
-                        </div>
-
-                        <div class="fw-bold">{{ ticket.createdAt|date('d/m/Y H:i') }}</div>
-                    </div>
-
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Área</small>
-                        <div class="fw-bold">{{ ticket.areaOrigen|default('No especificada') }}</div>
-                    </div>
-
-                    {% if ticket.takenBy %}
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Tomado por</small>
-                        <div class="fw-bold">
-                            {{ ticket.takenBy.nombre ?? ticket.takenBy.username }}
-                            {% if ticket.takenAt %}
-                                <small class="text-muted d-block">
-                                    {{ ticket.takenAt|date('d/m/Y H:i') }}
-                                </small>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    {% if ticket.dueDate %}
-                    <div class="mb-3">
-                        <small class="text-muted text-uppercase">Fecha límite</small>
-                        <div class="fw-bold">
-                            {{ ticket.dueDate|date('d/m/Y') }}
-                            {% if ticket.dueDate|date('Y-m-d') < 'now'|date('Y-m-d') %}
-                                <span class="badge bg-danger ms-2">Vencido</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endif %}
-
-
-
-                    {% if ticket.updatedAt and ticket.updatedAt != ticket.createdAt %}
+                    <!-- Última actualización -->
                     <div class="mb-3">
                         <small class="text-muted text-uppercase">Última actualización</small>
-                        <div class="fw-bold">{{ ticket.updatedAt|date('d/m/Y H:i') }}</div>
+                        <div class="fw-bold">
+                            {{ ticket.updatedAt|date('d/m/Y H:i') }}
+                        </div>
+                        {% if ticket.updatedBy is defined and ticket.updatedBy is not null %}
+                            {% set updatedBy = ticket.updatedBy %}
+                            <small class="text-muted">
+                                por {{ updatedBy.apellido is defined ? updatedBy.apellido : '' }} 
+                                {{ updatedBy.nombre is defined ? updatedBy.nombre : (updatedBy.username is defined ? updatedBy.username : '') }}
+                            </small>
+                        {% endif %}
                     </div>
+
+                    <!-- Tiempo de resolución (si está completado) -->
+                    {% if ticket.status == 'completed' and ticket.updatedAt %}
+                        <div class="mb-3">
+                            <small class="text-muted text-uppercase">Tiempo de resolución</small>
+                            <div class="fw-bold">
+                                {% set diff = date(ticket.updatedAt).diff(date(ticket.createdAt)) %}
+                                {% if diff.d > 0 %}{{ diff.d }}d {% endif %}
+                                {% if diff.h > 0 %}{{ diff.h }}h {% endif %}
+                                {{ diff.i }}m
+                            </div>
+                            <small class="text-muted">Completado el {{ ticket.updatedAt|date('d/m/Y H:i') }}</small>
+                        </div>
                     {% endif %}
+
                 </div>
             </div>
 
@@ -291,26 +295,6 @@
                     {% endif %}
                 {% endfor %}
 
-                {% if uniqueAssignments|length > 0 %}
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-white py-3">
-                        <h6 class="mb-0"><i class="fas fa-users text-primary me-2"></i>Asignado a</h6>
-                    </div>
-                    <div class="card-body">
-                        {% for assignment in uniqueAssignments %}
-                        <div class="d-flex align-items-center mb-2">
-                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
-                                <i class="fas fa-user text-muted small"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-bold">{{ assignment.user.nombre ?? assignment.user.username }}</div>
-                                <small class="text-muted">Asignado el {{ assignment.assignedAt|date('d/m/Y H:i') }}</small>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
             {% endif %}
 
             <!-- Ticket History -->
@@ -523,81 +507,191 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Add Note Form Handler
-document.addEventListener('DOMContentLoaded', function() {
-    // Add Note Form Handler
-    const addNoteForm = document.getElementById('add-note-form');
-    if (addNoteForm) {
-        addNoteForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show toast notification
+        function showToast(type, message) {
+            const toastEl = type === 'success' ? document.getElementById('toastSuccess') : document.getElementById('toastError');
+            const toastBody = toastEl.querySelector('.toast-body');
+            
+            toastBody.textContent = message;
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+        }
 
-            const content = document.getElementById('note-content').value.trim();
-            if (!content) return;
+        // Add Note Form Handler
+        const addNoteForm = document.getElementById('add-note-form');
+        if (addNoteForm) {
+            addNoteForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
 
-            try {
-                const response = await fetch('{{ path('note_add', {'ticketId': ticket.id}) }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: `content=${encodeURIComponent(content)}&_token={{ csrf_token('note_add') }}`
-                });
+                const content = document.getElementById('note-content').value.trim();
+                if (!content) return;
 
-                if (response.ok) {
+                const submitButton = addNoteForm.querySelector('button[type="submit"]');
+                const originalButtonText = submitButton.innerHTML;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Procesando...';
+
+                try {
+                    const response = await fetch(`/api/tickets/notes/add/{{ ticket.id }}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': '{{ csrf_token('api_ticket_note_add') }}'
+                        },
+                        body: `content=${encodeURIComponent(content)}`
+                    });
+
                     const data = await response.json();
-                    if (data.success) {
-                        // Reload the page to show the new note
-                        window.location.reload();
+                    
+                    if (response.ok && data.success) {
+                        showToast('success', 'Nota agregada correctamente');
+                        // Clear the form
+                        document.getElementById('note-content').value = '';
+                        // Reload the page after a short delay to show the success message
+                        setTimeout(() => window.location.reload(), 1000);
                     } else {
-                        alert('Error al agregar la nota: ' + (data.error || 'Error desconocido'));
+                        throw new Error(data.error || 'Error al agregar la nota');
                     }
-                } else {
-                    throw new Error('Error en la respuesta del servidor');
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('error', error.message || 'Error al agregar la nota. Por favor, inténtalo de nuevo.');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al agregar la nota. Por favor, inténtalo de nuevo.');
+            });
+        }
+
+        // Delete Note Handler
+        document.addEventListener('click', async function(e) {
+            if (e.target.closest('.delete-note')) {
+                const button = e.target.closest('.delete-note');
+                const noteId = button.dataset.noteId;
+
+                if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
+                    return;
+                }
+
+                button.disabled = true;
+                const originalButtonHTML = button.innerHTML;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+                try {
+                    const response = await fetch(`/api/tickets/notes/delete/${noteId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-Token': '{{ csrf_token('api_ticket_note_delete') }}'
+                        }
+                    });
+
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        showToast('success', 'Nota eliminada correctamente');
+                        // Remove the note element from the DOM
+                        const noteElement = button.closest('.note-item');
+                        if (noteElement) {
+                            noteElement.remove();
+                        }
+                    } else {
+                        throw new Error(data.error || 'Error al eliminar la nota');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('error', error.message || 'Error al eliminar la nota. Por favor, inténtalo de nuevo.');
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalButtonHTML;
+                }
             }
         });
-    }
 
-    // Delete Note Handler
-    document.addEventListener('click', async function(e) {
-        if (e.target.closest('.delete-note')) {
-            const button = e.target.closest('.delete-note');
-            const noteId = button.dataset.noteId;
+        // Edit Note Handler
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.edit-note')) {
+                const button = e.target.closest('.edit-note');
+                const noteId = button.dataset.noteId;
+                const noteContentEl = document.querySelector(`#note-content-${noteId}`);
+                const currentContent = noteContentEl.textContent.trim();
+                
+                // Create form
+                const form = document.createElement('form');
+                form.className = 'edit-note-form';
+                form.innerHTML = `
+                    <div class="input-group mb-3">
+                        <textarea class="form-control" name="content" rows="3" required>${currentContent}</textarea>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i>
+                        </button>
+                        <button type="button" class="btn btn-secondary cancel-edit">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <input type="hidden" name="_token" value="{{ csrf_token('api_ticket_note_edit') }}">
+                `;
 
-            if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) {
-                return;
-            }
+                // Replace content with form
+                noteContentEl.style.display = 'none';
+                noteContentEl.after(form);
 
-            try {
-                const response = await fetch(`/notes/delete/${noteId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: `_token={{ csrf_token('delete_note') }}`
+                // Focus on the textarea
+                const textarea = form.querySelector('textarea');
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+                // Handle form submission
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const content = form.querySelector('textarea').value.trim();
+                    
+                    if (!content) return;
+
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    const originalButtonHTML = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+                    try {
+                        const response = await fetch(`/api/tickets/notes/edit/${noteId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-Token': '{{ csrf_token('api_ticket_note_edit') }}'
+                            },
+                            body: `content=${encodeURIComponent(content)}`
+                        });
+
+                        const data = await response.json();
+                        
+                        if (response.ok && data.success) {
+                            showToast('success', 'Nota actualizada correctamente');
+                            // Update the note content in the DOM
+                            noteContentEl.textContent = data.content;
+                            form.remove();
+                            noteContentEl.style.display = '';
+                        } else {
+                            throw new Error(data.error || 'Error al actualizar la nota');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showToast('error', error.message || 'Error al actualizar la nota. Por favor, inténtalo de nuevo.');
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonHTML;
+                    }
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        // Reload the page to reflect the deletion
-                        window.location.reload();
-                    } else {
-                        alert('Error al eliminar la nota: ' + (data.error || 'Error desconocido'));
-                    }
-                } else {
-                    throw new Error('Error en la respuesta del servidor');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al eliminar la nota. Por favor, inténtalo de nuevo.');
+                // Handle cancel button
+                form.querySelector('.cancel-edit').addEventListener('click', function() {
+                    form.remove();
+                    noteContentEl.style.display = '';
+                });
             }
-        }
+        });
     });
-});
 </script>
 {% endblock %}

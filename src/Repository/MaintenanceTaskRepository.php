@@ -7,6 +7,7 @@ use App\Entity\MaintenanceCategory;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * @extends ServiceEntityRepository<MaintenanceTask>
@@ -18,9 +19,153 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class MaintenanceTaskRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    private $entityManager;
+
+    public function __construct(ManagerRegistry $registry, EntityManagerInterface $entityManager)
     {
         parent::__construct($registry, MaintenanceTask::class);
+        $this->entityManager = $entityManager;
+    }
+    
+    /**
+     * Get performance metrics for assigned users
+     */
+    public function getAssignedUsersPerformance(\DateTimeInterface $from, \DateTimeInterface $to): array
+    {
+        // First, get basic user data and counts
+        $query = $this->createQueryBuilder('t')
+            ->select([
+                'u.id as userId',
+                'u.nombre',
+                'u.apellido',
+                'COUNT(DISTINCT t.id) as totalAssigned',
+                'SUM(CASE WHEN t.status = :completed THEN 1 ELSE 0 END) as completedCount',
+                'SUM(CASE WHEN t.status = :inProgress THEN 1 ELSE 0 END) as inProgressCount'
+            ])
+            ->leftJoin('t.assignedTo', 'u')
+            ->where('t.createdAt BETWEEN :from AND :to')
+            ->andWhere('t.assignedTo IS NOT NULL')
+            ->groupBy('u.id')
+            ->orderBy('totalAssigned', 'DESC')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->setParameter('completed', 'completed')
+            ->setParameter('inProgress', 'in_progress');
+            
+        $results = $query->getQuery()->getResult();
+        
+        // If no results, return empty array
+        if (empty($results)) {
+            return [];
+        }
+        
+        // Get user IDs for the second query
+        $userIds = array_map(function($item) {
+            return $item['userId'];
+        }, $results);
+        
+        // Get completed tasks with their details for calculation
+        $tasksQuery = $this->createQueryBuilder('t')
+            ->select([
+                'u.id as userId',
+                't.createdAt',
+                't.completedAt',
+                't.priority',
+                't.actualDuration',
+                't.updatedAt',
+                't.status',
+                't.id as taskId',
+                'u.nombre',
+                'u.apellido'
+            ])
+            ->leftJoin('t.assignedTo', 'u')
+            ->where('u.id IN (:userIds)')
+            ->andWhere('t.status IN (:completedStatuses)')
+            ->andWhere('t.completedAt IS NOT NULL')
+            ->setParameter('userIds', $userIds)
+            ->setParameter('completedStatuses', [
+                MaintenanceTask::STATUS_COMPLETED, 
+                MaintenanceTask::STATUS_OVERDUE
+            ]);
+            
+        $tasks = $tasksQuery->getQuery()->getResult();
+        
+        // Initialize arrays to store totals and counts
+        $completionTimes = [];
+        $prioritySums = [];
+        $priorityCounts = [];
+        
+        // Process each task to calculate metrics
+        foreach ($tasks as $task) {
+            $userId = $task['userId'];
+            
+            // Calculate completion time in minutes
+            if ($task['completedAt'] && $task['createdAt']) {
+                $minutes = null;
+                
+                // Calculate from when the task was created to when it was completed
+                $createdAt = $task['createdAt'];
+                $completedAt = $task['completedAt'];
+                
+                if ($createdAt && $completedAt && $createdAt <= $completedAt) {
+                    $interval = $createdAt->diff($completedAt);
+                    $minutes = $interval->days * 24 * 60;  // Convert days to minutes
+                    $minutes += $interval->h * 60;          // Convert hours to minutes
+                    $minutes += $interval->i;                // Add minutes
+                    $minutes += $interval->s / 60;           // Convert seconds to minutes
+                }
+                
+                if ($minutes !== null) {
+                    if (!isset($completionTimes[$userId])) {
+                        $completionTimes[$userId] = [
+                            'sum' => 0,
+                            'count' => 0
+                        ];
+                    }
+                    $completionTimes[$userId]['sum'] += $minutes;
+                    $completionTimes[$userId]['count']++;
+                }
+            }
+            
+            // Calculate priority average
+            if ($task['priority']) {
+                $priorityValue = 0;
+                switch ($task['priority']) {
+                    case 'high': $priorityValue = 3; break;
+                    case 'medium': $priorityValue = 2; break;
+                    case 'low': $priorityValue = 1; break;
+                }
+                
+                if (!isset($prioritySums[$userId])) {
+                    $prioritySums[$userId] = 0;
+                    $priorityCounts[$userId] = 0;
+                }
+                $prioritySums[$userId] += $priorityValue;
+                $priorityCounts[$userId]++;
+            }
+        }
+        
+        // Calculate averages
+        $avgMap = [];
+        foreach (array_unique(array_column($results, 'userId')) as $userId) {
+            $avgMap[$userId] = [
+                'avgCompletionTime' => isset($completionTimes[$userId]) 
+                    ? $completionTimes[$userId]['sum'] / $completionTimes[$userId]['count'] 
+                    : null,
+                'avgPriority' => isset($prioritySums[$userId]) 
+                    ? $prioritySums[$userId] / $priorityCounts[$userId] 
+                    : null
+            ];
+        }
+        
+        // Merge the results
+        foreach ($results as &$result) {
+            $userId = $result['userId'];
+            $result['avgCompletionTime'] = $avgMap[$userId]['avgCompletionTime'] ?? null;
+            $result['avgPriority'] = $avgMap[$userId]['avgPriority'] ?? null;
+        }
+        
+        return $results;
     }
 
     public function save(MaintenanceTask $entity, bool $flush = false): void
@@ -161,27 +306,77 @@ class MaintenanceTaskRepository extends ServiceEntityRepository
 
     public function getUserPerformance(User $user, \DateTimeInterface $from, \DateTimeInterface $to): array
     {
-        // First, get the basic task data
-        $tasks = $this->createQueryBuilder('t')
-            ->select('t.id, t.description, t.status, t.createdAt, t.scheduledDate as startedAt, t.completedAt')
+        // Get maintenance tasks
+        $maintenanceTasks = $this->createQueryBuilder('t')
+            ->select(
+                't.id', 
+                't.title as description', 
+                't.status', 
+                't.createdAt', 
+                't.scheduledDate as startedAt', 
+                't.completedAt',
+                't.priority',
+                'c.name as category',
+                't.actualDuration',
+                't.updatedAt',
+                "'maintenance' as type"
+            )
+            ->leftJoin('t.category', 'c')
             ->andWhere('t.assignedTo = :user')
             ->andWhere('t.createdAt BETWEEN :from AND :to')
             ->setParameter('user', $user)
             ->setParameter('from', $from)
             ->setParameter('to', $to)
-            ->orderBy('t.createdAt', 'DESC')
             ->getQuery()
             ->getArrayResult();
 
+        // Get ticket-related tasks
+        $ticketTasks = $this->entityManager->createQueryBuilder()
+            ->select(
+                't.id', 
+                't.title as description', 
+                't.status', 
+                't.createdAt', 
+                't.createdAt as startedAt',  // Using createdAt as startedAt since startedAt doesn't exist
+                't.takenAt as completedAt',  // Using takenAt as completedAt
+                't.priority',
+                'NULLIF(1,1) as category',  // Returns NULL for category since Ticket doesn't have one
+                'NULLIF(1,1) as assignedAt',  // Using NULL since assignedAt doesn't exist
+                'NULLIF(1,1) as actualDuration',  // Using NULL since actualDuration doesn't exist
+                't.updatedAt',
+                "'ticket' as type"
+            )
+            ->from('App\\Entity\\Ticket', 't')
+            ->andWhere('t.assignedTo = :user')
+            ->andWhere('t.createdAt BETWEEN :from AND :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()
+            ->getArrayResult();
+
+        // Combine both result sets
+        $tasks = array_merge($maintenanceTasks, $ticketTasks);
+
+        // Sort by creation date (newest first)
+        usort($tasks, function($a, $b) {
+            return $b['createdAt'] <=> $a['createdAt'];
+        });
+
         // Calculate duration in PHP for better compatibility
         foreach ($tasks as &$task) {
-            if ($task['completedAt'] instanceof \DateTimeInterface) {
-                $endDate = $task['completedAt'];
-                $startDate = ($task['startedAt'] instanceof \DateTimeInterface) ? $task['startedAt'] : $task['createdAt'];
-                $task['durationMin'] = (int) (($endDate->getTimestamp() - $startDate->getTimestamp()) / 60);
+            $endDate = $task['completedAt'] ?? null;
+            $startDate = $task['startedAt'] ?? $task['createdAt'];
+            
+            if ($endDate && $startDate) {
+                $task['durationMin'] = (int)(($endDate->getTimestamp() - $startDate->getTimestamp()) / 60);
             } else {
                 $task['durationMin'] = null;
             }
+            
+            // Ensure all expected fields exist
+            $task['category'] = $task['category'] ?? null;
+            $task['priority'] = $task['priority'] ?? 'medium';
         }
 
         return $tasks;

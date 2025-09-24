@@ -402,7 +402,9 @@
                                             {{ task.description|length > 50 ? task.description|slice(0, 50) ~ '...' : task.description }}
                                         </div>
                                         {% if task.category is defined and task.category %}
-                                            <small class="text-muted">{{ task.category.name }}</small>
+                                            <small class="text-muted">
+                                                {{ task.category is iterable ? task.category.name : task.category }}
+                                            </small>
                                         {% endif %}
                                     </div>
                                 </div>
@@ -420,7 +422,7 @@
                                 <small class="text-muted">{{ task.createdAt|date('H:i') }}</small>
                             </td>
                             <td class="text-center text-nowrap">
-                                {% if task.startedAt %}
+                                {% if task.startedAt is defined and task.startedAt %}
                                     <div>{{ task.startedAt|date('d/m/Y') }}</div>
                                     <small class="text-muted">{{ task.startedAt|date('H:i') }}</small>
                                 {% else %}

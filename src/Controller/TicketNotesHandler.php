@@ -9,13 +9,15 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-class NoteController extends AbstractController
+/**
+ * Handles all ticket note related operations
+ */
+class TicketNotesHandler extends AbstractController
 {
-    #[Route('/notes/add/{ticketId}', name: 'note_add', methods: ['POST'])]
+    #[Route('/api/tickets/notes/add/{ticketId}', name: 'api_ticket_note_add', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
     public function add(
         int $ticketId,
@@ -28,78 +30,85 @@ class NoteController extends AbstractController
         if (!$ticket) {
             return $this->json([
                 'success' => false,
-                'error' => 'No se encontró el ticket especificado'
+                'error' => 'Ticket no encontrado.'
             ], 404);
         }
-        
+
         // Check if user has permission to add a note to this ticket
         $this->denyAccessUnlessGranted('note', $ticket);
+
         $content = $request->request->get('content');
-        
         if (empty(trim($content))) {
             return $this->json([
                 'success' => false,
-                'error' => 'El contenido de la nota no puede estar vacío'
-            ], 400);
-        }
-
-        
-        // Check if ticket is completed or rejected
-        if (in_array($ticket->getStatus(), ['completed', 'rejected'])) {
-            return $this->json([
-                'success' => false,
-                'error' => 'No se pueden agregar notas a un ticket ' . ($ticket->getStatus() === 'completed' ? 'completado' : 'rechazado')
+                'error' => 'El contenido de la nota no puede estar vacío.'
             ], 400);
         }
 
         $note = new Note();
         $note->setContent($content);
         $note->setCreatedBy($this->getUser());
-        $note->setCreatedAt(new \DateTimeImmutable());
         $note->setTicket($ticket);
+        $note->setCreatedAt(new \DateTimeImmutable());
 
         $em->persist($note);
         $em->flush();
 
         return $this->json([
             'success' => true,
-            'noteId' => $note->getId(),
-            'content' => $note->getContent(),
-            'createdAt' => $note->getCreatedAt()->format('Y-m-d H:i:s'),
-            'createdBy' => [
-                'id' => $this->getUser()->getId(),
-                'name' => $this->getUser()->getNombre() . ' ' . $this->getUser()->getApellido()
-            ],
-            'isAdmin' => $this->isGranted('ROLE_ADMIN'),
-            'isOwner' => true
+            'note' => [
+                'id' => $note->getId(),
+                'content' => $note->getContent(),
+                'createdAt' => $note->getCreatedAt()->format('d/m/Y H:i'),
+                'createdBy' => [
+                    'id' => $note->getCreatedBy()->getId(),
+                    'username' => $note->getCreatedBy()->getUsername(),
+                ]
+            ]
         ]);
     }
 
-    #[Route('/notes/delete/{id}', name: 'note_delete', methods: ['POST'])]
+    #[Route('/api/tickets/notes/delete/{id}', name: 'api_ticket_note_delete', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
     public function delete(
+        Note $note,
+        EntityManagerInterface $em
+    ): JsonResponse {
+        // Check if user has permission to delete this note
+        $this->denyAccessUnlessGranted('delete', $note);
+
+        $em->remove($note);
+        $em->flush();
+
+        return $this->json([
+            'success' => true
+        ]);
+    }
+
+    #[Route('/api/tickets/notes/edit/{id}', name: 'api_ticket_note_edit', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function edit(
         Note $note,
         Request $request,
         EntityManagerInterface $em
     ): JsonResponse {
-        $this->denyAccessUnlessGranted('delete', $note);
+        // Check if user has permission to edit this note
+        $this->denyAccessUnlessGranted('edit', $note);
 
-        if (!$this->isCsrfTokenValid('delete' . $note->getId(), $request->request->get('_token'))) {
+        $content = $request->request->get('content');
+        if (empty(trim($content))) {
             return $this->json([
                 'success' => false,
-                'error' => 'Token CSRF inválido'
+                'error' => 'El contenido de la nota no puede estar vacío.'
             ], 400);
         }
 
-        $ticketId = $note->getTicket()->getId();
-        $noteId = $note->getId();
-        
-        $em->remove($note);
+        $note->setContent($content);
         $em->flush();
-        
+
         return $this->json([
             'success' => true,
-            'noteId' => $noteId,
-            'ticketId' => $ticketId
+            'content' => $note->getContent()
         ]);
     }
 }

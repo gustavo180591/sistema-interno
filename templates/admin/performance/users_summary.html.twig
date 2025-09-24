@@ -1,0 +1,162 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Resumen de Rendimiento - Todos los Usuarios{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .table th {
+            white-space: nowrap;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">
+            <i class="fas fa-chart-line me-2"></i>Resumen de Rendimiento
+        </h1>
+        <div class="d-flex
+            <a href="{{ path('admin_performance_dashboard') }}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Date Range Picker -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="from" class="form-label">Desde</label>
+                    <input type="date" class="form-control" id="from" name="from" 
+                           value="{{ from ? from|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="to" class="form-label">Hasta</label>
+                    <input type="date" class="form-control" id="to" name="to"
+                           value="{{ to ? to|date('Y-m-d') : '' }}">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-1"></i> Filtrar
+                    </button>
+                    <a href="{{ path('admin_performance_users_summary') }}" class="btn btn-outline-secondary ms-2">
+                        <i class="fas fa-sync"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Users Performance Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-users me-2"></i>
+                Rendimiento por Usuario
+            </h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Usuario</th>
+                        <th class="text-center">Tareas Totales</th>
+                        <th class="text-center">Completadas</th>
+                        <th class="text-center">En Progreso</th>
+                        <th class="text-center">Pendientes</th>
+                        <th class="text-center">Tiempo Promedio</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for userData in usersPerformance %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if userData.user.avatar %}
+                                        <img src="{{ asset('uploads/avatars/' ~ userData.user.avatar) }}" 
+                                             alt="{{ userData.user.nombre }} {{ userData.user.apellido }}" 
+                                             class="user-avatar">
+                                    {% else %}
+                                        <div class="user-avatar bg-secondary text-white d-flex align-items-center justify-content-center">
+                                            {{ userData.user.nombre|first|upper }}{{ userData.user.apellido|first|upper }}
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-medium">{{ userData.user.nombre }} {{ userData.user.apellido }}</div>
+                                        <small class="text-muted">{{ userData.user.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ userData.totalTasks }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ userData.completedTasks }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-warning text-dark">{{ userData.inProgressTasks }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-secondary">{{ userData.pendingTasks }}</span>
+                            </td>
+                            <td class="text-center">
+                                {% if userData.avgCompletionTime %}
+                                    {{ userData.avgCompletionTime }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ path('admin_performance_user', {'id': userData.user.id}) }}?from={{ from|date('Y-m-d') }}&to={{ to|date('Y-m-d') }}" 
+                                   class="btn btn-sm btn-outline-primary"
+                                   title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">No se encontraron usuarios con tareas en el período seleccionado.</div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Set max date to today for date pickers
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('to').max = today;
+            document.getElementById('from').max = today;
+            
+            // Set max from date when to date changes
+            document.getElementById('to').addEventListener('change', function() {
+                document.getElementById('from').max = this.value;
+            });
+        });
+    </script>
+{% endblock %}

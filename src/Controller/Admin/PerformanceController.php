@@ -25,6 +25,7 @@ class PerformanceController extends AbstractController
     ) {}
 
     #[Route('', name: 'dashboard')]
+    #[Route('/dashboard', name: 'admin_performance_dashboard')]
     public function dashboard(Request $request): Response
     {
         $now = new \DateTimeImmutable('now');
@@ -37,16 +38,90 @@ class PerformanceController extends AbstractController
             : $now->modify('last day of this month')->setTime(23, 59, 59);
 
         $summary = $this->taskRepository->getPerformanceSummary($from, $to);
+        $assignedUsersPerformance = $this->taskRepository->getAssignedUsersPerformance($from, $to);
 
         return $this->render('admin/performance/dashboard.html.twig', [
             'from' => $from,
             'to' => $to,
             'summary' => $summary,
+            'assignedUsersPerformance' => $assignedUsersPerformance,
             'allUsers' => $this->userRepository->findAll(),
         ]);
     }
     
+    #[Route('/users', name: 'users_summary')]
+    #[Route('/users/summary', name: 'admin_performance_users_summary')]
+    public function usersSummary(Request $request): Response
+    {
+        $now = new \DateTimeImmutable('now');
+        $from = $request->query->get('from') 
+            ? new \DateTimeImmutable($request->query->get('from') . ' 00:00:00')
+            : $now->modify('first day of this month')->setTime(0, 0);
+            
+        $to = $request->query->get('to')
+            ? new \DateTimeImmutable($request->query->get('to') . ' 23:59:59')
+            : $now->modify('last day of this month')->setTime(23, 59, 59);
+
+        // Get all users with their performance data
+        $users = $this->userRepository->findAll();
+        $usersPerformance = [];
+        
+        foreach ($users as $user) {
+            $performance = $this->taskRepository->getUserPerformance($user, $from, $to);
+            $usersPerformance[] = [
+                'user' => $user,
+                'totalTasks' => count($performance),
+                'completedTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'completed')),
+                'inProgressTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'in_progress')),
+                'pendingTasks' => count(array_filter($performance, fn($task) => $task['status'] === 'pending')),
+                'avgCompletionTime' => $this->calculateAverageCompletionTime($performance)
+            ];
+        }
+
+        return $this->render('admin/performance/users_summary.html.twig', [
+            'usersPerformance' => $usersPerformance,
+            'from' => $from,
+            'to' => $to
+        ]);
+    }
+    
     #[Route('/user/{id}', name: 'user')]
+    #[Route('/users/{id}', name: 'admin_performance_user')]
+    /**
+     * Calculate average completion time in hours and minutes
+     */
+    private function calculateAverageCompletionTime(array $tasks): ?string
+    {
+        $completedTasks = array_filter($tasks, fn($task) => $task['status'] === 'completed' && isset($task['completedAt']) && $task['completedAt'] !== null);
+        
+        if (empty($completedTasks)) {
+            return null;
+        }
+        
+        $totalSeconds = 0;
+        $count = 0;
+        
+        foreach ($completedTasks as $task) {
+            $start = $task['startedAt'] ?? $task['createdAt'];
+            $end = $task['completedAt'];
+            
+            if ($start && $end) {
+                $totalSeconds += $end->getTimestamp() - $start->getTimestamp();
+                $count++;
+            }
+        }
+        
+        if ($count === 0) {
+            return null;
+        }
+        
+        $averageSeconds = $totalSeconds / $count;
+        $hours = floor($averageSeconds / 3600);
+        $minutes = floor(($averageSeconds % 3600) / 60);
+        
+        return sprintf('%02d:%02d', $hours, $minutes);
+    }
+    
     public function userPerformance(int $id, Request $request): Response
     {
         $user = $this->userRepository->find($id);
