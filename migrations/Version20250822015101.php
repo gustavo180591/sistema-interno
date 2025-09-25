@@ -10,7 +10,7 @@ use Doctrine\Migrations\AbstractMigration;
 /**
  * Auto-generated Migration: Please modify to your needs!
  */
-final class Version20250923133237 extends AbstractMigration
+final class Version20250822015101 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -19,13 +19,13 @@ final class Version20250923133237 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // Add area_origen column to ticket table
-        $this->addSql('ALTER TABLE ticket ADD area_origen VARCHAR(100) DEFAULT NULL');
+        // this up() migration is auto-generated, please modify it to your needs
+        $this->addSql('ALTER TABLE ticket ADD due_date DATE DEFAULT NULL');
     }
 
     public function down(Schema $schema): void
     {
-        // Remove area_origen column from ticket table
-        $this->addSql('ALTER TABLE ticket DROP area_origen');
+        // this down() migration is auto-generated, please modify it to your needs
+        $this->addSql('ALTER TABLE ticket DROP due_date');
     }
 }
