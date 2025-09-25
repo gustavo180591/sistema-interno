@@ -99,3 +99,6 @@ Icon
 .Spotlight-V100
 .Trashes
 /docker-compose.override.yml
+
+# certs
+certs/
