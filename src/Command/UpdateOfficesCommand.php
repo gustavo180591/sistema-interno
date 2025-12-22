@@ -29,12 +29,18 @@ class UpdateOfficesCommand extends Command
         'Concejal Gomez Valeria' => 'Concejal Gomez Valeria',
         'Concejal Jimenez Eva' => 'Concejal Jimenez Eva',
         'Concejal Koch Santiago' => 'Concejal Koch Santiago',
+        'Concejal Martinez Ángel' => 'Concejal Martinez Ángel',
         'Concejal Martinez Horacio' => 'Concejal Martinez Horacio',
         'Concejal Mazal Malena' => 'Concejal Mazal Malena',
         'Concejal Salom Judith' => 'Concejal Salom Judith',
         'Concejal Scromeda Luciana' => 'Concejal Scromeda Luciana',
         'Concejal Traid Laura' => 'Concejal Traid Laura',
         'Concejal Velazquez Pablo' => 'Concejal Velazquez Pablo',
+        'Concejal Vigo Daniel' => 'Concejal Vigo Daniel',
+        'Concejal Zarza Fernando' => 'Concejal Zarza Fernando',
+        'Concejal Horianski Santiago' => 'Concejal Horianski Santiago',
+        'Concejal Fernandez María Elena' => 'Concejal Fernandez María Elena',
+
 
         // Direcciones
         'Dirección de Abastecimiento' => 'Dirección de Abastecimiento',
