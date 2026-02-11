@@ -23,7 +23,7 @@ services:
             MYSQL_USER: ${MYSQL_USER}
             MYSQL_PASSWORD: ${MYSQL_PASSWORD}
         volumes:
-            - /root/archivos/tickets/db_data:/var/lib/mysql        
+            - /root/archivos/tickets/db_data:/var/lib/mysql
 
     symfony-nginx:
         image: nginx:latest
